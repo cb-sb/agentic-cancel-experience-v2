@@ -1,0 +1,356 @@
+/*
+ * `vendor` is the sting-react bundle. It is a whole Tailwind v3 build, and its
+ * preflight pins `--tw-shadow` and `--tw-ring-shadow` to transparent on `*`.
+ * Imported bare it is unlayered, and unlayered rules outrank every layer — so
+ * that one reset beat v4's `@layer utilities` and silently killed each
+ * `shadow-*` and `ring-*` in the app. Putting it in a layer subordinates it.
+ *
+ * It has to be imported after `tailwindcss`: v4 emits its generated utilities
+ * at the end of the output, so importing vendor here lands its layer ahead of
+ * them (utilities win) while still leaving it after `base` (its reset keeps
+ * beating v4's preflight, as it did when unlayered).
+ */
+@layer theme, base, vendor, components, utilities;
+
+@import "tailwindcss";
+@import "@chargebee/sting-react/sting-react.css" layer(vendor);
+
+/*
+ * Brand tokens are set at the experience level (BrandingPanel) and consumed by
+ * the subscriber-facing cancel card so it carries the MERCHANT brand, not ours.
+ * Defaults below mirror the Chargebee-branded reference images.
+ */
+:root {
+  --brand-primary: #2563eb;
+  --brand-primary-hover: #1d4ed8;
+  --brand-secondary: #dc2626;
+  --brand-accent: #ea580c;
+  --brand-site: #ffffff;
+  --brand-card: linear-gradient(#ffffff, #ffffff);
+  --brand-card-border: linear-gradient(#e2e8f0, #e2e8f0);
+  --brand-card-border-width: 1px;
+  --brand-title: #0f172a;
+  --brand-text: #334155;
+  --brand-muted: #64748b;
+  --brand-font-heading: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --brand-font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --brand-font-size: 16px;
+  --brand-line-height: 1.5;
+  --brand-font-weight: 400;
+  --brand-letter-spacing: 0em;
+  --brand-heading-weight: 700;
+  --brand-heading-scale: 1;
+  --brand-heading-line-height: 1.2;
+  --brand-heading-letter-spacing: 0em;
+  --brand-text-align: left;
+  --brand-radius: 12px;
+  --brand-btn-border-width: 0px;
+  --brand-btn-border-color: #2563eb;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #0f172a;
+}
+
+/* The merchant-branded surface. Everything inside inherits brand tokens. */
+.brand-surface {
+  font-family: var(--brand-font-body);
+  font-size: var(--brand-font-size, 16px);
+  line-height: var(--brand-line-height, 1.5);
+  font-weight: var(--brand-font-weight, 400);
+  letter-spacing: var(--brand-letter-spacing, 0em);
+  text-align: var(--brand-text-align, left);
+  color: var(--brand-text, #334155);
+  background: var(--brand-site, #ffffff);
+}
+.brand-surface h1,
+.brand-surface h2,
+.brand-surface h3 {
+  font-family: var(--brand-font-heading);
+  color: var(--brand-title, #0f172a);
+  font-weight: var(--brand-heading-weight, 700);
+  line-height: var(--brand-heading-line-height, 1.2);
+  letter-spacing: var(--brand-heading-letter-spacing, 0em);
+  /* Multiply each heading's intrinsic size by the heading scale so titles
+     resize together without collapsing the size hierarchy between steps. */
+  font-size: calc(var(--_hbase, 1em) * var(--brand-heading-scale, 1));
+}
+/* Capture the intrinsic size of each heading (from its Tailwind size utility)
+   into --_hbase so the scale above has a per-heading base to multiply. */
+.brand-surface :is(h1, h2, h3).text-lg { --_hbase: 1.125rem; }
+.brand-surface :is(h1, h2, h3).text-xl { --_hbase: 1.25rem; }
+.brand-surface :is(h1, h2, h3).text-2xl { --_hbase: 1.5rem; }
+.brand-surface :is(h1, h2, h3).text-3xl { --_hbase: 1.875rem; }
+.brand-surface :is(h1, h2, h3).text-\[22px\] { --_hbase: 22px; }
+.brand-surface :is(h1, h2, h3).text-\[30px\] { --_hbase: 30px; }
+
+/* Map the neutral slate text utilities used across steps to brand text
+   tokens. Scoping under .brand-surface raises specificity above Tailwind's
+   single-class utilities, so every step's text follows the brand colors
+   without touching each component. Semantic colors (red/green/primary) are
+   not slate and stay intact. */
+.brand-surface .text-slate-900,
+.brand-surface .text-slate-800 {
+  color: var(--brand-title);
+}
+.brand-surface .text-slate-700,
+.brand-surface .text-slate-600 {
+  color: var(--brand-text);
+}
+.brand-surface .text-slate-500,
+.brand-surface .text-slate-400 {
+  color: var(--brand-muted);
+}
+
+.rich-text:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+.rich-text a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+}
+
+/* Hide scrollbars on tab strips for a cleaner composer chrome */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/*
+ * Canvas wires. Stroke widths are world units inside React Flow's transform, so
+ * left alone a wire thins to nothing as the canvas zooms out — exactly when the
+ * wires are the only thing still legible. `non-scaling-stroke` pins the width to
+ * screen pixels, so a 2px wire is 2px at every zoom.
+ */
+.react-flow__edge-path,
+.react-flow__connection-path {
+  vector-effect: non-scaling-stroke;
+}
+/*
+ * Widths come from canvasTokens via custom properties set on the canvas root:
+ * every number that decides how the canvas looks lives in that one file.
+ *
+ * Every selector here is qualified with `.react-flow` deliberately. React Flow
+ * ships its own `.react-flow__edge-path { stroke-width: 1 }`, and a bare
+ * single-class selector ties with it and loses on order — which is why the
+ * spine wires were drawn as 1px hairlines while the mapping links, whose
+ * selector carried a second class, took their token faithfully.
+ */
+.react-flow .react-flow__edge-path { stroke-width: var(--wire-w); }
+.react-flow .step-wire .react-flow__edge-path { stroke-width: var(--step-wire-w); }
+.react-flow .mapping-link .react-flow__edge-path { stroke-width: var(--link-w); }
+.react-flow .mapping-link:hover .react-flow__edge-path { stroke-width: var(--link-w-hot); }
+/*
+ * Pointing at a reason row. Its route thickens and everything else recedes far
+ * enough to stop competing while still showing the shape of the fan — the
+ * routes a merchant is not asking about are the reason a single one is hard to
+ * follow, so the answer is to quiet them rather than to draw the one louder.
+ */
+.react-flow .mapping-link.link-hot .react-flow__edge-path { stroke-width: var(--link-w-hot); }
+.react-flow .mapping-link.link-cold { opacity: 0.16; }
+.react-flow .mapping-link { transition: opacity 120ms ease-out; }
+/* Connectors are readable structure, not decoration: dim them together when the
+   merchant turns wiring off, rather than unmounting and re-measuring. The event
+   chips are portaled into the label layer, outside the edge's own group, so they
+   are hidden by the same rule addressing them directly. */
+.wiring-off .mapping-link,
+.wiring-off [data-wire-label='mapping'] { display: none; }
+
+/*
+ * Event chips above every wire, not just their own.
+ *
+ * React Flow paints the label layer after the edge layer, so a chip is above
+ * the wire it belongs to — but elevated edges (a hovered reason route, a
+ * selected connector) get their own svg after it, and those ran straight
+ * through the words. A wire crossing a label is the one thing here that looks
+ * like a bug rather than a decision, so the layer is lifted over all of them.
+ */
+.react-flow__edgelabel-renderer { z-index: 6; }
+
+/*
+ * Blueprint selector pills.
+ * - Default: the selected pill is prominent; the rest fade progressively with
+ *   distance from it (driven by the --bp-op / --bp-blur custom properties).
+ * - Stack hover: the whole stack lifts to a mild, legible highlight.
+ * - Individual pill hover: that pill snaps into full focus with a clickable,
+ *   brand-blue treatment (source order below lets pill:hover win over stack hover).
+ */
+.bp-pill {
+  cursor: pointer;
+  border-radius: 9999px;
+  /* Non-selected entries are plain text — transparent border keeps widths
+     aligned with the selected pill. */
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  padding: 8px 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: var(--bp-op, 1);
+  filter: blur(var(--bp-blur, 0px));
+  transition: opacity 0.22s ease, filter 0.22s ease,
+    background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.bp-stack:hover .bp-pill {
+  opacity: 0.8;
+  filter: blur(0);
+}
+.bp-stack .bp-pill:hover {
+  opacity: 1;
+  filter: blur(0);
+  color: #1d4ed8;
+  background: rgba(239, 246, 255, 0.7);
+}
+/* The selected step is the only entry rendered as a raised pill. */
+.bp-pill--active,
+.bp-stack:hover .bp-pill--active {
+  opacity: 1;
+  filter: blur(0);
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: 0 10px 26px -10px rgba(37, 99, 235, 0.45);
+}
+
+/*
+ * Inline-editing affordance. `.editable` is only rendered in Compose mode, so
+ * these rules never affect the subscriber runtime. Dark-blue highlight signals
+ * "this text is editable" on hover and focus.
+ */
+.editable {
+  outline: none;
+  border-radius: 5px;
+  cursor: text;
+  transition: box-shadow 0.12s ease, background 0.12s ease;
+}
+.editable:hover {
+  box-shadow: 0 0 0 1.5px rgba(30, 64, 175, 0.35);
+  background: rgba(30, 64, 175, 0.05);
+}
+.editable:focus,
+.editable:focus-within {
+  box-shadow: 0 0 0 2px #1e40af;
+  background: rgba(30, 64, 175, 0.06);
+}
+.editable:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  font-style: normal;
+}
+.editable:empty {
+  border: 1.5px dashed rgba(30, 64, 175, 0.35);
+  border-radius: 6px;
+  min-height: 1.25em;
+  padding: 2px 6px;
+}
+.editable-wrap .editable-counter {
+  background: rgba(255, 255, 255, 0.95);
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px -2px rgba(15, 23, 42, 0.12);
+}
+.editable-wrap:focus-within .editable-counter {
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+
+/*
+ * Rich-text rendering shared by editable fields (Compose) and static HTML
+ * (Play). Lists and the locked S/M/L font scale render identically in both.
+ */
+.editable a,
+.rich-html a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+}
+.editable ul,
+.rich-html ul {
+  list-style: disc;
+  padding-left: 1.25em;
+  margin: 0.25em 0;
+}
+.editable ol,
+.rich-html ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0.25em 0;
+}
+/* Locked S / M / L size scale (execCommand fontSize 2 / 4 / 6), each with a
+   proportional 1.4 line-height so multi-line messages stay legible. */
+.editable font[size='2'],
+.rich-html font[size='2'] {
+  font-size: 0.85em;
+  line-height: 1.4;
+}
+.editable font[size='4'],
+.rich-html font[size='4'] {
+  font-size: 1em;
+  line-height: 1.4;
+}
+.editable font[size='6'],
+.rich-html font[size='6'] {
+  font-size: 1.22em;
+  line-height: 1.4;
+}
+
+/*
+ * Floating rich-text toolbar. Light surface matched to the builder chrome —
+ * white card, slate borders, blue active state — with a small pointer arrow.
+ */
+.rt-toolbar {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 30px -10px rgba(15, 23, 42, 0.28), 0 2px 6px -2px rgba(15, 23, 42, 0.12);
+  transform: translate(-50%, calc(-100% - 10px));
+}
+.rt-toolbar::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.rt-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 7px;
+  border-radius: 7px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.rt-toolbar button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.rt-toolbar button.is-active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.rt-toolbar .rt-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: #e2e8f0;
+}
