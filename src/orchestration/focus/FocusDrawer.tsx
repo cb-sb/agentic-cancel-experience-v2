@@ -81,13 +81,11 @@ export function FocusDrawer({ session, open }: { session: FocusSession; open: bo
 }
 
 /**
- * Fold the assistant away while the drawer is open, and put it back after.
+ * Fold Copilot to its launcher while the drawer is open, and put it back after.
  *
- * The drawer's width comes out of the viewport, not out of the canvas column,
- * so the only question is what the strip beside it shows. A 360px chat pane
- * would fill most of that strip with a conversation the merchant is not having
- * right now, in place of the play they are editing. Collapsing to the 46px
- * strip is reversible and already a first-class state.
+ * The drawer lives in the canvas column, to the left of Copilot. Collapsing
+ * the rail gives the play the extra width; the launcher stays on the right so
+ * the column never disappears.
  *
  * Keyed to `open` rather than to mounting so that it unfolds as the drawer
  * leaves, not after: the two motions overlap instead of queueing.

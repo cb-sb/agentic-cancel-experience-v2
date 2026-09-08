@@ -1,6 +1,9 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { compactStepLabel } from '../../../lib/stepLabels'
 import { useExperience } from '../../../store/useExperience'
 import { useOrchestration } from '../../../store/useOrchestration'
+import { AnnotationDock } from '../../AnnotationComposer'
+import { useAnnotatePick } from '../../useAnnotatePick'
 import { PORT_TOP, STEP_H, STEP_W, portY } from '../canvasTokens'
 import { offerPortOf, reasonPorts } from '../ports'
 import { ScreenBox } from '../screen'
@@ -11,7 +14,7 @@ import type { StepNodeData } from '../types'
 /** Invisible, and mounted at every tier: a port that unmounts orphans its edge. */
 const PORT_CLASS = '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !border-0 !bg-transparent !opacity-0'
 
-export function StepNode({ data }: NodeProps) {
+export function StepNode({ id, data }: NodeProps) {
   const { slot, experienceId } = data as unknown as StepNodeData
   const { step } = slot
   const experience = useExperience((s) => s.experiences[experienceId])
@@ -22,6 +25,14 @@ export function StepNode({ data }: NodeProps) {
   const focusStep = useOrchestration((s) => s.focusStep)
   const focusTarget = useOrchestration((s) => s.focusTarget)
   const setHovered = useSetHoveredStep()
+  const annTarget = {
+    id,
+    kind: 'step' as const,
+    label: compactStepLabel(step),
+    experienceId,
+    stepId: step.id,
+  }
+  const { annotateMode, onPointerDown: onAnnotateDown, ring } = useAnnotatePick(annTarget)
 
   if (!experience) return null
 
@@ -36,9 +47,13 @@ export function StepNode({ data }: NodeProps) {
     <div
       data-audit-kind="step"
       data-step-focused={focused || undefined}
-      className="group relative"
+      className={`group relative ${ring}`}
       style={{ width: STEP_W, height: STEP_H }}
-      onPointerDown={() => {
+      onPointerDownCapture={(e) => {
+        if (annotateMode) {
+          onAnnotateDown(e)
+          return
+        }
         setActiveExperience(experienceId)
         setActiveStep(step.id)
       }}
@@ -47,6 +62,7 @@ export function StepNode({ data }: NodeProps) {
       onPointerEnter={() => setHovered(step.id)}
       onPointerLeave={() => setHovered(null)}
       onDoubleClick={(e) => {
+        if (annotateMode) return
         e.stopPropagation()
         focusStep({ experienceId, stepId: step.id })
       }}
@@ -94,6 +110,7 @@ export function StepNode({ data }: NodeProps) {
           )}
         </ScreenBox>
       </div>
+      <AnnotationDock forId={id} />
     </div>
   )
 }

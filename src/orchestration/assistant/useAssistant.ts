@@ -3,6 +3,7 @@ import { blueprintMeta } from '../../lib/blueprints'
 import { useExperience } from '../../store/useExperience'
 import type { AnnotationTarget } from '../../store/useOrchestration'
 import { annotateReply } from './annotate'
+import { useCopilotThread } from '../copilotThread'
 import { applyOps, isExperienceDirty } from './apply'
 import { TURNS, pathwayOf } from './flows'
 import { ENTRY_TURN_ID, GAP_TURN_ID, PLAN_CARD_TURN_ID, PLAN_TURN_ID, PUSHBACK_TURN_ID } from './ids'
@@ -238,6 +239,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
       set((s) => ({
         messages: [...s.messages, { id: msgId++, role: 'assistant', text: reply.text, action: reply.action }],
       }))
+      const chat = useCopilotThread.getState()
+      chat.say('you', trimmed, target.label)
+      chat.say('bot', reply.text)
     },
 
     applyMessageAction: (messageId) => {

@@ -1,8 +1,9 @@
 import { memo, useCallback } from 'react'
 import { NodeToolbar, Position, type NodeProps } from '@xyflow/react'
 import { useOrchestration, type AnnotationTarget } from '../../../store/useOrchestration'
-import { AnnotationComposer } from '../../AnnotationComposer'
+import { AnnotationDock } from '../../AnnotationComposer'
 import { NodeSetup } from '../../NodeSetup'
+import { useAnnotatePick } from '../../useAnnotatePick'
 import type { FlowNode, SplitNode } from '../../../types/orchestration'
 import { CARD_H, CARD_W } from '../canvasTokens'
 import { ScreenBox } from '../screen'
@@ -12,7 +13,6 @@ import type { SpineNodeData } from '../types'
 function SpineNodeComponent({ id, data }: NodeProps & { data: SpineNodeData }) {
   const selectedNodeId = useOrchestration((s) => s.selectedNodeId)
   const openAnnotation = useOrchestration((s) => s.openAnnotation)
-  const annotationTarget = useOrchestration((s) => s.annotationTarget)
   const play = useOrchestration((s) => s.play)
 
   const configTarget = useOrchestration((s) => s.configTarget)
@@ -36,11 +36,14 @@ function SpineNodeComponent({ id, data }: NodeProps & { data: SpineNodeData }) {
   }, [data.placed, split])
 
   const annTarget = targetForNode()
-  const showAnnotation =
-    annotationTarget && annotationTarget.id === id && annotationTarget.kind !== 'step'
+  const { annotateMode, onPointerDown: onAnnotateDown, ring } = useAnnotatePick(annTarget)
 
   return (
-    <div className="group relative" style={{ width: CARD_W, height: CARD_H }}>
+    <div
+      className={`group relative ${ring}`}
+      style={{ width: CARD_W, height: CARD_H }}
+      onPointerDownCapture={onAnnotateDown}
+    >
       <WireHandles />
       {/* A branch card shows a share of traffic — `Variant · 50%`, `Sub-audience`
           — so clicking it opens the one editor for shares, on the canvas edge.
@@ -55,12 +58,18 @@ function SpineNodeComponent({ id, data }: NodeProps & { data: SpineNodeData }) {
             node={data.placed}
             selected={selected || targeting}
             isSplit={split?.id === id}
-            onSelect={isBranch ? () => (targeting ? closeConfig() : openConfig('targeting')) : undefined}
+            onSelect={
+              annotateMode
+                ? undefined
+                : isBranch
+                  ? () => (targeting ? closeConfig() : openConfig('targeting'))
+                  : undefined
+            }
             size={size}
           />
         )}
       </ScreenBox>
-      {annTarget && (
+      {annTarget && !annotateMode && (
         <div data-chrome className="absolute -right-2.5 -top-2.5 z-20">
           <AnnotatePin onClick={() => openAnnotation(annTarget)} />
         </div>
@@ -76,9 +85,7 @@ function SpineNodeComponent({ id, data }: NodeProps & { data: SpineNodeData }) {
           <NodeSetup nodeId={id} />
         </div>
       </NodeToolbar>
-      <NodeToolbar isVisible={!!showAnnotation} position={Position.Bottom} align="start" offset={12}>
-        {annotationTarget && <AnnotationComposer target={annotationTarget} />}
-      </NodeToolbar>
+      <AnnotationDock forId={id} />
     </div>
   )
 }

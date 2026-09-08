@@ -7,20 +7,14 @@
  * finished animating, which it cannot get by measuring mid-flight.
  */
 
-/**
- * The assistant, open. The card inside is the 360px a conversation was built
- * for; the column is wider by its gutter so that floating the card costs the
- * conversation nothing — trimming those 24px off the card instead truncated the
- * assistant's own heading.
- */
-export const ASSISTANT_GUTTER = 12
-export const ASSISTANT_W = 400 + ASSISTANT_GUTTER * 2
+/** Chargebee Copilot, open — a full-height right rail, not a floating card. */
+export const ASSISTANT_W = 400
 
 /**
- * The assistant, folded. Zero: it hands its column back to the canvas and
- * becomes a pill in the corner of the play instead of a rail beside it.
+ * Chargebee Copilot, folded. A narrow right rail that holds the launcher icon
+ * so the canvas is pushed rather than covered.
  */
-export const ASSISTANT_FOLDED_W = 0
+export const ASSISTANT_FOLDED_W = 72
 
 /** The settings pane. Brand is narrower — its rows are shorter. */
 export const SETTINGS_W = 360

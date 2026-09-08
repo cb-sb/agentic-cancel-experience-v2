@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -240,9 +241,12 @@ function FlowCanvasInner() {
   const play = useOrchestration((s) => s.play)
   const selectedNodeId = useOrchestration((s) => s.selectedNodeId)
   const selectNode = useOrchestration((s) => s.selectNode)
-  const experiences = useExperience((s) => s.experiences)
-  const collapsedFlows = useOrchestration((s) => s.collapsedFlows)
+  const annotateMode = useOrchestration((s) => s.annotateMode)
+  const setAnnotateMode = useOrchestration((s) => s.setAnnotateMode)
   const closeAnnotation = useOrchestration((s) => s.closeAnnotation)
+  const experiences = useExperience((s) => s.experiences)
+  const previewing = useExperience((s) => s.mode === 'play')
+  const collapsedFlows = useOrchestration((s) => s.collapsedFlows)
 
   const paneRef = useRef<HTMLDivElement>(null)
 
@@ -250,6 +254,17 @@ function FlowCanvasInner() {
   const { hotPort, setHotPort } = useHotPort()
   const [wiring, setWiring] = useState(true)
   const [connection, setConnection] = useState<ConnectionTarget | null>(null)
+
+  useEffect(() => {
+    if (!annotateMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (useOrchestration.getState().annotationTarget) closeAnnotation()
+      else setAnnotateMode(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [annotateMode, closeAnnotation, setAnnotateMode])
 
   // Focus mode is a layer over this one, not a state of it: the graph is the
   // same graph whether or not a card is open, which is why coming back out of a
@@ -278,10 +293,14 @@ function FlowCanvasInner() {
   }, [graphEdges, hotPort])
 
   const onPaneClick = useCallback(() => {
+    if (annotateMode) {
+      closeAnnotation()
+      return
+    }
     selectNode(null)
     closeAnnotation()
     setConnection(null)
-  }, [selectNode, closeAnnotation])
+  }, [selectNode, closeAnnotation, annotateMode])
 
   /**
    * A connector is the routing rule made visible, so clicking one opens that
@@ -290,6 +309,7 @@ function FlowCanvasInner() {
    */
   const onEdgeClick = useCallback<NonNullable<ComponentProps<typeof ReactFlow>['onEdgeClick']>>(
     (event, edge) => {
+      if (useOrchestration.getState().annotateMode) return
       const link = edge.data as { expId?: string; optId?: string } | undefined
       if (!link?.expId || !link.optId) return
       const box = paneRef.current?.getBoundingClientRect()
@@ -322,7 +342,9 @@ function FlowCanvasInner() {
       proOptions={{ hideAttribution: true }}
       onPaneClick={onPaneClick}
       onEdgeClick={onEdgeClick}
-      className={wiring ? 'bg-slate-100' : 'wiring-off bg-slate-100'}
+      className={`${wiring ? 'bg-slate-100' : 'wiring-off bg-slate-100'}${
+        annotateMode ? ' [&_.react-flow__pane]:cursor-crosshair [&_.react-flow__node]:cursor-crosshair' : ''
+      }`}
       // Wire weights are screen pixels applied by CSS (non-scaling strokes), but
       // the numbers still belong to the token file, so they are handed over here
       // rather than written twice.
@@ -336,17 +358,21 @@ function FlowCanvasInner() {
       }
     >
       <CanvasBackground />
-      <MiniMap
-        pannable
-        zoomable
-        nodeColor={minimapNodeColor}
-        nodeStrokeWidth={0}
-        // Clears the zoom bar, which now sits below it rather than beside it.
-        className="!m-4 !mb-[60px] !h-[132px] !w-[188px] !rounded-xl !border !border-slate-200 !bg-white/95 !shadow-sm"
-        maskColor="rgba(226, 232, 240, 0.7)"
-      />
+      {!previewing && (
+        <MiniMap
+          pannable
+          zoomable
+          nodeColor={minimapNodeColor}
+          nodeStrokeWidth={0}
+          // Clears the zoom bar, which now sits below it rather than beside it.
+          className="!m-4 !mb-[60px] !h-[132px] !w-[188px] !rounded-xl !border !border-slate-200 !bg-white/95 !shadow-sm"
+          maskColor="rgba(226, 232, 240, 0.7)"
+        />
+      )}
       {/* Add palette is authoring chrome — the file owns structure now. */}
-      <ZoomControlsPanel wiring={wiring} onToggleWiring={() => setWiring((w) => !w)} />
+      {!previewing && (
+        <ZoomControlsPanel wiring={wiring} onToggleWiring={() => setWiring((w) => !w)} />
+      )}
       <CanvasAnchor />
       <FocusAutoPan />
       <CanvasTestHook />
@@ -357,6 +383,11 @@ function FlowCanvasInner() {
     <StepChromeProvider onChange={setHovered}>
       <HotPortProvider onChange={setHotPort}>
       <div ref={paneRef} className="relative h-full w-full">
+        {annotateMode && (
+          <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-sky-200 bg-sky-50/95 px-3 py-1.5 text-[12px] font-medium text-sky-800 shadow-sm">
+            Click an element to ask about it · Esc to exit
+          </div>
+        )}
         {surface}
         {/* A sibling of the canvas rather than a child of it, so nothing in here
             can be caught by the transform. It projects world points itself. */}

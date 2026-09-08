@@ -123,10 +123,8 @@ export function PlayIdentity() {
 /**
  * The header while building: mode and lifecycle, nothing else.
  *
- * It used to be deliberately identical in Build and Preview, so that switching
- * read as a switch rather than as navigation. That is now overruled: a shared
- * header is exactly what made audience and targeting reachable from a preview,
- * and [PreviewHeader](src/orchestration/PreviewHeader.tsx) takes over there.
+ * Preview is a wash over the canvas rather than a second header. Close lives
+ * on that wash; this bar stays the play's — identity, mode, and publish.
  */
 export function PlayHeader() {
   return (

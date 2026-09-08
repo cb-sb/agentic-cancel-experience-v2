@@ -166,6 +166,8 @@ interface OrchestrationState {
   dockPosition: DockPosition
   /** Whether the setup-assistant side pane is open (pushes the canvas). */
   assistantOpen: boolean
+  /** Cursor design-mode: click a canvas element to ask about it. */
+  annotateMode: boolean
   /** Element currently being annotated (inline composer open), or null. */
   annotationTarget: AnnotationTarget | null
   /** Meta configuration section open in the right drawer, or null. */
@@ -196,6 +198,7 @@ interface OrchestrationState {
   toggleFlowDetail: (flowId: string) => void
   setDockPosition: (pos: DockPosition) => void
   setAssistantOpen: (open: boolean) => void
+  setAnnotateMode: (on: boolean) => void
   openAnnotation: (target: AnnotationTarget) => void
   closeAnnotation: () => void
   openConfig: (section: PlayConfigSection) => void
@@ -244,6 +247,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   detailFlows: {},
   dockPosition: 'bottom-left',
   assistantOpen: true,
+  annotateMode: false,
   annotationTarget: null,
   configTarget: null,
   focusTarget: null,
@@ -260,7 +264,13 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
 
   setDockPosition: (pos) => set({ dockPosition: pos }),
   setAssistantOpen: (open) => set({ assistantOpen: open }),
-  openAnnotation: (target) => set({ annotationTarget: target }),
+  setAnnotateMode: (on) =>
+    set({
+      annotateMode: on,
+      annotationTarget: on ? get().annotationTarget : null,
+      assistantOpen: on ? true : get().assistantOpen,
+    }),
+  openAnnotation: (target) => set({ annotationTarget: target, assistantOpen: true }),
   closeAnnotation: () => set({ annotationTarget: null }),
   // The right pane is a single surface, so opening config takes it over from
   // brand and from focus. A null target means "no section pinned yet", which the

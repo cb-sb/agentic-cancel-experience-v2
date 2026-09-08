@@ -27,9 +27,9 @@ export interface FocusGeometry {
  * any play beside it, it takes everything and ends up looking like the overlay —
  * which is the honest thing for it to look like, because at that width it is one.
  *
- * Measured against the root rather than the canvas column because the drawer
- * floats over both: the assistant folds to a strip while it is open, and the
- * settings pane changes width with what it is showing.
+ * Measured against the root rather than assumed insets: Copilot is a sibling
+ * column to the right of the focus root, so the drawer stops at the canvas
+ * edge and never covers the rail.
  */
 export function useFocusGeometry(): FocusGeometry {
   const [rect, setRect] = useState<{ rightInset: number; rootW: number } | null>(null)

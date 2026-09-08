@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useOrchestration } from '../../store/useOrchestration'
-import { ASSISTANT_FOLDED_W } from '../paneTokens'
 import { useFocusGeometry } from './useFocusGeometry'
 
 /** Room left between the focused step and the edges of the strip, in screen px. */
@@ -62,12 +61,12 @@ export function FocusAutoPan() {
       const p = pane.getBoundingClientRect()
       const n = node.getBoundingClientRect()
       const r = root.getBoundingClientRect()
-      // Both edges come from settled numbers rather than live rects: the
-      // assistant column is still folding and the drawer still sliding while
-      // this runs, so measuring either would aim at a strip that is on its way
-      // somewhere else.
+      // Right edge comes from settled geometry rather than the live drawer
+      // rect: the drawer is still sliding while this runs. Copilot lives in
+      // its own column outside the focus root, so the strip's left edge is
+      // just the canvas pane.
       const strip = {
-        left: r.left + ASSISTANT_FOLDED_W + MARGIN,
+        left: p.left + MARGIN,
         right: r.left + scrimW - MARGIN,
       }
       if (strip.right <= strip.left) return

@@ -6,41 +6,45 @@ import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
 import { startFromTemplate, templateLabel, withLive } from '../journey/templates'
 import { interpret } from '../journey/intake'
 import { JourneyPlan } from './JourneyPlan'
+import { CopilotMark } from './CopilotMark'
+import { useCopilotThread } from './copilotThread'
 
 type PromptTurn = 'kind' | 'cancel_template' | 'plan' | 'done'
 
-interface ChatLine {
-  id: string
-  from: 'bot' | 'you'
-  text: string
+function SuggestionChip({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-[13px] leading-snug text-slate-800 transition-colors hover:bg-slate-50"
+    >
+      {label}
+    </button>
+  )
 }
 
 function OptionBtn({
   label,
   hint,
-  primary,
   onClick,
 }: {
   label: string
   hint?: string
-  primary?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${
-        primary ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white' : 'border-slate-200 bg-white'
-      }`}
+      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50"
     >
-      <div className={`text-[13px] font-semibold ${primary ? 'text-white' : 'text-slate-900'}`}>{label}</div>
-      {hint && <div className={`mt-0.5 text-[11.5px] ${primary ? 'text-white/70' : 'text-slate-500'}`}>{hint}</div>}
+      <div className="text-[13px] font-medium text-slate-800">{label}</div>
+      {hint && <div className="mt-0.5 text-[11.5px] text-slate-500">{hint}</div>}
     </button>
   )
 }
 
-/** Free text alongside the guided options, for anyone who already knows the flow. */
+/** Copilot composer: paperclip, growing field, blue send. */
 function PromptInput({
   value,
   onChange,
@@ -60,8 +64,12 @@ function PromptInput({
     el.style.height = `${Math.min(el.scrollHeight, 140)}px`
   }, [value])
   return (
-    <div className="relative rounded-2xl border border-slate-200 bg-white shadow-[0_1px_6px_-2px_rgba(15,23,42,0.06)] transition-colors focus-within:border-slate-400">
-      {/* Bottom padding keeps the growing text clear of the send button. */}
+    <div className="relative rounded-2xl border border-slate-200 bg-white shadow-[0_1px_6px_-2px_rgba(15,23,42,0.06)] transition-colors focus-within:border-slate-300">
+      <span className="pointer-events-none absolute bottom-3 left-3 text-slate-400" aria-hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+      </span>
       <textarea
         ref={ref}
         rows={1}
@@ -74,17 +82,17 @@ function PromptInput({
           }
         }}
         placeholder={placeholder}
-        className="min-h-[76px] max-h-[160px] w-full resize-none bg-transparent px-3 pb-11 pt-3 text-[13px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-400"
+        className="min-h-[52px] max-h-[160px] w-full resize-none bg-transparent py-3.5 pl-10 pr-12 text-[13px] leading-[1.5] text-slate-800 outline-none placeholder:text-slate-400"
       />
       <button
         type="button"
         onClick={onSend}
         disabled={!value.trim()}
         title="Send"
-        className="absolute bottom-2.5 right-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-md bg-slate-900 text-white transition-colors hover:bg-slate-800 disabled:opacity-30"
+        className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-lg bg-[#377dff] text-white transition-opacity hover:bg-[#2f6eeb] disabled:opacity-30"
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 19V5M5 12l7-7 7 7" />
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3.4 20.4 22 12 3.4 3.6 3 10.7l12.2 1.3L3 13.3z" />
         </svg>
       </button>
     </div>
@@ -92,8 +100,8 @@ function PromptInput({
 }
 
 /**
- * Prompt fills the file; Code is the file. Same dock Carl asked for — not a
- * settings inspector with a chat bolted on.
+ * Prompt fills the file; Code is the file. Chrome matches Chargebee Copilot;
+ * the suggestions are cancel-journey workflows, not billing FAQs.
  */
 export function PromptCodeDock() {
   const dockMode = useJourney((s) => s.dockMode)
@@ -105,18 +113,19 @@ export function PromptCodeDock() {
   const replaceFile = useJourney((s) => s.replaceFile)
   const patchFile = useJourney((s) => s.patchFile)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
+  const annotateMode = useOrchestration((s) => s.annotateMode)
+  const setAnnotateMode = useOrchestration((s) => s.setAnnotateMode)
+  const closeAnnotation = useOrchestration((s) => s.closeAnnotation)
 
   const [turn, setTurn] = useState<PromptTurn>('kind')
-  const [lines, setLines] = useState<ChatLine[]>([
-    {
-      id: 'hello',
-      from: 'bot',
-      text: 'What are you building? Same shell either way — a file, a prompt, and a preview.',
-    },
-  ])
+  const lines = useCopilotThread((s) => s.lines)
+  const say = useCopilotThread((s) => s.say)
+  const resetThread = useCopilotThread((s) => s.reset)
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const [draftYaml, setDraftYaml] = useState(yaml)
+
+  const emptyHome = dockMode === 'prompt' && turn === 'kind' && lines.length === 0
 
   useEffect(() => {
     setDraftYaml(yaml)
@@ -127,20 +136,11 @@ export function PromptCodeDock() {
     if (el) el.scrollTop = el.scrollHeight
   }, [lines, turn])
 
-  const say = (from: ChatLine['from'], text: string) =>
-    setLines((prev) => [...prev, { id: `${Date.now()}-${prev.length}`, from, text }])
-
   const reset = () => {
     replaceFile(EMPTY_JOURNEY)
     setTurn('kind')
     setDraft('')
-    setLines([
-      {
-        id: 'hello',
-        from: 'bot',
-        text: 'What are you building? Same shell either way — a file, a prompt, and a preview.',
-      },
-    ])
+    resetThread()
   }
 
   const showPlan = (next: typeof file, message: string) => {
@@ -165,6 +165,12 @@ export function PromptCodeDock() {
   const pickTemplate = (template: JourneyTemplate) => {
     say('you', templateLabel(template))
     const next = startFromTemplate(file, template)
+    showPlan(next, 'Here’s the plan. Change offers, audience, shell, and brand here — you don’t have to type them.')
+  }
+
+  const startTemplate = (template: JourneyTemplate) => {
+    say('you', templateLabel(template))
+    const next = startFromTemplate(EMPTY_JOURNEY, template)
     showPlan(next, 'Here’s the plan. Change offers, audience, shell, and brand here — you don’t have to type them.')
   }
 
@@ -193,8 +199,14 @@ export function PromptCodeDock() {
     if (turn === 'kind') {
       return (
         <div className="space-y-2">
-          <OptionBtn primary label="Cancel experience" hint="Save flow: survey, offer, confirm" onClick={() => pickKind('cancel')} />
-          <OptionBtn label="Acquisition" hint="Pricing table → checkout" onClick={() => pickKind('acquisition')} />
+          <SuggestionChip
+            label="Build a cancel save flow with survey, offer, and confirm"
+            onClick={() => pickKind('cancel')}
+          />
+          <SuggestionChip label="Start a 1-step click to cancel" onClick={() => startTemplate('cancel_1')} />
+          <SuggestionChip label="4-step balanced cancel journey" onClick={() => startTemplate('cancel_4')} />
+          <SuggestionChip label="5-step save-aggressive cancel flow" onClick={() => startTemplate('cancel_5')} />
+          <SuggestionChip label="Pricing table → hosted checkout" onClick={() => pickKind('acquisition')} />
         </div>
       )
     }
@@ -202,7 +214,7 @@ export function PromptCodeDock() {
       return (
         <div className="space-y-2">
           {(['cancel_1', 'cancel_2', 'cancel_3', 'cancel_4', 'cancel_5'] as const).map((id) => (
-            <OptionBtn key={id} label={templateLabel(id)} primary={id === 'cancel_4'} onClick={() => pickTemplate(id)} />
+            <SuggestionChip key={id} label={templateLabel(id)} onClick={() => pickTemplate(id)} />
           ))}
         </div>
       )
@@ -231,34 +243,54 @@ export function PromptCodeDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn, file])
 
+  const subtitle = emptyHome
+    ? 'New Conversation'
+    : dockMode === 'code'
+      ? 'Journey file'
+      : file.name && file.template !== 'none'
+        ? file.name
+        : 'New Conversation'
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
-      <div className="flex h-[58px] flex-none items-center justify-between gap-2 border-b border-slate-200 px-3">
-        <div className="flex min-w-0 items-center gap-1">
-          {turn !== 'kind' && dockMode === 'prompt' && (
-            <button
-              type="button"
-              onClick={reset}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
-              title="Start over"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-          )}
-          <h2 className="truncate text-[15px] font-bold text-slate-900">
-            {dockMode === 'code' ? 'Journey file' : 'Prompt'}
-          </h2>
+      <div className="flex h-14 flex-none items-center justify-between gap-2 border-b border-slate-100 px-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-[14px] font-bold leading-tight text-slate-900">Chargebee Copilot</h2>
+          <p className="truncate text-[11px] text-slate-400">{subtitle}</p>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !annotateMode
+              setAnnotateMode(next)
+              if (next) {
+                setAssistantOpen(true)
+                setDockMode('prompt')
+              } else {
+                closeAnnotation()
+              }
+            }}
+            title={annotateMode ? 'Exit annotate' : 'Annotate — click a canvas element to ask about it'}
+            aria-pressed={annotateMode}
+            className={`flex h-8 w-8 items-center justify-center rounded-md ${
+              annotateMode
+                ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200'
+                : 'text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+              <path d="M13 13l6 6" />
+            </svg>
+          </button>
           <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
             {(['prompt', 'code'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setDockMode(m)}
-                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold capitalize ${
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold capitalize ${
                   dockMode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
@@ -269,11 +301,12 @@ export function PromptCodeDock() {
           <button
             type="button"
             onClick={() => setAssistantOpen(false)}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
-            title="Collapse pane"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
+            title="Collapse Copilot"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-              <path d="M15 18l-6-6 6-6" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M15 4v16" />
             </svg>
           </button>
         </div>
@@ -301,35 +334,56 @@ export function PromptCodeDock() {
         </div>
       ) : (
         <>
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-3 pb-3 pt-4">
-            <div className="space-y-3">
-              {lines.map((m) => (
-                <div key={m.id} className={m.from === 'you' ? 'flex justify-end' : ''}>
-                  <div
-                    className={`max-w-[92%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
-                      m.from === 'you' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
-                    }`}
-                  >
-                    {m.text}
-                  </div>
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-white px-4 pb-3 pt-5">
+            {emptyHome ? (
+              <div className="flex flex-col items-center">
+                <CopilotMark size={72} className="shadow-[0_8px_24px_rgba(15,23,42,0.12)]" alt="" />
+                <h3 className="mt-5 text-[22px] font-bold tracking-tight text-slate-900">Ask me anything</h3>
+                <p className="mt-2 max-w-[320px] text-center text-[13px] leading-relaxed text-slate-500">
+                  Get help building cancel experiences — save flows, surveys, offers, confirmation, and hosted checkout. Choose a suggestion below, or describe the journey you want.
+                </p>
+                <div className="mt-6 w-full space-y-2">{options}</div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {lines.map((m) => (
+                    <div key={m.id} className={m.from === 'you' ? 'flex justify-end' : ''}>
+                      <div className="max-w-[92%]">
+                        {m.ref && (
+                          <div
+                            className={`mb-1 text-[10px] font-semibold ${
+                              m.from === 'you' ? 'text-right text-sky-700' : 'text-sky-600'
+                            }`}
+                          >
+                            On {m.ref}
+                          </div>
+                        )}
+                        <div
+                          className={`rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                            m.from === 'you' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-800'
+                          }`}
+                        >
+                          {m.text}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="mt-4">{options}</div>
+                <div className="mt-4">{options}</div>
+              </>
+            )}
           </div>
-          <div className="flex-none border-t border-slate-200 bg-slate-50 px-3 pb-3 pt-2">
+          <div className="flex-none bg-white px-3 pb-2 pt-1">
             <PromptInput
               value={draft}
               onChange={setDraft}
               onSend={send}
-              placeholder={
-                turn === 'kind'
-                  ? 'Describe the flow you want…'
-                  : turn === 'plan' || turn === 'done'
-                    ? 'Type a change, or use the plan above…'
-                    : 'Type a change, or pick an option above…'
-              }
+              placeholder="Ask Copilot..."
             />
+            <p className="mt-2 px-1 text-center text-[10px] leading-snug text-slate-400">
+              By using Chargebee Copilot, you accept our third-party AI terms.
+            </p>
           </div>
         </>
       )}

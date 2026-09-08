@@ -2,11 +2,8 @@ import { useExperience } from './store/useExperience'
 import { useOrchestration } from './store/useOrchestration'
 import { blueprintMeta } from './lib/blueprints'
 import { Composer } from './composer/Composer'
-import { PlayerShell } from './runtime/PlayerShell'
-import { DeviceChrome } from './render/DeviceChrome'
 import { DeviceToggle } from './render/DeviceToggle'
 import { OrchestrationCanvas } from './orchestration/OrchestrationCanvas'
-import { PreviewHeader } from './orchestration/PreviewHeader'
 
 function BackToCanvasButton() {
   const backToCanvas = useOrchestration((s) => s.backToCanvas)
@@ -41,42 +38,8 @@ function TopBar() {
   )
 }
 
-/**
- * The play as a subscriber meets it. Device choice and the way back to Build
- * live in the preview's own header, so the stage itself carries nothing but the
- * experience.
- */
-function PlayView() {
-  const device = useExperience((s) => s.device)
-  const brandName = useExperience((s) => s.experience.branding.merchantName)
-  const shell = useExperience((s) => s.experience.shell)
-
-  return (
-    <div className="min-h-0 w-full flex-1 bg-slate-100 p-6">
-      <DeviceChrome device={device} brandName={brandName} fullBleed={shell !== 'modal'}>
-        <PlayerShell />
-      </DeviceChrome>
-    </div>
-  )
-}
-
 export default function App() {
-  const mode = useExperience((s) => s.mode)
   const view = useOrchestration((s) => s.view)
-
-  // Preview has its own header: a way out, a device picker and Restart. The
-  // shared one is what made audience and targeting reachable from inside a
-  // preview, which is the thing being fixed.
-  if (mode === 'play') {
-    return (
-      <div className="flex h-screen flex-col overflow-hidden bg-slate-100 text-slate-900">
-        <PreviewHeader />
-        <main className="flex min-h-0 flex-1 flex-col">
-          <PlayView />
-        </main>
-      </div>
-    )
-  }
 
   if (view === 'editor') {
     return (

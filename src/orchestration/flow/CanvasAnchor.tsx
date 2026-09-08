@@ -6,10 +6,9 @@ import { useOrchestration } from '../../store/useOrchestration'
  * Keeps the graph still in screen space when the canvas column changes size.
  *
  * React Flow's viewport is measured from the pane's own left edge, so anything
- * that moves that edge — the assistant folding to a strip, and back — drags the
- * whole play sideways by the same amount, in a single frame. Opening the drawer
- * did exactly that: 314px of instant sideways travel before any animation had
- * started, which read as the play jumping rather than as a panel closing.
+ * that moves that edge drags the whole play sideways by the same amount, in a
+ * single frame. Copilot now lives on the right, so opening it usually leaves
+ * this edge still — the hook still covers window resizes and the settings pane.
  *
  * Cancelling the delta out means panels open and close *over* a still graph. Any
  * deliberate movement, like `FocusAutoPan` bringing the focused step into view,
