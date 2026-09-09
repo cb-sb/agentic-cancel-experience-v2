@@ -408,7 +408,7 @@ export function StepToolbar({
             </div>
           )}
           {onFocus && (
-            <ToolbarBtn title="Expand this step to edit it (or double-click)" onClick={onFocus}>
+            <ToolbarBtn title="Expand this step to edit it" onClick={onFocus}>
               <FocusIcon />
             </ToolbarBtn>
           )}

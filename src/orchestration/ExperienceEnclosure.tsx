@@ -16,7 +16,6 @@ import {
 import { ScreenBox, useCounterScale } from './flow/screen'
 
 const TARGET_FLOW: TargetType[] = ['CANCEL_PAGE', 'HOSTED_PAGE']
-const TARGET_COMPACT: TargetType[] = ['OFFER', 'PRICING_PAGE']
 
 const STAGE_LABEL: Record<StageId, string> = {
   value_reinforcement: 'Value reinforcement',
@@ -42,8 +41,22 @@ const POSTURE_LABEL: Record<'clean_exit' | 'balanced' | 'save_aggressive', strin
   save_aggressive: 'Save-focused',
 }
 
-export function isExperienceTarget(target: TargetType): boolean {
-  return TARGET_FLOW.includes(target)
+/**
+ * Whether this flow draws as a full experience (steps on the canvas) rather
+ * than a compact offer/pricing target.
+ *
+ * Pricing table is compact when it is a standalone branch. An acquisition
+ * journey compiles a checkout after the table, and that whole path has to
+ * stay visible and editable — so a pricing target that already has a checkout
+ * is treated as an experience.
+ */
+export function isExperienceTarget(
+  target: TargetType,
+  experience?: Pick<Experience, 'steps'> | null,
+): boolean {
+  if (TARGET_FLOW.includes(target)) return true
+  if (target !== 'PRICING_PAGE' || !experience) return false
+  return experience.steps.some((s) => s.components.some((c) => c.kind === 'checkout'))
 }
 
 interface ExperienceEnclosureProps {
@@ -521,4 +534,4 @@ const ExpandIcon = () => (
   </svg>
 )
 
-export { TARGET_FLOW, TARGET_COMPACT }
+export { TARGET_FLOW }

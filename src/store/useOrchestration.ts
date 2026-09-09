@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { uid } from '../lib/id'
+import type { JourneyTemplate } from '../journey/types'
 import { seedPlay } from '../lib/orchestrationSeed'
 import { useExperience } from './useExperience'
 import {
@@ -156,6 +157,8 @@ interface OrchestrationState {
   play: Play
   view: WorkspaceView
   templatesOpen: boolean
+  /** Copilot consumes this to start the same draft-plan path as a suggestion chip. */
+  pendingLibraryTemplate: Exclude<JourneyTemplate, 'none'> | null
   selectedNodeId: string | null
   openFlowNodeId: string | null
   /** Flow-node ids whose experience enclosure is collapsed to a summary card. */
@@ -191,6 +194,8 @@ interface OrchestrationState {
 
   openTemplates: () => void
   closeTemplates: () => void
+  applyLibraryTemplate: (id: Exclude<JourneyTemplate, 'none'>) => void
+  consumeLibraryTemplate: () => void
   selectNode: (id: string | null) => void
   openFlow: (nodeId: string) => void
   backToCanvas: () => void
@@ -241,6 +246,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   play: seedPlay(),
   view: 'canvas',
   templatesOpen: false,
+  pendingLibraryTemplate: null,
   selectedNodeId: null,
   openFlowNodeId: null,
   collapsedFlows: {},
@@ -257,13 +263,23 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
 
   openTemplates: () => set({ templatesOpen: true }),
   closeTemplates: () => set({ templatesOpen: false }),
+  applyLibraryTemplate: (id) =>
+    set({ pendingLibraryTemplate: id, templatesOpen: false, assistantOpen: true }),
+  consumeLibraryTemplate: () => set({ pendingLibraryTemplate: null }),
 
   // Selecting an experience hands the right pane to branding, so the pinned play
   // section has to let go; deselecting hands the pane back to play config.
   selectNode: (id) => set(id ? { selectedNodeId: id, configTarget: null } : { selectedNodeId: null }),
 
   setDockPosition: (pos) => set({ dockPosition: pos }),
-  setAssistantOpen: (open) => set({ assistantOpen: open }),
+  setAssistantOpen: (open) => {
+    // Copilot is the editor while a step is in focus — folding it to the
+    // launcher would leave the merchant without the pane that replaced the
+    // old side inspector. Preview is the exception: it takes the surface, so
+    // Copilot folds away for the duration.
+    if (!open && get().focusTarget && useExperience.getState().mode !== 'play') return
+    set({ assistantOpen: open })
+  },
   setAnnotateMode: (on) =>
     set({
       annotateMode: on,
@@ -281,8 +297,14 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   focusStep: (target) => {
     useExperience.getState().setActiveExperience(target.experienceId)
     useExperience.getState().setActiveStep(target.stepId)
-    // configTarget survives focus so leaving it lands back on the same section.
-    set({ focusTarget: target, annotationTarget: null })
+    // Inline edit always comes with Copilot in annotate mode so the merchant
+    // can point at the 1:1 card (or the play beside it) and ask about it.
+    set({
+      focusTarget: target,
+      annotationTarget: null,
+      assistantOpen: true,
+      annotateMode: true,
+    })
   },
   exitFocus: () => set({ focusTarget: null }),
   setFocusPresentation: (focusPresentation) => set({ focusPresentation }),

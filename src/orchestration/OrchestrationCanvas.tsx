@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { usePresence } from '../lib/usePresence'
 import { useExperience } from '../store/useExperience'
@@ -15,7 +16,12 @@ import { TemplatesModal } from './TemplatesModal'
 export function OrchestrationCanvas() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
+  const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const previewing = useExperience((s) => s.mode === 'play')
+
+  useEffect(() => {
+    setAssistantOpen(!previewing)
+  }, [previewing, setAssistantOpen])
 
   const gridTemplateColumns = [
     '1fr',
@@ -34,11 +40,13 @@ export function OrchestrationCanvas() {
         <div className="flex min-h-0 min-w-0 flex-col">
           <PlayHeader />
           <div data-focus-root className="relative min-h-0 flex-1">
-            <div data-canvas-pane className="relative h-full min-h-0 min-w-0 overflow-hidden">
+            {/* Three layers, back to front: canvas, then the edit drawer if it
+                is already open, then Preview — Preview is always the top. */}
+            <div data-canvas-pane className="relative z-0 h-full min-h-0 min-w-0 overflow-hidden">
               <FlowCanvas />
-              {previewing && <PreviewOverlay />}
             </div>
             <FocusPresentation />
+            {previewing && <PreviewOverlay />}
           </div>
         </div>
         <AssistantColumn />

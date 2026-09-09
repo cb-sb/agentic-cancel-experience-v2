@@ -7,9 +7,10 @@ import { useExperience } from '../store/useExperience'
 /**
  * Subscriber preview as a stage over the canvas, not a separate page.
  *
- * The workflow stays mounted underneath a light-blue wash so the graph around
- * the device is still readable. Close lives on that wash — a circular X on the
- * right — rather than in the play toolbar, which is for the play itself.
+ * Stacking (always): Preview on top, the step-edit drawer under it if that
+ * drawer was already open, the workflow graph last. A light gray frost cuts
+ * distraction without hiding the play around the device. Close lives on the
+ * wash — a circular X on the right — rather than in the play toolbar.
  */
 export function PreviewOverlay() {
   const setMode = useExperience((s) => s.setMode)
@@ -20,8 +21,8 @@ export function PreviewOverlay() {
   const shell = useExperience((s) => s.experience.shell)
 
   return (
-    <div className="absolute inset-0 z-40 overflow-hidden">
-      <div className="absolute inset-0 bg-sky-400/25" aria-hidden />
+    <div className="absolute inset-0 z-50 overflow-hidden">
+      <div className="absolute inset-0 bg-zinc-500/25 backdrop-blur-[6px]" aria-hidden />
 
       <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-center">
         <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/50 bg-white/35 px-1.5 py-1 shadow-sm backdrop-blur-[2px]">

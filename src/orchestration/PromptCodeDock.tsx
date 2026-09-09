@@ -3,25 +3,20 @@ import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { useExperience } from '../store/useExperience'
 import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
-import { startFromTemplate, templateLabel, withLive } from '../journey/templates'
+import { LIBRARY, startFromTemplate, templateLabel, withLive } from '../journey/templates'
 import { interpret } from '../journey/intake'
-import { JourneyPlan } from './JourneyPlan'
+import { renderContext } from '../journey/contextDoc'
+import {
+  PlanBeatCard,
+  PlanSummary,
+  beatPrompt,
+  planIntro,
+  type PlanBeat,
+} from './JourneyPlan'
 import { CopilotMark } from './CopilotMark'
+import { DesignModeIcon } from './DesignModeIcon'
 import { useCopilotThread } from './copilotThread'
-
-type PromptTurn = 'kind' | 'cancel_template' | 'plan' | 'done'
-
-function SuggestionChip({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-[13px] leading-snug text-slate-800 transition-colors hover:bg-slate-50"
-    >
-      {label}
-    </button>
-  )
-}
+import { useAssistant } from './assistant/useAssistant'
 
 function OptionBtn({
   label,
@@ -40,6 +35,35 @@ function OptionBtn({
     >
       <div className="text-[13px] font-medium text-slate-800">{label}</div>
       {hint && <div className="mt-0.5 text-[11.5px] text-slate-500">{hint}</div>}
+    </button>
+  )
+}
+
+function AnnotateApply({ messageId }: { messageId: number }) {
+  const action = useAssistant((s) => s.messages.find((m) => m.id === messageId)?.action)
+  const applyMessageAction = useAssistant((s) => s.applyMessageAction)
+  if (!action) return null
+  return (
+    <button
+      type="button"
+      onClick={() => applyMessageAction(messageId)}
+      disabled={action.applied}
+      className={`mt-1.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+        action.applied
+          ? 'cursor-default bg-emerald-50 text-emerald-700'
+          : 'bg-slate-900 text-white hover:bg-slate-800'
+      }`}
+    >
+      {action.applied ? (
+        <>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          Applied
+        </>
+      ) : (
+        action.label
+      )}
     </button>
   )
 }
@@ -106,83 +130,151 @@ function PromptInput({
 export function PromptCodeDock() {
   const dockMode = useJourney((s) => s.dockMode)
   const setDockMode = useJourney((s) => s.setDockMode)
-  const yaml = useJourney((s) => s.yaml)
-  const yamlError = useJourney((s) => s.yamlError)
-  const setYaml = useJourney((s) => s.setYaml)
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
-  const patchFile = useJourney((s) => s.patchFile)
+  const applyContextDoc = useJourney((s) => s.applyContextDoc)
+  const contextError = useJourney((s) => s.contextError)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const annotateMode = useOrchestration((s) => s.annotateMode)
   const setAnnotateMode = useOrchestration((s) => s.setAnnotateMode)
   const closeAnnotation = useOrchestration((s) => s.closeAnnotation)
+  const focusing = useOrchestration((s) => s.focusTarget !== null)
+  const openTemplates = useOrchestration((s) => s.openTemplates)
+  const pendingLibraryTemplate = useOrchestration((s) => s.pendingLibraryTemplate)
 
-  const [turn, setTurn] = useState<PromptTurn>('kind')
   const lines = useCopilotThread((s) => s.lines)
   const say = useCopilotThread((s) => s.say)
   const resetThread = useCopilotThread((s) => s.reset)
+  const turn = useCopilotThread((s) => s.turn)
+  const setTurn = useCopilotThread((s) => s.setTurn)
+  const beat = useCopilotThread((s) => s.beat)
+  const setBeat = useCopilotThread((s) => s.setBeat)
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [draftYaml, setDraftYaml] = useState(yaml)
+  const contextFocused = useRef(false)
+  const contextDoc = useMemo(() => renderContext(file), [file])
+  const [draftContext, setDraftContext] = useState(contextDoc)
 
   const emptyHome = dockMode === 'prompt' && turn === 'kind' && lines.length === 0
 
   useEffect(() => {
-    setDraftYaml(yaml)
-  }, [yaml])
+    if (annotateMode) setDockMode('prompt')
+  }, [annotateMode, setDockMode])
+
+  useEffect(() => {
+    if (!contextFocused.current) setDraftContext(contextDoc)
+  }, [contextDoc])
+
+  const applyDraftContext = () => {
+    applyContextDoc(draftContext)
+    const next = useJourney.getState()
+    if (!next.contextError) setDraftContext(renderContext(next.file))
+  }
 
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [lines, turn])
+  }, [lines, turn, beat])
 
   const reset = () => {
     replaceFile(EMPTY_JOURNEY)
     setTurn('kind')
+    setBeat('review')
     setDraft('')
     resetThread()
   }
 
-  const showPlan = (next: typeof file, message: string) => {
+  /** Recap first. Knobs are on demand from the plan rows, not a forced queue. */
+  const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
-    say('bot', message)
+    say('bot', planIntro(live), { widget: 'plan' })
     setTurn('plan')
+    setBeat('review')
+    say('bot', beatPrompt('review', live))
   }
 
-  const pickKind = (kind: 'cancel' | 'acquisition') => {
-    say('you', kind === 'cancel' ? 'A cancel experience' : 'An acquisition flow')
-    if (kind === 'acquisition') {
-      const next = startFromTemplate({ ...EMPTY_JOURNEY, kind: 'acquisition' }, 'acquire_2')
-      showPlan(next, 'Pricing table, then checkout. Edit the plan below — audience, shell, brand — then confirm.')
-      return
-    }
-    patchFile({ kind: 'cancel', name: 'Cancel experience' })
-    say('bot', 'How many steps? I’ll drop a skeleton, then a plan you can click through.')
-    setTurn('cancel_template')
+  const continuePlan = (said: string) => {
+    say('you', said)
+    const current = useJourney.getState().file
+    setBeat('review')
+    say('bot', beatPrompt('review', current))
   }
 
-  const pickTemplate = (template: JourneyTemplate) => {
-    say('you', templateLabel(template))
-    const next = startFromTemplate(file, template)
-    showPlan(next, 'Here’s the plan. Change offers, audience, shell, and brand here — you don’t have to type them.')
+  const keepDefaults = () => {
+    say('you', 'Keep defaults and walk it')
+    const current = useJourney.getState().file
+    setTurn('plan')
+    setBeat('review')
+    say('bot', beatPrompt('review', current))
+    useExperience.getState().setMode('play')
   }
 
+  const jumpPlan = (next: PlanBeat) => {
+    const alreadyOnBeat = turn === 'plan' && beat === next
+    setTurn('plan')
+    setBeat(next)
+    if (alreadyOnBeat) return
+    say('bot', beatPrompt(next, useJourney.getState().file))
+  }
+
+  const applyTemplate = (template: JourneyTemplate) => {
+    if (template === 'none') return
+    const next = startFromTemplate(useJourney.getState().file, template)
+    landPlan(next)
+  }
+
+  const recommendTemplate = (template: JourneyTemplate, said: string) => {
+    say('you', said)
+    const entry = LIBRARY.find((e) => e.id === template)
+    if (entry) say('bot', entry.why)
+    applyTemplate(template)
+  }
+
+  const startGuide = () => {
+    say('you', 'Help me choose a cancel flow')
+    say('bot', 'What job is this cancel for? I’ll pick a path and put defaults in so you can walk it.')
+    setTurn('guide')
+  }
+
+  const startAcquire = () => {
+    say('you', 'Pricing table → hosted checkout')
+    const entry = LIBRARY.find((e) => e.id === 'acquire_2')
+    if (entry) say('bot', entry.why)
+    const next = startFromTemplate(
+      { ...EMPTY_JOURNEY, kind: 'acquisition', brand: useJourney.getState().file.brand },
+      'acquire_2',
+    )
+    landPlan(next)
+  }
+
+  /** Same path for suggestion chips and the template library. Brand from the current file is kept. */
   const startTemplate = (template: JourneyTemplate) => {
+    if (template === 'none') return
     say('you', templateLabel(template))
-    const next = startFromTemplate(EMPTY_JOURNEY, template)
-    showPlan(next, 'Here’s the plan. Change offers, audience, shell, and brand here — you don’t have to type them.')
+    applyTemplate(template)
   }
+
+  useEffect(() => {
+    const template = useOrchestration.getState().pendingLibraryTemplate
+    if (!template) return
+    useOrchestration.getState().consumeLibraryTemplate()
+    startTemplate(template)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingLibraryTemplate])
 
   const confirmPlan = () => {
-    say('you', 'Looks good')
-    say('bot', 'File is the source of truth. Reopen the plan to reconfigure, switch to Code to edit it, or Preview to walk it as a subscriber.')
+    say('you', 'Looks good — I’m done for now')
+    say(
+      'bot',
+      'File is the source of truth. Reopen the plan to reconfigure, switch to Context to edit it, or walk it as a subscriber.',
+    )
     setTurn('done')
   }
 
   /**
    * Typing skips the turns. Whatever the free text can be read as goes
-   * straight into the file, then we land on the plan so the rest is clicks.
+   * straight into the file, then we land on the recap — knobs stay on demand.
    */
   const send = () => {
     const text = draft.trim()
@@ -192,61 +284,95 @@ export function PromptCodeDock() {
     const read = interpret(text, file)
     if (read.changed) replaceFile(read.file)
     say('bot', read.reply)
-    if (read.changed && read.file.steps.length > 0) setTurn('plan')
+    if (read.changed && read.file.steps.length > 0) {
+      say('bot', planIntro(read.file), { widget: 'plan' })
+      setTurn('plan')
+      setBeat('review')
+      say('bot', beatPrompt('review', read.file))
+    }
   }
 
   const options = useMemo(() => {
     if (turn === 'kind') {
       return (
         <div className="space-y-2">
-          <SuggestionChip
-            label="Build a cancel save flow with survey, offer, and confirm"
-            onClick={() => pickKind('cancel')}
+          <OptionBtn
+            label="Help me choose a cancel flow"
+            hint="I’ll ask the job, then recommend a path"
+            onClick={startGuide}
           />
-          <SuggestionChip label="Start a 1-step click to cancel" onClick={() => startTemplate('cancel_1')} />
-          <SuggestionChip label="4-step balanced cancel journey" onClick={() => startTemplate('cancel_4')} />
-          <SuggestionChip label="5-step save-aggressive cancel flow" onClick={() => startTemplate('cancel_5')} />
-          <SuggestionChip label="Pricing table → hosted checkout" onClick={() => pickKind('acquisition')} />
+          <OptionBtn
+            label="Use the recommended 4-step default"
+            hint="Value, survey, one save offer, confirm"
+            onClick={() => recommendTemplate('cancel_4', 'Use the recommended 4-step default')}
+          />
+          <OptionBtn
+            label="Browse template library"
+            hint="Every cancel and acquisition path Copilot knows"
+            onClick={openTemplates}
+          />
+          <OptionBtn
+            label="Pricing table → hosted checkout"
+            hint="Acquire, not retain"
+            onClick={startAcquire}
+          />
         </div>
       )
     }
-    if (turn === 'cancel_template') {
+    if (turn === 'guide') {
       return (
         <div className="space-y-2">
-          {(['cancel_1', 'cancel_2', 'cancel_3', 'cancel_4', 'cancel_5'] as const).map((id) => (
-            <SuggestionChip key={id} label={templateLabel(id)} onClick={() => pickTemplate(id)} />
-          ))}
+          <OptionBtn
+            label="I have to let people leave in one click"
+            hint="Comply / FTC-style — confirm and they’re out"
+            onClick={() => recommendTemplate('cancel_1', 'I have to let people leave in one click')}
+          />
+          <OptionBtn
+            label="I want a fair save"
+            hint="Recommended — value, survey, one offer, confirm"
+            onClick={() => recommendTemplate('cancel_4', 'I want a fair save')}
+          />
+          <OptionBtn
+            label="I need to save as many as I can"
+            hint="Two offers — heavier than most merchants need"
+            onClick={() => recommendTemplate('cancel_5', 'I need to save as many as I can')}
+          />
+          <OptionBtn
+            label="Not sure — recommend one"
+            hint="I’ll start you on the 4-step balanced path"
+            onClick={() => recommendTemplate('cancel_4', 'Not sure — recommend one')}
+          />
         </div>
       )
     }
     if (turn === 'plan') {
       return (
-        <JourneyPlan
+        <PlanBeatCard
+          beat={beat}
+          onContinue={continuePlan}
           onConfirm={confirmPlan}
           onPreview={() => useExperience.getState().setMode('play')}
+          onKeepDefaults={keepDefaults}
         />
       )
     }
     if (turn === 'done') {
       return (
-        <div className="space-y-3">
-          <JourneyPlan
-            confirmed
-            onConfirm={() => setTurn('plan')}
-            onPreview={() => useExperience.getState().setMode('play')}
-          />
+        <div className="space-y-2">
+          <OptionBtn label="Tweak the plan" hint="Change only the rows that still matter" onClick={() => jumpPlan('review')} />
+          <OptionBtn label="Walk this as a subscriber" onClick={() => useExperience.getState().setMode('play')} />
           <OptionBtn label="Start over" hint="Clears the file and the canvas" onClick={reset} />
         </div>
       )
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, file])
+  }, [turn, beat, file])
 
   const subtitle = emptyHome
     ? 'New Conversation'
     : dockMode === 'code'
-      ? 'Journey file'
+      ? 'Journey context'
       : file.name && file.template !== 'none'
         ? file.name
         : 'New Conversation'
@@ -271,7 +397,12 @@ export function PromptCodeDock() {
                 closeAnnotation()
               }
             }}
-            title={annotateMode ? 'Exit annotate' : 'Annotate — click a canvas element to ask about it'}
+            title={
+              annotateMode
+                ? 'Exit design mode'
+                : 'Design mode — click an element to ask Copilot about it'
+            }
+            aria-label={annotateMode ? 'Exit design mode' : 'Annotate'}
             aria-pressed={annotateMode}
             className={`flex h-8 w-8 items-center justify-center rounded-md ${
               annotateMode
@@ -279,56 +410,72 @@ export function PromptCodeDock() {
                 : 'text-slate-500 hover:bg-slate-100'
             }`}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
-              <path d="M13 13l6 6" />
-            </svg>
+            <DesignModeIcon />
           </button>
           <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-            {(['prompt', 'code'] as const).map((m) => (
+            {(
+              [
+                { id: 'prompt' as const, label: 'Prompt' },
+                { id: 'code' as const, label: 'Context' },
+              ] as const
+            ).map(({ id, label }) => (
               <button
-                key={m}
+                key={id}
                 type="button"
-                onClick={() => setDockMode(m)}
-                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold capitalize ${
-                  dockMode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                onClick={() => setDockMode(id)}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                  dockMode === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
-                {m}
+                {label}
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => setAssistantOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
-            title="Collapse Copilot"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M15 4v16" />
-            </svg>
-          </button>
+          {!focusing && (
+            <button
+              type="button"
+              onClick={() => setAssistantOpen(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
+              title="Collapse Copilot"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M15 4v16" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
       {dockMode === 'code' ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <p className="flex-none border-b border-slate-100 px-3 py-2 text-[11.5px] leading-relaxed text-slate-500">
-            This is the logic document. Edit it and the preview updates. Invalid YAML stays on the page until it parses.
+            This is the context Copilot built. Edit a sentence; the canvas follows.
           </p>
           <textarea
-            value={draftYaml}
-            onChange={(e) => setDraftYaml(e.target.value)}
-            onBlur={() => setYaml(draftYaml)}
-            spellCheck={false}
-            className="min-h-0 flex-1 resize-none bg-slate-50 px-3 py-3 font-mono text-[12px] leading-relaxed text-slate-800 outline-none"
+            value={draftContext}
+            onChange={(e) => setDraftContext(e.target.value)}
+            onFocus={() => {
+              contextFocused.current = true
+            }}
+            onBlur={() => {
+              contextFocused.current = false
+              applyDraftContext()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                applyDraftContext()
+              }
+            }}
+            spellCheck
+            className="min-h-0 flex-1 resize-none bg-white px-4 py-4 text-[13px] leading-relaxed text-slate-800 outline-none"
           />
-          {yamlError ? (
-            <div className="flex-none border-t border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">{yamlError}</div>
+          {contextError ? (
+            <div className="flex-none border-t border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">{contextError}</div>
           ) : (
             <div className="flex-none border-t border-slate-100 px-3 py-2 text-[11px] text-slate-400">
-              Blur or tab away to compile
+              Blur to apply, or ⌘↵
             </div>
           )}
         </div>
@@ -340,7 +487,7 @@ export function PromptCodeDock() {
                 <CopilotMark size={72} className="shadow-[0_8px_24px_rgba(15,23,42,0.12)]" alt="" />
                 <h3 className="mt-5 text-[22px] font-bold tracking-tight text-slate-900">Ask me anything</h3>
                 <p className="mt-2 max-w-[320px] text-center text-[13px] leading-relaxed text-slate-500">
-                  Get help building cancel experiences — save flows, surveys, offers, confirmation, and hosted checkout. Choose a suggestion below, or describe the journey you want.
+                  I’ll recommend a live cancel experience. Walk it as a subscriber, then change only what still matters.
                 </p>
                 <div className="mt-6 w-full space-y-2">{options}</div>
               </div>
@@ -366,6 +513,10 @@ export function PromptCodeDock() {
                         >
                           {m.text}
                         </div>
+                        {m.widget === 'plan' && (
+                          <PlanSummary beat={turn === 'plan' ? beat : undefined} onJump={jumpPlan} />
+                        )}
+                        {m.applyMessageId != null && <AnnotateApply messageId={m.applyMessageId} />}
                       </div>
                     </div>
                   ))}
@@ -379,7 +530,11 @@ export function PromptCodeDock() {
               value={draft}
               onChange={setDraft}
               onSend={send}
-              placeholder="Ask Copilot..."
+              placeholder={
+                emptyHome
+                  ? 'Or say it: 4-step cancel with a pause, full page.'
+                  : 'Ask Copilot...'
+              }
             />
             <p className="mt-2 px-1 text-center text-[10px] leading-snug text-slate-400">
               By using Chargebee Copilot, you accept our third-party AI terms.

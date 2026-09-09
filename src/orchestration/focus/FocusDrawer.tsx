@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react'
-import { useOrchestration } from '../../store/useOrchestration'
 import { FocusCard } from './FocusCard'
 import { FocusChrome } from './FocusChrome'
 import {
@@ -24,6 +22,9 @@ import type { FocusSession } from './useFocusSession'
  * slides the step being edited into whatever strip is left, so the drawer does
  * not cover its own subject.
  *
+ * Copilot stays open beside the drawer, in annotate mode, so the 1:1 card can
+ * be pointed at without folding the rail away.
+ *
  * The play behind is context, not a second place to work: it sits under a scrim,
  * and a click anywhere on it closes the drawer. That costs the one thing the
  * live canvas bought — double-clicking a different step to bring it in — which
@@ -32,8 +33,6 @@ import type { FocusSession } from './useFocusSession'
 export function FocusDrawer({ session, open }: { session: FocusSession; open: boolean }) {
   const { drawerW, rightInset, scrimW, mode } = useFocusGeometry()
   const full = mode === 'full'
-
-  useCollapsedAssistant(open)
 
   const ms = open ? DRAWER_IN_MS : DRAWER_OUT_MS
   const ease = open ? EASE_ENTER : EASE_LEAVE
@@ -78,28 +77,4 @@ export function FocusDrawer({ session, open }: { session: FocusSession; open: bo
       </div>
     </>
   )
-}
-
-/**
- * Fold Copilot to its launcher while the drawer is open, and put it back after.
- *
- * The drawer lives in the canvas column, to the left of Copilot. Collapsing
- * the rail gives the play the extra width; the launcher stays on the right so
- * the column never disappears.
- *
- * Keyed to `open` rather than to mounting so that it unfolds as the drawer
- * leaves, not after: the two motions overlap instead of queueing.
- */
-function useCollapsedAssistant(open: boolean) {
-  const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
-  const wasOpen = useRef(false)
-
-  useEffect(() => {
-    if (!open) return
-    wasOpen.current = useOrchestration.getState().assistantOpen
-    if (wasOpen.current) setAssistantOpen(false)
-    return () => {
-      if (wasOpen.current) setAssistantOpen(true)
-    }
-  }, [open, setAssistantOpen])
 }

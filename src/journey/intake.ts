@@ -192,7 +192,7 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
       rebuilt: false,
       reply:
         current.template === 'none'
-          ? 'I can read a journey out of one line — try “4-step cancel with a discount and a pause” or “acquisition, full page”. Or pick an option above.'
+          ? 'I can read a journey out of one line — try “4-step cancel with a pause, full page” or “acquisition, full page”. Or pick an option above.'
           : 'I could not read a change out of that. Use the plan below for offers, audience, shell, and brand — or type a step count, an offer name, the shell, or the audience.',
     }
   }
@@ -201,6 +201,6 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
     file,
     changed: true,
     rebuilt,
-    reply: `${list(did.map((d, i) => (i === 0 ? d.charAt(0).toUpperCase() + d.slice(1) : d)))}. The plan below is live — change anything there, then confirm.`,
+    reply: `${list(did.map((d, i) => (i === 0 ? d.charAt(0).toUpperCase() + d.slice(1) : d)))}. Defaults are in — walk it as a subscriber, or open a row on the plan to change a default.`,
   }
 }

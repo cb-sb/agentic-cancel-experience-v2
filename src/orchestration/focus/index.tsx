@@ -1,5 +1,6 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePresence } from '../../lib/usePresence'
+import { useExperience } from '../../store/useExperience'
 import { useOrchestration } from '../../store/useOrchestration'
 import { FocusDrawer } from './FocusDrawer'
 import { FocusOverlay } from './FocusOverlay'
@@ -16,6 +17,9 @@ import { useFocusSession, type FocusSession } from './useFocusSession'
  */
 export function FocusPresentation() {
   const presentation = useOrchestration((s) => s.focusPresentation)
+  const previewing = useExperience((s) => s.mode === 'play')
+  const assistantOpen = useOrchestration((s) => s.assistantOpen)
+  const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const session = useFocusSession()
 
   // The session vanishes the moment focus is dropped, but the card still has to
@@ -25,11 +29,24 @@ export function FocusPresentation() {
   const shown = session ?? last.current
 
   const { alive, open } = usePresence(Boolean(session), DRAWER_OUT_MS)
+
+  useEffect(() => {
+    if (previewing || !open || assistantOpen) return
+    setAssistantOpen(true)
+  }, [open, previewing, assistantOpen, setAssistantOpen])
+
   if (!alive || !shown) return null
 
-  return presentation === 'drawer' ? (
-    <FocusDrawer session={shown} open={open} />
-  ) : (
-    <FocusOverlay session={shown} open={open} />
+  return (
+    <div
+      className={previewing ? 'pointer-events-none' : undefined}
+      aria-hidden={previewing || undefined}
+    >
+      {presentation === 'drawer' ? (
+        <FocusDrawer session={shown} open={open} />
+      ) : (
+        <FocusOverlay session={shown} open={open} />
+      )}
+    </div>
   )
 }

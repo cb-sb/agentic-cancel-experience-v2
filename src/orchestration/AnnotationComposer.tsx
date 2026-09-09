@@ -2,6 +2,7 @@ import { NodeToolbar, Position } from '@xyflow/react'
 import { useEffect, useRef, useState } from 'react'
 import { useOrchestration, type AnnotationTarget } from '../store/useOrchestration'
 import { useAssistant } from './assistant/useAssistant'
+import { DesignModeIcon } from './DesignModeIcon'
 
 /**
  * A compact popover anchored next to a canvas element. It captures input right
@@ -33,9 +34,7 @@ export function AnnotationComposer({ target }: { target: AnnotationTarget }) {
     >
       <div className="mb-2 flex items-center justify-between">
         <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-100">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
-          </svg>
+          <DesignModeIcon size={11} />
           {target.label}
         </span>
         <button

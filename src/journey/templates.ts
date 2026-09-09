@@ -72,6 +72,70 @@ export function templateLabel(template: JourneyTemplate): string {
   }
 }
 
+export type LibraryKind = 'cancel' | 'acquisition'
+
+/** Consultative catalog for the Copilot template library — one card per journey Copilot already knows. */
+export interface LibraryEntry {
+  id: Exclude<JourneyTemplate, 'none'>
+  title: string
+  why: string
+  /** Captions under the thumbnail strip, in screen order. */
+  stepLabels: string[]
+  kind: LibraryKind
+  stepCount: number
+}
+
+export const LIBRARY: LibraryEntry[] = [
+  {
+    id: 'cancel_1',
+    title: '1-step click to cancel',
+    why: 'Use this when the law or your brand asks for a frictionless exit. The subscriber confirms once and is done — no survey, no save offer. Best for FTC-style click-to-cancel, and for merchants who would rather lose the revenue than add friction.',
+    stepLabels: ['Confirm', 'Saved', 'Cancelled'],
+    kind: 'cancel',
+    stepCount: 1,
+  },
+  {
+    id: 'cancel_2',
+    title: '2-step clean exit',
+    why: 'Remind them what they keep on this plan, then let them confirm. Two screens make the cost of leaving visible without asking why or putting an offer in the way — a clean exit that still feels considered.',
+    stepLabels: ['What you keep', 'Confirm'],
+    kind: 'cancel',
+    stepCount: 2,
+  },
+  {
+    id: 'cancel_3',
+    title: '3-step with survey',
+    why: 'Learn why they are leaving, then let them go. The survey is for you — it does not gate the cancel. Use this when you want the reason data and a short value reminder, but you are not ready to put a save offer on the path.',
+    stepLabels: ['What you keep', 'Survey', 'Confirm'],
+    kind: 'cancel',
+    stepCount: 3,
+  },
+  {
+    id: 'cancel_4',
+    title: '4-step balanced',
+    why: 'The default cancel journey: show what they lose, ask why, make one save offer, then confirm. One offer after the reason is enough to be consultative without stacking discounts. Start here unless you already know you need more or less.',
+    stepLabels: ['What you keep', 'Survey', 'Save offer', 'Confirm'],
+    kind: 'cancel',
+    stepCount: 4,
+  },
+  {
+    id: 'cancel_5',
+    title: '5-step save-aggressive',
+    why: 'Lead with an entry offer, then survey, then a second save offer before confirmation. Use this when the account is high value and you are willing to ask twice. Heavier than most merchants need — pick it on purpose, not by habit.',
+    stepLabels: ['What you keep', 'Entry offer', 'Survey', 'Save offer', 'Confirm'],
+    kind: 'cancel',
+    stepCount: 5,
+  },
+  {
+    id: 'acquire_2',
+    title: 'Pricing table → checkout',
+    why: 'Not a cancel flow. Put a pricing table in front of hosted checkout so a new subscriber can pick a plan and pay. Use this when you are acquiring, not retaining.',
+    stepLabels: ['Pricing', 'Checkout'],
+    kind: 'acquisition',
+    stepCount: 2,
+  },
+]
+
 export function withLive(steps: JourneyStepFile[], live: boolean): JourneyStepFile[] {
   return steps.map((s) => ({ ...s, live }))
 }

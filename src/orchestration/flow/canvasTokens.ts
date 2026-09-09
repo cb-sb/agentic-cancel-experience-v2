@@ -181,7 +181,7 @@ export const TIER_HINT: Record<Tier, string> = {
   t0: 'names only',
   t1: 'shape of each step',
   t2: 'what each step says',
-  t3: 'full detail — double-click to edit',
+  t3: 'full detail — click to edit',
 }
 
 export const TIERS: Tier[] = ['t0', 't1', 't2', 't3']

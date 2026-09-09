@@ -61,6 +61,11 @@ export function useFocusSession(): FocusSession | null {
     if (!focusTarget) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const orch = useOrchestration.getState()
+        if (orch.annotationTarget) {
+          orch.closeAnnotation()
+          return
+        }
         exitFocus()
         return
       }

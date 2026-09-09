@@ -236,12 +236,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
         messages: [...s.messages, { id: msgId++, role: 'user', text: trimmed, ref: { label: target.label } }],
       }))
       const reply = annotateReply(target, trimmed)
+      const assistantId = msgId
       set((s) => ({
         messages: [...s.messages, { id: msgId++, role: 'assistant', text: reply.text, action: reply.action }],
       }))
       const chat = useCopilotThread.getState()
       chat.say('you', trimmed, target.label)
-      chat.say('bot', reply.text)
+      chat.say('bot', reply.text, reply.action ? { applyMessageId: assistantId } : undefined)
     },
 
     applyMessageAction: (messageId) => {

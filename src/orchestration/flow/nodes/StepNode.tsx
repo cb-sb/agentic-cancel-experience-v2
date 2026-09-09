@@ -61,7 +61,7 @@ export function StepNode({ id, data }: NodeProps) {
       // which step the pointer is on and the layer decides what to draw.
       onPointerEnter={() => setHovered(step.id)}
       onPointerLeave={() => setHovered(null)}
-      onDoubleClick={(e) => {
+      onClick={(e) => {
         if (annotateMode) return
         e.stopPropagation()
         focusStep({ experienceId, stepId: step.id })

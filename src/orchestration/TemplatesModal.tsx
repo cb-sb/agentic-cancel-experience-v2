@@ -1,99 +1,79 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LIBRARY, type LibraryEntry, type LibraryKind } from '../journey/templates'
+import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
-import { useAssistant } from './assistant/useAssistant'
-import { BLUEPRINTS } from '../lib/blueprints'
-import type { BlueprintId, BlueprintMeta } from '../types/experience'
+import { TemplatePreviewStrip } from './TemplatePreviewStrip'
 
-type Category = 'all' | 'suggested' | 'clean_exit' | 'balanced' | 'save_aggressive'
+type Filter = 'all' | LibraryKind
 
-const SUGGESTED: BlueprintId[] = ['balanced', 'save_aggressive', 'clean_exit_2']
-
-const POSTURE_LABEL: Record<BlueprintMeta['posture'], string> = {
-  clean_exit: 'Clean exit',
-  balanced: 'Balanced',
-  save_aggressive: 'Save-focused',
-}
-
-const RAIL: { id: Category; label: string; group?: string }[] = [
-  { id: 'all', label: 'All templates' },
-  { id: 'suggested', label: 'Suggested' },
-  { id: 'clean_exit', label: 'Clean exit', group: 'By posture' },
-  { id: 'balanced', label: 'Balanced' },
-  { id: 'save_aggressive', label: 'Save-focused' },
+const RAIL: { id: Filter; label: string; hint: string }[] = [
+  { id: 'all', label: 'All', hint: 'Every journey' },
+  { id: 'cancel', label: 'Cancel', hint: 'Save and exit' },
+  { id: 'acquisition', label: 'Acquisition', hint: 'Pricing to checkout' },
 ]
 
-/** Abstract mini-preview of a flow, tinted by posture. */
-function TemplateThumb({ meta }: { meta: BlueprintMeta }) {
-  const tint: Record<BlueprintMeta['posture'], { bg: string; accent: string }> = {
-    clean_exit: { bg: 'from-sky-100 to-slate-100', accent: 'bg-slate-400' },
-    balanced: { bg: 'from-indigo-100 to-slate-100', accent: 'bg-indigo-500' },
-    save_aggressive: { bg: 'from-violet-100 to-fuchsia-50', accent: 'bg-fuchsia-500' },
-  }
-  const t = tint[meta.posture]
+const SECTION: Record<LibraryKind, { title: string; lede: string }> = {
+  cancel: {
+    title: 'Cancel',
+    lede: 'Save and exit journeys for people who already subscribe.',
+  },
+  acquisition: {
+    title: 'Acquisition',
+    lede: 'Pricing and checkout for people who are not subscribers yet.',
+  },
+}
+
+function matchesQuery(entry: LibraryEntry, q: string) {
+  if (!q) return true
   return (
-    <div className={`flex h-[112px] items-center justify-center bg-gradient-to-br ${t.bg}`}>
-      <div className="flex w-[70%] flex-col gap-1.5 rounded-lg bg-white p-2.5 shadow-sm">
-        <div className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-slate-300" />
-          <span className="h-1.5 w-8 rounded-full bg-slate-200" />
-        </div>
-        <span className="h-1.5 w-full rounded-full bg-slate-200" />
-        <span className="h-1.5 w-3/4 rounded-full bg-slate-200" />
-        <span className={`mt-0.5 h-3 w-14 rounded-md ${t.accent}`} />
-        <div className="mt-1 flex gap-1">
-          {Array.from({ length: meta.stepCount }).map((_, i) => (
-            <span key={i} className={`h-1 w-1 rounded-full ${i === 0 ? t.accent : 'bg-slate-300'}`} />
-          ))}
-        </div>
-      </div>
-    </div>
+    entry.title.toLowerCase().includes(q) ||
+    entry.why.toLowerCase().includes(q) ||
+    entry.stepLabels.some((l) => l.toLowerCase().includes(q))
   )
 }
 
-function TemplateCard({ meta, onSelect }: { meta: BlueprintMeta; onSelect: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition-all hover:border-slate-300 hover:shadow-md"
-    >
-      <TemplateThumb meta={meta} />
-      <div className="border-t border-slate-100 px-3 py-2.5">
-        <div className="text-[13px] font-bold text-slate-900">{meta.name}</div>
-        <div className="mt-0.5 text-[11px] text-slate-400">
-          {meta.stepCount} step{meta.stepCount > 1 ? 's' : ''} · {POSTURE_LABEL[meta.posture]}
-        </div>
-      </div>
-    </button>
-  )
-}
-
-function Section({
-  title,
-  metas,
-  onSeeAll,
-  onSelect,
+function LibraryCard({
+  entry,
+  onApply,
+  showKind,
 }: {
-  title: string
-  metas: BlueprintMeta[]
-  onSeeAll?: () => void
-  onSelect: (id: BlueprintId) => void
+  entry: LibraryEntry
+  onApply: () => void
+  showKind: boolean
 }) {
-  if (!metas.length) return null
+  const brand = useJourney((s) => s.file.brand)
+  const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
   return (
-    <div className="mb-6">
-      <div className="mb-2.5 flex items-center justify-between">
-        <div className="text-[13px] font-bold text-slate-900">{title}</div>
-        {onSeeAll && (
-          <button type="button" onClick={onSeeAll} className="text-[12px] font-semibold text-indigo-600 hover:underline">
-            See all
-          </button>
-        )}
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        {metas.map((m) => (
-          <TemplateCard key={m.id} meta={m} onSelect={() => onSelect(m.id)} />
-        ))}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onApply}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onApply()
+        }
+      }}
+      className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.35)]"
+    >
+      <TemplatePreviewStrip entry={entry} brand={brand} />
+      <div className="px-5 pb-5 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[15px] font-bold leading-snug text-slate-900">{entry.title}</div>
+            <div className="mt-1 text-[12px] font-medium text-slate-400">
+              {entry.stepCount} step{entry.stepCount === 1 ? '' : 's'}
+              {showKind ? ` · ${kindLabel}` : ''}
+            </div>
+          </div>
+        </div>
+        <p className="mt-2.5 text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+        <span className="mt-3.5 inline-flex items-center gap-1 text-[12.5px] font-semibold text-indigo-600 group-hover:text-indigo-700">
+          Use this template
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+            →
+          </span>
+        </span>
       </div>
     </div>
   )
@@ -101,16 +81,9 @@ function Section({
 
 export function TemplatesModal() {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
-  const applyTemplate = useAssistant((s) => s.applyTemplate)
-  const [cat, setCat] = useState<Category>('all')
+  const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
+  const [cat, setCat] = useState<Filter>('all')
   const [query, setQuery] = useState('')
-
-  // Applying runs through the assistant so the conversation lands on the plan
-  // review rather than stranding on the question that opened the library.
-  const apply = (id: BlueprintId) => {
-    applyTemplate(id)
-    closeTemplates()
-  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -120,54 +93,70 @@ export function TemplatesModal() {
     return () => window.removeEventListener('keydown', onKey)
   }, [closeTemplates])
 
-  const byPosture = (posture: BlueprintMeta['posture']) => BLUEPRINTS.filter((b) => b.posture === posture)
-
-  const results = useMemo(() => {
+  const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return null
-    return BLUEPRINTS.filter(
-      (b) => b.name.toLowerCase().includes(q) || b.description.toLowerCase().includes(q),
-    )
-  }, [query])
+    return LIBRARY.filter((e) => (cat === 'all' || e.kind === cat) && matchesQuery(e, q))
+  }, [cat, query])
+
+  const sections = useMemo(() => {
+    const kinds: LibraryKind[] = cat === 'all' ? ['cancel', 'acquisition'] : [cat]
+    return kinds
+      .map((kind) => ({
+        kind,
+        ...SECTION[kind],
+        entries: rows.filter((e) => e.kind === kind),
+      }))
+      .filter((s) => s.entries.length > 0)
+  }, [cat, rows])
+
+  const counts = useMemo(
+    () => ({
+      all: LIBRARY.length,
+      cancel: LIBRARY.filter((e) => e.kind === 'cancel').length,
+      acquisition: LIBRARY.filter((e) => e.kind === 'acquisition').length,
+    }),
+    [],
+  )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={closeTemplates} />
-      <div className="relative flex h-[600px] w-[900px] max-w-full overflow-hidden rounded-2xl bg-white shadow-2xl">
-        {/* Left category rail */}
-        <aside className="flex w-[220px] flex-none flex-col border-r border-slate-100 bg-slate-50/60 p-4">
-          <div className="mb-4 flex items-center gap-2">
+      <div className="relative flex h-[740px] w-[1080px] max-w-full overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <aside className="flex w-[212px] flex-none flex-col border-r border-slate-100 bg-slate-50/80 px-4 py-5">
+          <div className="mb-6 flex items-center gap-2.5 px-1">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">
               C
             </span>
             <span className="text-[13px] font-bold text-slate-900">Template library</span>
           </div>
-          <nav className="space-y-0.5">
+          <p className="mb-2 px-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Browse</p>
+          <nav className="space-y-1.5">
             {RAIL.map((item) => (
-              <div key={item.id}>
-                {item.group && (
-                  <div className="mb-1 mt-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {item.group}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setCat(item.id)}
-                  className={`w-full rounded-lg px-2.5 py-1.5 text-left text-[13px] font-semibold transition-colors ${
-                    cat === item.id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              </div>
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setCat(item.id)}
+                className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left transition-colors ${
+                  cat === item.id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                }`}
+              >
+                <span>
+                  <span className="block text-[13px] font-semibold">{item.label}</span>
+                  <span className={`block text-[11px] ${cat === item.id ? 'text-white/60' : 'text-slate-400'}`}>
+                    {item.hint}
+                  </span>
+                </span>
+                <span className={`text-[11px] font-semibold tabular-nums ${cat === item.id ? 'text-white/70' : 'text-slate-400'}`}>
+                  {counts[item.id]}
+                </span>
+              </button>
             ))}
           </nav>
         </aside>
 
-        {/* Right pane */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-none items-center gap-3 border-b border-slate-100 px-5 py-3.5">
-            <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5">
+        <div className="flex min-w-0 flex-1 flex-col bg-slate-50/40">
+          <div className="flex flex-none items-center gap-3 border-b border-slate-100 bg-white px-6 py-4">
+            <div className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m21 21-4.3-4.3" />
@@ -191,41 +180,35 @@ export function TemplatesModal() {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            {/* Promo banner */}
-            <div className="mb-6 flex items-center justify-between gap-4 rounded-xl bg-gradient-to-br from-indigo-50 to-fuchsia-50 p-4 ring-1 ring-indigo-100">
-              <div>
-                <div className="text-[14px] font-bold text-slate-900">Start from scratch</div>
-                <div className="mt-0.5 max-w-md text-[12px] text-slate-500">
-                  Begin with a minimal one-step flow and build it out node by node on the canvas.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => apply('click_to_cancel')}
-                className="flex-none rounded-lg bg-slate-900 px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-slate-700"
-              >
-                Blank flow
-              </button>
-            </div>
-
-            {results ? (
-              <Section
-                title={`${results.length} result${results.length === 1 ? '' : 's'}`}
-                metas={results}
-                onSelect={apply}
-              />
-            ) : cat === 'all' ? (
-              <>
-                <Section title="Suggested" metas={BLUEPRINTS.filter((b) => SUGGESTED.includes(b.id))} onSelect={apply} />
-                <Section title="Clean exit" metas={byPosture('clean_exit')} onSeeAll={() => setCat('clean_exit')} onSelect={apply} />
-                <Section title="Balanced" metas={byPosture('balanced')} onSeeAll={() => setCat('balanced')} onSelect={apply} />
-                <Section title="Save-focused" metas={byPosture('save_aggressive')} onSeeAll={() => setCat('save_aggressive')} onSelect={apply} />
-              </>
-            ) : cat === 'suggested' ? (
-              <Section title="Suggested" metas={BLUEPRINTS.filter((b) => SUGGESTED.includes(b.id))} onSelect={apply} />
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            {rows.length === 0 ? (
+              <p className="py-16 text-center text-[13px] text-slate-400">No templates match that search.</p>
             ) : (
-              <Section title={POSTURE_LABEL[cat]} metas={byPosture(cat)} onSelect={apply} />
+              <div className="space-y-10">
+                {sections.map((section, i) => (
+                  <section key={section.kind} className={i > 0 ? 'border-t border-slate-200 pt-8' : undefined}>
+                    <header className="mb-3.5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{section.title}</h3>
+                        <span className="text-[11px] font-medium tabular-nums text-slate-400">
+                          {section.entries.length} template{section.entries.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 max-w-[40rem] text-[13px] leading-relaxed text-slate-600">{section.lede}</p>
+                    </header>
+                    <div className="space-y-5">
+                      {section.entries.map((entry) => (
+                        <LibraryCard
+                          key={entry.id}
+                          entry={entry}
+                          showKind={cat === 'all'}
+                          onApply={() => applyLibraryTemplate(entry.id)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
             )}
           </div>
         </div>

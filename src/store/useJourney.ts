@@ -3,6 +3,7 @@ import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { AUDIENCE_LIBRARY } from '../types/orchestration'
 import { compileJourney } from '../journey/compile'
 import { stringifyJourney, parseJourney } from '../journey/yaml'
+import { parseContext } from '../journey/contextDoc'
 import { EMPTY_JOURNEY, DEFAULT_JOURNEY_BRAND, isTailKind, type JourneyFile } from '../journey/types'
 import { useExperience } from './useExperience'
 import { useOrchestration } from './useOrchestration'
@@ -45,7 +46,7 @@ function pushFile(file: JourneyFile, yaml?: string): { file: JourneyFile; yaml: 
   const orch = useOrchestration.getState()
   orch.updatePlay(compiled.playPatch)
   if (compiled.playPatch.audience) orch.updateAudience(compiled.playPatch.audience)
-  const flow = compiled.playPatch.playType === 'ACQUISITION' ? 'PRICING_PAGE' : 'CANCEL_PAGE'
+  const flow = compiled.playPatch.playType === 'ACQUISITION' ? 'HOSTED_PAGE' : 'CANCEL_PAGE'
   const split = orch.play.targeting
   if (split.kind === 'split') {
     const branch = split.branches.find((b) => b.node.kind === 'flow')
@@ -64,6 +65,7 @@ interface JourneyState {
   file: JourneyFile
   yaml: string
   yamlError: string | null
+  contextError: string | null
   dockMode: DockMode
   /** Canvas is a preview of the file — no add/remove chrome. */
   previewOnly: true
@@ -71,6 +73,7 @@ interface JourneyState {
   replaceFile: (file: JourneyFile) => void
   patchFile: (patch: Partial<JourneyFile>) => void
   setYaml: (text: string) => void
+  applyContextDoc: (text: string) => void
   reorderSteps: (fromId: string, toId: string) => void
 }
 
@@ -78,16 +81,17 @@ export const useJourney = create<JourneyState>((set, get) => ({
   file: EMPTY_JOURNEY,
   yaml: stringifyJourney(EMPTY_JOURNEY),
   yamlError: null,
+  contextError: null,
   dockMode: 'prompt',
   previewOnly: true,
 
   setDockMode: (dockMode) => set({ dockMode }),
 
-  replaceFile: (file) => set(pushFile(file)),
+  replaceFile: (file) => set({ ...pushFile(file), contextError: null }),
 
   patchFile: (patch) => {
     const file = { ...get().file, ...patch }
-    set(pushFile(file))
+    set({ ...pushFile(file), contextError: null })
   },
 
   setYaml: (text) => {
@@ -96,7 +100,16 @@ export const useJourney = create<JourneyState>((set, get) => ({
       set({ yaml: text, yamlError: parsed.error ?? 'Could not read this file' })
       return
     }
-    set(pushFile(parsed.file, text))
+    set({ ...pushFile(parsed.file, text), contextError: null })
+  },
+
+  applyContextDoc: (text) => {
+    const parsed = parseContext(text, get().file)
+    if (parsed.error) {
+      set({ contextError: parsed.error })
+      return
+    }
+    set({ ...pushFile(parsed.file), contextError: null })
   },
 
   reorderSteps: (fromId, toId) => {

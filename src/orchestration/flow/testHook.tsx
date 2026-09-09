@@ -84,7 +84,7 @@ export function CanvasTestHook() {
 
         return play.targeting.branches.reduce((total, branch) => {
           const node = branch.node
-          if (node.kind !== 'flow' || !isExperienceTarget(node.target)) return total
+          if (node.kind !== 'flow' || !isExperienceTarget(node.target, experiences[node.experienceId])) return total
           if (collapsedFlows[node.id]) return total
           const exp = experiences[node.experienceId]
           const survey = exp ? surveyOf(exp) : null

@@ -259,6 +259,7 @@ function FlowCanvasInner() {
     if (!annotateMode) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      if (useOrchestration.getState().focusTarget) return
       if (useOrchestration.getState().annotationTarget) closeAnnotation()
       else setAnnotateMode(false)
     }

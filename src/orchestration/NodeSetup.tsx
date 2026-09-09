@@ -930,7 +930,7 @@ function FlowSetup({ flow, splitId }: { flow: FlowNode; splitId?: string }) {
 
   const exp = experiences[flow.experienceId]
   const expList = Object.values(experiences)
-  const showExperienceControls = isExperienceTarget(flow.target)
+  const showExperienceControls = isExperienceTarget(flow.target, exp)
 
   const onDuplicateForAb = () => {
     if (!splitId || !exp) return

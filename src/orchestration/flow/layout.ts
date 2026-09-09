@@ -58,8 +58,11 @@ export function splitSummary(split: SplitNode): string {
   return `${variants} experience${variants === 1 ? '' : 's'}`
 }
 
-function flowSubtitle(flow: FlowNode): string {
-  if (isExperienceTarget(flow.target)) return 'Cancel experience'
+function flowSubtitle(flow: FlowNode, exp: Experience | null): string {
+  if (flow.target === 'HOSTED_PAGE' || (flow.target === 'PRICING_PAGE' && isExperienceTarget(flow.target, exp))) {
+    return 'Acquisition'
+  }
+  if (isExperienceTarget(flow.target, exp)) return 'Cancel experience'
   if (flow.target === 'OFFER') return 'Save offer'
   if (flow.target === 'PRICING_PAGE') return 'Pricing table'
   return 'Treatment'
@@ -144,7 +147,7 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
     }
     const flow = node
     const exp = experiences[flow.experienceId] ?? null
-    const isExpTarget = isExperienceTarget(flow.target)
+    const isExpTarget = isExperienceTarget(flow.target, exp)
     const collapsed = isExpTarget && !!collapsedFlows[flow.id]
 
     let grid: EnclosureGrid | null = null
@@ -217,7 +220,7 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
           icon: null,
           kicker: branchKicker(branch, mode),
           title: branchName(branch),
-          subtitle: mode === 'audience' ? branchLabel(branch, mode) : flowSubtitle(r.flow),
+          subtitle: mode === 'audience' ? branchLabel(branch, mode) : flowSubtitle(r.flow, r.exp),
           metrics: r.flow.metrics,
           dashed: branch.role === 'fallback',
         }
@@ -234,7 +237,7 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
         })
       }
 
-      const isExpTarget = isExperienceTarget(r.flow.target)
+      const isExpTarget = isExperienceTarget(r.flow.target, r.exp)
       const encId = isExpTarget ? `exp-${node.id}` : `target-${node.id}`
 
       nodes.push({

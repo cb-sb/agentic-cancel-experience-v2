@@ -80,6 +80,7 @@ export function CanvasStep({
   const confirmation = step.components.find((c) => c.kind === 'confirmation')
   const isConfirmation = !!confirmation
   const isOutcome = step.components.some((c) => c.kind === 'outcome')
+  const isCheckout = step.components.some((c) => c.kind === 'checkout')
   const isOfferStep = step.components.length > 0 && step.components.every((c) => c.kind === 'offer')
   const isLaStep = step.stage === 'value_reinforcement'
 
@@ -109,6 +110,19 @@ export function CanvasStep({
           }}
         />
       </>
+    )
+  } else if (isCheckout) {
+    actions = (
+      <span
+        className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+        style={{
+          background: 'var(--brand-primary)',
+          borderRadius: 'calc(var(--brand-radius) * 0.66)',
+          padding: '10px 18px',
+        }}
+      >
+        Confirm &amp; apply
+      </span>
     )
   } else if (isOutcome) {
     actions = (
@@ -147,7 +161,7 @@ export function CanvasStep({
           frame={experience.frame}
           branding={experience.branding}
           showBack={index > 0}
-          hideTitleBlock={isConfirmation || isOutcome || isOfferStep}
+          hideTitleBlock={isConfirmation || isOutcome || isOfferStep || isCheckout}
           centerActions={(isConfirmation && total === 1) || isOutcome}
           titleMaxWords={isLaStep ? 10 : undefined}
           titleMaxChars={isLaStep ? 72 : undefined}

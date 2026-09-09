@@ -207,7 +207,7 @@ function hasTitleBlock(step: Step): boolean {
   const kinds = step.components.map((c) => c.kind)
   if (kinds.length === 0) return true
   if (kinds.every((k) => k === 'offer')) return false
-  return !kinds.some((k) => k === 'confirmation' || k === 'outcome')
+  return !kinds.some((k) => k === 'confirmation' || k === 'outcome' || k === 'checkout')
 }
 
 /** Confirmation asks twice — keep or cancel. Every other step has one CTA. */
@@ -257,6 +257,13 @@ function ComponentSkeleton({ component, maxH }: { component: ExperienceComponent
             <Block key={p.id} className="flex-1" />
           ))}
         </div>
+      )
+    case 'checkout':
+      return (
+        <Stack>
+          <Block className="flex-1" />
+          {maxH >= MIN_SHAPE_H + GAP + TEXT_H && <Bar w={W.mid} h={TEXT_H} tone="accent" />}
+        </Stack>
       )
     default:
       return (
