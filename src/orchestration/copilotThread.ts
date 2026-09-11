@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { PlanBeat } from './JourneyPlan'
 
-export type PromptTurn = 'kind' | 'guide' | 'plan' | 'done'
+export type PromptTurn = 'kind' | 'guide' | 'plan' | 'match_site' | 'done'
 
 /** One bubble in Chargebee Copilot, including questions asked from the canvas. */
 export interface CopilotLine {

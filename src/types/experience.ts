@@ -355,6 +355,25 @@ export interface Branding {
   buttonBorderColor?: string
   /** CTA button border width in px (0 = no stroke). */
   buttonBorderWidth?: number
+  /** Primary CTA fill: solid uses primaryColor; gradient uses the stops below. */
+  buttonFillType?: FillType
+  buttonGradientFrom?: string
+  buttonGradientTo?: string
+  buttonGradientAngle?: number
+  /** How the CTA is cut. `clip` uses buttonClipPath. */
+  buttonShape?: 'radius' | 'pill' | 'clip'
+  buttonClipPath?: string
+  /** Label color on filled primary/secondary CTAs. */
+  buttonTextColor?: string
+  /** Stylesheet URL that provides @font-face for body (and heading if unset). */
+  fontUrl?: string
+  headingFontUrl?: string
+  /** Optional full-page / site backdrop image. */
+  siteImageUrl?: string
+  /** Merchant CSS applied only inside .brand-surface. */
+  customCss?: string
+  /** Modal card drop shadow. */
+  cardShadow?: string
   /** Body font size in px. */
   fontSizeBase: number
   /** Body line-height multiplier. */

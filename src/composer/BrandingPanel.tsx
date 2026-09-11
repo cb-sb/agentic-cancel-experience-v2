@@ -1,5 +1,7 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { DEFAULT_BUTTON_CLIP } from '../brand/theme'
 import { useExperience } from '../store/useExperience'
+import { useJourney } from '../store/useJourney'
 import type { Branding, FillType, FrameVisibility, TextAlign } from '../types/experience'
 import { cardFillCss } from '../render/brand'
 import { SelectField, SwitchField, TextField } from './fields'
@@ -12,13 +14,15 @@ import { SelectField, SwitchField, TextField } from './fields'
  * swatch + hex chip.
  */
 
-type ScreenId = 'root' | 'colors' | 'type' | 'logo' | 'frame'
+type ScreenId = 'root' | 'colors' | 'type' | 'logo' | 'buttons' | 'advanced' | 'frame'
 
 const TITLES: Record<ScreenId, string> = {
   root: 'Brand',
   colors: 'Colors',
   type: 'Typography',
   logo: 'Logo & name',
+  buttons: 'Buttons',
+  advanced: 'Advanced',
   frame: 'Frame elements',
 }
 
@@ -415,6 +419,7 @@ const FONT_OPTIONS: { value: string; label: string }[] = [
   { value: "'Mulish', 'Muli', sans-serif", label: 'Muli' },
   { value: "'Nunito Sans', sans-serif", label: 'Nunito Sans' },
   { value: "'Montserrat', sans-serif", label: 'Montserrat' },
+  { value: "'Barlow', 'Segoe UI', sans-serif", label: 'Barlow' },
 ]
 
 const WEIGHT_OPTIONS: { value: string; label: string }[] = [
@@ -541,11 +546,11 @@ export function BrandingPanel() {
   const branding = useExperience((s) => s.experience.branding)
   const frame = useExperience((s) => s.experience.frame)
   const shell = useExperience((s) => s.experience.shell)
-  const updateBranding = useExperience((s) => s.updateBranding)
+  const applyBrand = useJourney((s) => s.applyBrand)
   const updateFrame = useExperience((s) => s.updateFrame)
   const isFullPage = shell !== 'modal'
 
-  const set = (p: Partial<Branding>) => updateBranding(p)
+  const set = (p: Partial<Branding>) => applyBrand({ ...branding, ...p })
   const [stack, setStack] = useState<ScreenId[]>(['root'])
   const current = stack[stack.length - 1]
   const push = (id: ScreenId) => setStack((s) => [...s, id])
@@ -592,6 +597,18 @@ export function BrandingPanel() {
             onClick={() => push('type')}
           />
           <NavRow title="Logo & name" value={branding.merchantName || 'Not set'} onClick={() => push('logo')} />
+          <NavRow
+            title="Buttons"
+            value={
+              branding.buttonShape === 'clip'
+                ? 'Clip path'
+                : branding.buttonFillType === 'gradient'
+                  ? 'Gradient'
+                  : 'Solid'
+            }
+            onClick={() => push('buttons')}
+          />
+          <NavRow title="Advanced" value={branding.customCss?.trim() ? 'Scoped CSS on' : 'Fonts & CSS hatch'} onClick={() => push('advanced')} />
           <NavRow title="Frame elements" value={`${shownFrame} of ${FRAME_TOGGLES.length} shown`} onClick={() => push('frame')} />
         </div>
       )}
@@ -831,6 +848,121 @@ export function BrandingPanel() {
           <div>
             <div className="mb-1 text-[12px] font-semibold text-slate-600">Alignment</div>
             <AlignToggle value={branding.textAlign} onChange={(textAlign) => set({ textAlign })} />
+          </div>
+        </div>
+      )}
+
+      {/* ---- Buttons: fill, shape, clip, radius ---- */}
+      {current === 'buttons' && (
+        <div className="space-y-4">
+          <FillControl
+            label="Primary fill"
+            hint="Solid uses the primary color. Gradient is two stops on the CTA."
+            value={{
+              type: branding.buttonFillType ?? 'solid',
+              solid: branding.primaryColor,
+              from: branding.buttonGradientFrom ?? branding.primaryColor,
+              to: branding.buttonGradientTo ?? branding.primaryColor,
+              angle: branding.buttonGradientAngle ?? 180,
+            }}
+            onChange={(v) =>
+              set({
+                buttonFillType: v.type,
+                primaryColor: v.type === 'solid' ? v.solid : branding.primaryColor,
+                buttonGradientFrom: v.from,
+                buttonGradientTo: v.to,
+                buttonGradientAngle: v.angle,
+              })
+            }
+          />
+          <ColorChipRow
+            label="Button text"
+            hint="Label color on filled primary CTAs."
+            value={branding.buttonTextColor ?? '#ffffff'}
+            onChange={(buttonTextColor) => set({ buttonTextColor })}
+          />
+          <div>
+            <div className="mb-1.5 text-[12px] font-semibold text-slate-600">Shape</div>
+            <div className="flex rounded-lg bg-slate-100 p-0.5">
+              {(['radius', 'pill', 'clip'] as const).map((shape) => {
+                const on = (branding.buttonShape ?? 'radius') === shape
+                return (
+                  <button
+                    key={shape}
+                    type="button"
+                    onClick={() =>
+                      set({
+                        buttonShape: shape,
+                        buttonClipPath: shape === 'clip' ? branding.buttonClipPath || DEFAULT_BUTTON_CLIP : branding.buttonClipPath,
+                      })
+                    }
+                    className="flex-1 rounded-md px-2 py-1 text-[12px] font-semibold capitalize"
+                    style={{
+                      background: on ? '#fff' : 'transparent',
+                      color: on ? '#0f172a' : '#64748b',
+                      boxShadow: on ? '0 1px 2px rgba(15,23,42,0.12)' : 'none',
+                    }}
+                  >
+                    {shape}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          {(branding.buttonShape ?? 'radius') === 'clip' && (
+            <TextField
+              label="Clip path"
+              value={branding.buttonClipPath ?? ''}
+              onChange={(buttonClipPath) => set({ buttonClipPath })}
+              hint="CSS clip-path on primary CTAs. Applied inside the isolated surface only."
+            />
+          )}
+          <SliderRow
+            label="Corner radius"
+            hint="Used when shape is radius. Pill ignores this; clip sets radius to 0."
+            value={branding.cornerRadius}
+            min={0}
+            max={24}
+            suffix="px"
+            onChange={(cornerRadius) => set({ cornerRadius })}
+          />
+        </div>
+      )}
+
+      {/* ---- Advanced: font URLs, page image, scoped CSS hatch ---- */}
+      {current === 'advanced' && (
+        <div className="space-y-4">
+          <TextField
+            label="Font stylesheet URL"
+            value={branding.fontUrl ?? ''}
+            onChange={(v) => set({ fontUrl: v || undefined })}
+            hint="A CSS file with @font-face (Google Fonts URL is fine)."
+          />
+          <TextField
+            label="Heading font URL"
+            value={branding.headingFontUrl ?? ''}
+            onChange={(v) => set({ headingFontUrl: v || undefined })}
+            hint="Leave blank to reuse the body stylesheet."
+          />
+          <TextField
+            label="Page background image"
+            value={branding.siteImageUrl ?? ''}
+            onChange={(v) => set({ siteImageUrl: v || undefined })}
+            hint="Full-page shells only. Modal still uses the card fill."
+          />
+          <div>
+            <div className="mb-1 text-[12px] font-semibold text-slate-600">Scoped CSS</div>
+            <textarea
+              value={branding.customCss ?? ''}
+              onChange={(e) => set({ customCss: e.target.value || undefined })}
+              rows={8}
+              spellCheck={false}
+              placeholder=".brand-btn-primary:hover { filter: brightness(1.08); }"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-700 outline-none focus:border-slate-400"
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+              Applied only inside .brand-surface. html/body selectors are rewritten; @import is stripped.
+            </p>
           </div>
         </div>
       )}

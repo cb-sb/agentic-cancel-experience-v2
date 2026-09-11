@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stay on different terms</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <main class="page" data-cb-step="offer" data-cb-kind="offer">
+      <div class="eyebrow">A different path</div>
+      <h1>Stay, on different terms.</h1>
+      <p class="lede">This block is filled from the offer catalog when you bind it.</p>
+      <div class="offer" data-cb-slot="offer">
+        <div class="eyebrow" data-cb-bind="eyebrow">Exclusive discount</div>
+        <h1 data-cb-bind="title" style="font-size: 32px">50% off for 3 months</h1>
+        <p class="lede" data-cb-bind="body">Same plan, half the price for your next three cycles.</p>
+        <div class="cta-row">
+          <button type="button" class="btn btn-primary" data-cb-bind="cta" data-cb-action="accept_offer">
+            Claim 50% discount
+          </button>
+          <a class="btn btn-ghost" href="confirm.html" data-cb-action="decline_offer" data-cb-next="confirm.html">
+            No thanks, continue
+          </a>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

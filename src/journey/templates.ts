@@ -1,4 +1,4 @@
-import type { JourneyFile, JourneyStepFile, JourneyTemplate, OfferKey } from './types'
+import { isTailKind, type JourneyFile, type JourneyStepFile, type JourneyTemplate, type OfferKey } from './types'
 
 function s(
   id: string,
@@ -42,6 +42,14 @@ export function skeletonSteps(template: JourneyTemplate): JourneyStepFile[] {
         s('offer', 'offer', { offer: 'discount', headline: '50% off for 3 months' }),
         ...TAIL,
       ]
+    case 'cancel_plan_change':
+      return [
+        s('value', 'loss_aversion', { headline: 'Before you go' }),
+        s('survey', 'survey', { headline: 'Why are you cancelling?' }),
+        s('pricing', 'pricing_table', { headline: 'Choose a plan' }),
+        s('checkout', 'checkout', { headline: 'Complete your change' }),
+        ...TAIL,
+      ]
     case 'acquire_2':
       return [
         s('pricing', 'pricing_table', { headline: 'Choose a plan' }),
@@ -65,6 +73,8 @@ export function templateLabel(template: JourneyTemplate): string {
       return '4-step balanced'
     case 'cancel_5':
       return '5-step save-aggressive'
+    case 'cancel_plan_change':
+      return 'Plan change to save'
     case 'acquire_2':
       return '2-step pricing to checkout'
     default:
@@ -127,6 +137,14 @@ export const LIBRARY: LibraryEntry[] = [
     stepCount: 5,
   },
   {
+    id: 'cancel_plan_change',
+    title: 'Plan change to save',
+    why: 'Keep them as a subscriber by letting them pick a cheaper plan, then hand off to hosted checkout. They can still confirm and leave — this is a save mechanic on a cancel path, not acquiring a new subscriber.',
+    stepLabels: ['What you keep', 'Survey', 'Choose a plan', 'Checkout', 'Confirm'],
+    kind: 'cancel',
+    stepCount: 5,
+  },
+  {
     id: 'acquire_2',
     title: 'Pricing table → checkout',
     why: 'Not a cancel flow. Put a pricing table in front of hosted checkout so a new subscriber can pick a plan and pay. Use this when you are acquiring, not retaining.',
@@ -179,6 +197,58 @@ export function switchTemplate(file: JourneyFile, template: JourneyTemplate): Jo
   return { ...next, steps: withLive(applyOffers(next.steps, offers), true) }
 }
 
+export function hasPlanChangeBlocks(file: JourneyFile): boolean {
+  return (
+    file.kind === 'cancel' &&
+    file.steps.some((step) => step.kind === 'pricing_table') &&
+    file.steps.some((step) => step.kind === 'checkout')
+  )
+}
+
+/**
+ * Insert a plan picker and hosted-checkout handoff before the cancel tail.
+ * Keeps existing value / survey / offer steps instead of swapping the whole
+ * file to the acquisition template.
+ */
+export function insertPlanChangeBlocks(file: JourneyFile): JourneyFile {
+  if (file.source === 'uploaded' || file.steps.length === 0 || file.template === 'none') {
+    return startFromTemplate({ ...file, kind: 'cancel' }, 'cancel_plan_change')
+  }
+
+  let steps = [...file.steps]
+  const hasPricing = steps.some((step) => step.kind === 'pricing_table')
+  const hasCheckout = steps.some((step) => step.kind === 'checkout')
+  const hasConfirm = steps.some((step) => step.kind === 'confirmation')
+
+  if (!hasConfirm) {
+    const savedIdx = steps.findIndex((step) => step.kind === 'outcome_saved')
+    const insertAt = savedIdx >= 0 ? savedIdx : steps.length
+    const extra: JourneyStepFile[] = [
+      s('confirm', 'confirmation', { headline: 'Are you sure you want to cancel?', live: true }),
+    ]
+    if (!steps.some((step) => step.kind === 'outcome_cancelled')) {
+      extra.push(s('cancelled', 'outcome_cancelled', { headline: 'Your plan has been cancelled', live: true }))
+    }
+    steps = [...steps.slice(0, insertAt), ...extra, ...steps.slice(insertAt)]
+  }
+
+  if (!hasPricing || !hasCheckout) {
+    const tailStart = steps.findIndex((step) => isTailKind(step.kind))
+    const at = tailStart >= 0 ? tailStart : steps.length
+    const extra: JourneyStepFile[] = []
+    if (!hasPricing) extra.push(s('pricing', 'pricing_table', { headline: 'Choose a plan', live: true }))
+    if (!hasCheckout) extra.push(s('checkout', 'checkout', { headline: 'Complete your change', live: true }))
+    steps = [...steps.slice(0, at), ...extra, ...steps.slice(at)]
+  }
+
+  return {
+    ...file,
+    kind: 'cancel',
+    template: 'cancel_plan_change',
+    steps: withLive(steps, true),
+  }
+}
+
 export function startFromTemplate(
   base: JourneyFile,
   template: JourneyTemplate,
@@ -188,7 +258,14 @@ export function startFromTemplate(
     ...base,
     kind: acquire ? 'acquisition' : 'cancel',
     template,
-    name: acquire ? 'Acquire subscribers' : 'Cancel experience',
+    source: 'authored',
+    artifact: undefined,
+    manifest: undefined,
+    name: acquire
+      ? 'Acquire subscribers'
+      : template === 'cancel_plan_change'
+        ? 'Plan change to save'
+        : 'Cancel experience',
     steps: skeletonSteps(template),
   }
 }

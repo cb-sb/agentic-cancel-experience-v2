@@ -63,16 +63,34 @@ export const LANE_X0 = 40
 export const ENCLOSURE_GAP = 80
 /** Room above an enclosure for its title, which floats outside the frame. */
 export const TITLE_ALLOWANCE = 48
+/** Room below the demo enclosure for the commit actions, which float outside the frame. */
+export const DEMO_FOOTER_GAP = 10
+export const DEMO_FOOTER_H = 40
+export const DEMO_FOOTER_ALLOWANCE = DEMO_FOOTER_H + DEMO_FOOTER_GAP
 export const ADD_BRANCH_H = 52
 /** A collapsed enclosure is a fixed card; its contents adapt, its box does not. */
 export const COLLAPSED_W = 340
 export const COLLAPSED_H = 208
+/**
+ * Empty-file educational demo: iPad Air portrait + caption with step carousel.
+ * Width hugs the tablet body (0.715) rather than a landscape enclosure, so
+ * FittedDevice cannot crop a tall iPad into a stubby rectangle. World size stays fixed.
+ */
+export const DEMO_ENCLOSURE_W = 500
+export const DEMO_ENCLOSURE_H = 560
 /** Non-experience branch targets (a bare offer, a pricing page). */
 export const TARGET_W = 300
 export const TARGET_H = 200
 
 export const MIN_ZOOM = 0.2
 export const MAX_ZOOM = 1.6
+/**
+ * Empty-demo zoom floor. The iPad screen is authored at ~14px body; below
+ * Summary the type drops under 11px and the walk stops being readable. Map and
+ * Outline are therefore disabled while the demo is up. A started journey uses
+ * MIN_ZOOM as before.
+ */
+export const DEMO_MIN_ZOOM = 0.8
 
 /* ───────────────────────── Screen: constant chrome ────────────────────── */
 

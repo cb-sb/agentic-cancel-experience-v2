@@ -20,6 +20,8 @@ export type PlayEventId =
   | 'no_matching_offer'
   | 'offer_accepted'
   | 'plan_selected'
+  | 'checkout_completed'
+  | 'checkout_aborted'
   | 'offer_declined'
   | 'cancel_confirmed'
   | 'subscription_kept'
@@ -57,8 +59,6 @@ export const PLAY_EVENTS: Record<PlayEventId, PlayEvent> = {
     short: 'No offer',
     raisedBy: null,
   },
-  // Covers the checkout detour too — `completeCheckout` only resolves what
-  // accepting already decided, and a wire for it would point at the same card.
   offer_accepted: {
     id: 'offer_accepted',
     label: 'Offer accepted',
@@ -70,6 +70,18 @@ export const PLAY_EVENTS: Record<PlayEventId, PlayEvent> = {
     label: 'Plan selected',
     short: 'Selected',
     raisedBy: 'acceptOffer',
+  },
+  checkout_completed: {
+    id: 'checkout_completed',
+    label: 'Checkout completed',
+    short: 'Paid',
+    raisedBy: 'completeCheckout',
+  },
+  checkout_aborted: {
+    id: 'checkout_aborted',
+    label: 'Checkout aborted',
+    short: 'Aborted',
+    raisedBy: 'cancelCheckout',
   },
   offer_declined: {
     id: 'offer_declined',

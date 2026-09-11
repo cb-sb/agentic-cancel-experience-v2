@@ -67,6 +67,20 @@ export function brandStyle(branding: Branding): CSSProperties {
     ['--brand-font-body' as string]: bodyFont,
     ['--brand-btn-border-width' as string]: `${btnBorderWidth}px`,
     ['--brand-btn-border-color' as string]: btnBorderColor,
+    ['--brand-btn-fill' as string]: buttonFillCss(branding),
+    ['--brand-btn-text' as string]: branding.buttonTextColor ?? '#ffffff',
+    ['--brand-btn-clip' as string]:
+      branding.buttonShape === 'clip' && branding.buttonClipPath ? branding.buttonClipPath : 'none',
+    ['--brand-btn-radius' as string]:
+      branding.buttonShape === 'pill'
+        ? '999px'
+        : branding.buttonShape === 'clip'
+          ? '0px'
+          : 'calc(var(--brand-radius) * 0.66)',
+    ['--brand-card-solid' as string]: branding.cardColor,
+    ['--brand-card-shadow' as string]:
+      branding.cardShadow ?? '0 12px 40px -12px rgba(15, 23, 42, 0.18)',
+    ['--brand-site-image' as string]: branding.siteImageUrl ? `url("${branding.siteImageUrl}")` : 'none',
     ['--brand-font-size' as string]: `${branding.fontSizeBase}px`,
     ['--brand-line-height' as string]: String(branding.fontLineHeight),
     ['--brand-font-weight' as string]: String(branding.fontWeight),
@@ -92,6 +106,13 @@ export function brandBtnBorderStyle(): CSSProperties {
   return {
     border: 'var(--brand-btn-border-width, 0px) solid var(--brand-btn-border-color, transparent)',
   }
+}
+
+/** Primary CTA fill — a flat color or a two-stop linear gradient. */
+export function buttonFillCss(b: Branding): string {
+  return b.buttonFillType === 'gradient'
+    ? `linear-gradient(${b.buttonGradientAngle ?? 180}deg, ${b.buttonGradientFrom ?? b.primaryColor}, ${b.buttonGradientTo ?? b.primaryColor})`
+    : b.primaryColor
 }
 
 /** CSS value for the card fill — a flat color or a two-stop linear gradient. */

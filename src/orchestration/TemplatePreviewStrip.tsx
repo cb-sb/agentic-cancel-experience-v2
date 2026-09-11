@@ -2,7 +2,7 @@ import { Fragment, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { compileJourney } from '../journey/compile'
 import { startFromTemplate, withLive, type LibraryEntry } from '../journey/templates'
 import { isOutcomeStep } from '../lib/stepColumns'
-import { brandStyle } from '../render/brand'
+import { BrandRoot } from '../render/BrandUI'
 import {
   RenderProvider,
   defaultRenderActions,
@@ -51,11 +51,16 @@ function FakeBtn({
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
 }) {
   const styles: Record<typeof variant, CSSProperties> = {
-    primary: { background: 'var(--brand-primary)', color: '#fff' },
+    primary: {
+      background: 'var(--brand-btn-fill, var(--brand-primary))',
+      color: 'var(--brand-btn-text, #fff)',
+      clipPath: 'var(--brand-btn-clip, none)',
+      borderRadius: 'var(--brand-btn-radius)',
+    },
     secondary: { background: 'var(--brand-secondary)', color: '#fff' },
     outline: {
-      background: '#fff',
-      color: 'var(--brand-primary)',
+      background: 'var(--brand-card-solid, #fff)',
+      color: 'var(--brand-title, var(--brand-primary))',
       border: '1px solid var(--brand-primary)',
     },
     ghost: { background: 'transparent', color: 'var(--brand-primary)' },
@@ -80,6 +85,7 @@ function PlayFooter({ step }: { step: Step }) {
   const isOutcome = step.components.some((c) => c.kind === 'outcome')
   const isCheckout = step.components.some((c) => c.kind === 'checkout')
   const hasOffer = step.components.some((c) => c.kind === 'offer')
+  const hasPricing = step.components.some((c) => c.kind === 'pricing_table')
 
   if (isCheckout) return <FakeBtn>Confirm &amp; apply</FakeBtn>
   if (confirmation) {
@@ -91,7 +97,8 @@ function PlayFooter({ step }: { step: Step }) {
     )
   }
   if (isOutcome) return <FakeBtn variant="ghost">Close</FakeBtn>
-  const continueLabel = step.navContinueLabel ?? (hasOffer ? 'No thanks, continue cancelling →' : 'Continue')
+  const continueLabel =
+    step.navContinueLabel ?? (hasOffer || hasPricing ? 'No thanks, continue cancelling →' : 'Continue')
   return (
     <FakeBtn>
       <span dangerouslySetInnerHTML={{ __html: continueLabel }} />
@@ -158,13 +165,13 @@ function TemplateStepThumb({
 
   const screen = (
     <div className="overflow-hidden" style={{ width: screenW, height: screenH }}>
-      <div
+      <BrandRoot
+        branding={branding}
         className="pointer-events-none origin-top-left"
         style={{
           width: nativeW,
           height: nativeH,
           transform: `scale(${scale})`,
-          ...brandStyle(branding),
         }}
       >
         <RenderProvider value={ctx}>
@@ -184,7 +191,7 @@ function TemplateStepThumb({
             <StepRenderer step={step} />
           </StepFrame>
         </RenderProvider>
-      </div>
+      </BrandRoot>
     </div>
   )
 

@@ -2,8 +2,9 @@ import type { ExperienceComponent } from '../types/experience'
 import { stripHtml } from '../render/Editable'
 
 /**
- * Mock checkout that opens inside the cancel-experience container for
- * billing-altering offers (discounts, plan changes, add-ons, pricing tables).
+ * Stand-in for Chargebee hosted checkout. The stitch is a handoff to this
+ * step — production opens hosted checkout; the prototype keeps this dummy
+ * for both acquire and cancel plan-change paths.
  */
 export function DummyCheckout({ component }: { component: ExperienceComponent | undefined }) {
   const isPricing = component?.kind === 'pricing_table'

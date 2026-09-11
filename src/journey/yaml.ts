@@ -19,6 +19,7 @@ const TEMPLATES = new Set<JourneyTemplate>([
   'cancel_3',
   'cancel_4',
   'cancel_5',
+  'cancel_plan_change',
   'acquire_2',
 ])
 const STEP_KINDS = new Set<JourneyStepKind>([
@@ -63,6 +64,25 @@ export function stringifyJourney(file: JourneyFile): string {
     `  primary: ${yamlStr(file.brand.primary)}`,
     `  corners: ${file.brand.corners}`,
   ]
+  if (file.brand.theme) head.push(`  theme: ${JSON.stringify(file.brand.theme)}`)
+  if (file.source === 'uploaded') {
+    head.push('source: uploaded')
+    if (file.artifact) {
+      head.push(`artifact_id: ${yamlStr(file.artifact.id)}`)
+      head.push(`artifact_checksum: ${file.artifact.checksum}`)
+      head.push(`artifact_version: ${file.artifact.version}`)
+    }
+    if (file.manifest) {
+      const compact = {
+        steps: file.manifest.steps,
+        warnings: file.manifest.warnings,
+        confirmed: file.manifest.confirmed,
+        subscriberContext: file.manifest.subscriberContext,
+        surveyReasons: file.manifest.surveyReasons,
+      }
+      head.push(`manifest: ${JSON.stringify(compact)}`)
+    }
+  }
   if (file.steps.length === 0) return `${head.join('\n')}\nsteps: []\n`
   return `${head.join('\n')}\nsteps:\n${file.steps.map(emitStep).join('\n')}\n`
 }
@@ -117,7 +137,16 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
     if (!line.trim()) continue
     const n = i + 1
 
-    if (inBrand && /^\s+\S/.test(line) && !inSteps) {
+    if (inBrand && /^\s+\S/.test(raw) && !inSteps) {
+      const themeLine = raw.match(/^\s+theme:\s*(.*)$/)
+      if (themeLine) {
+        try {
+          file.brand.theme = JSON.parse(themeLine[1].trim()) as JourneyFile['brand']['theme']
+        } catch {
+          return { error: `Line ${n}: theme must be JSON` }
+        }
+        continue
+      }
       const bm = line.match(/^\s+([a-z]+):\s*(.*)$/)
       if (!bm) return { error: `Line ${n}: expected a brand field` }
       const val = String(parseScalar(bm[2]))
@@ -143,7 +172,7 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
         inSteps = true
         continue
       }
-      const m = line.match(/^([a-z]+):\s*(.*)$/)
+      const m = line.match(/^([a-z_]+):\s*(.*)$/)
       if (!m) return { error: `Line ${n}: expected a field` }
       const [, key, val] = m
       const v = String(parseScalar(val))
@@ -168,6 +197,37 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
         file.holdout = holdout
       } else if (key === 'brand') {
         inBrand = true
+      } else if (key === 'source') {
+        if (v !== 'authored' && v !== 'uploaded') return { error: `Line ${n}: source must be authored or uploaded` }
+        file.source = v
+      } else if (key === 'artifact_id') {
+        file.artifact = {
+          id: v,
+          checksum: file.artifact?.checksum ?? '',
+          version: file.artifact?.version ?? 1,
+          files: file.artifact?.files ?? [],
+        }
+      } else if (key === 'artifact_checksum') {
+        file.artifact = {
+          id: file.artifact?.id ?? '',
+          checksum: v,
+          version: file.artifact?.version ?? 1,
+          files: file.artifact?.files ?? [],
+        }
+      } else if (key === 'artifact_version') {
+        const version = Number(v)
+        file.artifact = {
+          id: file.artifact?.id ?? '',
+          checksum: file.artifact?.checksum ?? '',
+          version: Number.isFinite(version) ? version : 1,
+          files: file.artifact?.files ?? [],
+        }
+      } else if (key === 'manifest') {
+        try {
+          file.manifest = JSON.parse(val) as JourneyFile['manifest']
+        } catch {
+          return { error: `Line ${n}: manifest must be JSON` }
+        }
       } else return { error: `Line ${n}: unknown field ${key}` }
       continue
     }

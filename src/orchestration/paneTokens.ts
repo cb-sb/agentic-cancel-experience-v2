@@ -16,6 +16,15 @@ export const ASSISTANT_W = 400
  */
 export const ASSISTANT_FOLDED_W = 72
 
+/** Growth product nav, open — labels and nested items, matching the live app. */
+export const NAV_W = 232
+
+/**
+ * Growth product nav, folded. Same Copilot pattern: a slim column that always
+ * occupies width, and opens only when the merchant clicks it.
+ */
+export const NAV_FOLDED_W = 56
+
 /** The settings pane. Brand is narrower — its rows are shorter. */
 export const SETTINGS_W = 360
 export const SETTINGS_BRAND_W = 340

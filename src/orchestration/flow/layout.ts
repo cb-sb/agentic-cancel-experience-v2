@@ -12,6 +12,9 @@ import {
   COLLAPSED_H,
   COLLAPSED_W,
   COL_GAP,
+  DEMO_ENCLOSURE_H,
+  DEMO_ENCLOSURE_W,
+  DEMO_FOOTER_ALLOWANCE,
   ENCLOSURE_GAP,
   LANE_X0,
   ROW_GAP,
@@ -83,6 +86,8 @@ export interface BuildFlowGraphInput {
   experiences: Record<string, Experience>
   collapsedFlows: Record<string, boolean>
   selectedNodeId: string | null
+  /** Educational demo in the empty enclosure — hide Traffic / A/B. */
+  emptyDemo?: boolean
 }
 
 export interface BuildFlowGraphResult {
@@ -117,7 +122,7 @@ interface Row {
  * Between them, that is the whole of "zooming cannot trigger a relayout".
  */
 export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult {
-  const { play, experiences, collapsedFlows, selectedNodeId } = input
+  const { play, experiences, collapsedFlows, selectedNodeId, emptyDemo } = input
   const split = play.targeting.kind === 'split' ? (play.targeting as SplitNode) : null
   const mode: SplitMode = split?.mode ?? 'single'
 
@@ -166,7 +171,13 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
       w = grid.w
       h = grid.h
     }
-    return { branch, flow, exp, collapsed, grid, w, h, rowH: TITLE_ALLOWANCE + h }
+    if (emptyDemo && isExpTarget) {
+      grid = null
+      w = DEMO_ENCLOSURE_W
+      h = DEMO_ENCLOSURE_H
+    }
+    const footer = emptyDemo && isExpTarget ? DEMO_FOOTER_ALLOWANCE : 0
+    return { branch, flow, exp, collapsed, grid, w, h, rowH: TITLE_ALLOWANCE + h + footer }
   })
 
   const totalH = rows.reduce((s, r) => s + r.rowH, 0) + Math.max(0, rows.length - 1) * ROW_GAP
@@ -196,7 +207,9 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
     const carded = hasBranchCard(r)
 
     if (r.flow) {
-      const encX = (carded ? bx + CARD_W : sx + CARD_W) + ENCLOSURE_GAP
+      const encX = emptyDemo
+        ? sx
+        : (carded ? bx + CARD_W : sx + CARD_W) + ENCLOSURE_GAP
       const encY = rowTop + TITLE_ALLOWANCE
       const cardY = encY + Math.max(0, (r.h - CARD_H) / 2)
       const layout: FlowBranchLayout = {
@@ -301,6 +314,10 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
   })
 
   const laneBottom = cursor - ROW_GAP
+
+  if (emptyDemo) {
+    return { nodes, edges, flowLayouts, branchNodes, laneBottom, mode, split }
+  }
 
   // Centred on whatever it wires into rather than on the rows, whose heights
   // are driven by the enclosures: this keeps the fan-out symmetric, and lines
@@ -470,6 +487,13 @@ function journeyEdges({
     return []
   }
 
+  const findRole = (from: number, role: StepRole) => {
+    for (let i = from + 1; i < grid.columns.length; i++) {
+      if (roleOfCol[i] === role) return grid.columns[i].steps[0]?.step
+    }
+    return undefined
+  }
+
   /**
    * `row` is which card in a stack the wire leaves from, and it decides how far
    * out the orthogonal turn is made: without it, three variants declining into
@@ -529,17 +553,28 @@ function journeyEdges({
         case 'pricing': {
           const quiet = row > 0
           const next = onward(index)
-          const checkout = next.find((s) => stepRole(s) === 'checkout')
-          if (checkout) wire(step, checkout, 'plan_selected', { quiet })
-          else {
+          const checkout = findRole(index, 'checkout')
+          const confirm = findRole(index, 'confirmation')
+          if (checkout) {
+            wire(step, checkout, 'plan_selected', { quiet })
+            if (confirm) wire(step, confirm, 'offer_declined', { row, quiet })
+            else {
+              next
+                .filter((s) => stepRole(s) !== 'checkout')
+                .forEach((to) => wire(step, to, 'offer_declined', { row, quiet }))
+            }
+          } else {
             wire(step, saved, 'plan_selected', { handle: 'out.saved', curve: 'bezier', quiet })
             next.forEach((to) => wire(step, to, 'offer_declined', { row, quiet }))
           }
           break
         }
-        case 'checkout':
-          wire(step, saved, 'plan_selected', { handle: 'out.saved', curve: 'bezier' })
+        case 'checkout': {
+          wire(step, saved, 'checkout_completed', { handle: 'out.saved', curve: 'bezier' })
+          const confirm = findRole(index, 'confirmation')
+          if (confirm) wire(step, confirm, 'checkout_aborted')
           break
+        }
         case 'survey': {
           // A reason with an offer already has its own wire. What is left is
           // everyone the routing does not catch, and they skip the offers.

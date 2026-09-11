@@ -70,8 +70,8 @@ export function PricingTable({ component }: { component: PricingTableComponent }
             <div
               className="mt-5 w-full text-center text-sm font-semibold"
               style={{
-                background: plan.highlighted ? 'var(--brand-primary)' : '#fff',
-                color: plan.highlighted ? '#fff' : 'var(--brand-primary)',
+                background: plan.highlighted ? 'var(--brand-btn-fill, var(--brand-primary))' : 'var(--brand-card-solid, #fff)',
+                color: plan.highlighted ? 'var(--brand-btn-text, #fff)' : 'var(--brand-primary)',
                 border: `1px solid var(--brand-primary)`,
                 borderRadius: 'calc(var(--brand-radius) * 0.66)',
                 padding: '10px 14px',
@@ -89,8 +89,8 @@ export function PricingTable({ component }: { component: PricingTableComponent }
               onClick={() => interactive && actions.acceptOffer(component.id)}
               className="mt-5 w-full text-sm font-semibold"
               style={{
-                background: plan.highlighted ? 'var(--brand-primary)' : '#fff',
-                color: plan.highlighted ? '#fff' : 'var(--brand-primary)',
+                background: plan.highlighted ? 'var(--brand-btn-fill, var(--brand-primary))' : 'var(--brand-card-solid, #fff)',
+                color: plan.highlighted ? 'var(--brand-btn-text, #fff)' : 'var(--brand-primary)',
                 border: `1px solid var(--brand-primary)`,
                 borderRadius: 'calc(var(--brand-radius) * 0.66)',
                 padding: '10px 14px',

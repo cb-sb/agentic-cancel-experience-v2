@@ -1,4 +1,5 @@
-import type { ShellLayout } from '../types/experience'
+import type { Branding, ShellLayout } from '../types/experience'
+import type { JourneySource, TemplateArtifact, TemplateManifest } from '../upload/types'
 
 /** Which product surface this file is. New journeys are new files, not new UIs. */
 export type JourneyKind = 'cancel' | 'acquisition'
@@ -14,6 +15,7 @@ export type JourneyTemplate =
   | 'cancel_3'
   | 'cancel_4'
   | 'cancel_5'
+  | 'cancel_plan_change'
   | 'acquire_2'
 
 export type JourneyStepKind =
@@ -31,11 +33,13 @@ export type OfferKey = 'discount' | 'pause' | 'plan_change' | 'extension' | 'ski
 
 export type AudienceKey = 'all' | 'paying' | 'high_value' | 'high_risk' | 'annual' | 'in_trial'
 
-/** The brand knobs that used to live in a side panel — enough to preview, not a style studio. */
+/** Merchant identity shortcuts plus the full token theme the studio edits. */
 export interface JourneyBrand {
   merchant: string
   primary: string
   corners: number
+  /** Full Branding object. Compile copies this through instead of DEFAULT_BRANDING. */
+  theme?: Partial<Branding>
 }
 
 export const DEFAULT_JOURNEY_BRAND: JourneyBrand = {
@@ -71,6 +75,13 @@ export interface JourneyFile {
   /** Share of traffic that sees no treatment. 0 means everyone is in. */
   holdout: number
   steps: JourneyStepFile[]
+  /**
+   * `uploaded` means the subscriber sees merchant markup hosted by Chargebee.
+   * Copilot still authors Chargebee-drawn journeys (`authored`, the default).
+   */
+  source?: JourneySource
+  artifact?: TemplateArtifact
+  manifest?: TemplateManifest
 }
 
 export const EMPTY_JOURNEY: JourneyFile = {

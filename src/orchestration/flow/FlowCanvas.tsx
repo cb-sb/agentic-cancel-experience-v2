@@ -34,6 +34,7 @@ import { SplitCardNode } from './nodes/SplitCardNode'
 import { StepNode } from './nodes/StepNode'
 import { TargetNode } from './nodes/TargetNode'
 import {
+  DEMO_MIN_ZOOM,
   LINK_W,
   LINK_W_HOT,
   MAX_ZOOM,
@@ -59,6 +60,7 @@ import { FocusAutoPan } from '../focus/FocusAutoPan'
 import { CanvasAnchor } from './CanvasAnchor'
 import { CanvasTestHook } from './testHook'
 import type { OrchestrationNodeData } from './types'
+import { useEmptyJourneyDemo } from '../emptyDemoFlag'
 
 const nodeTypes: NodeTypes = {
   spine: SpineNode,
@@ -78,6 +80,7 @@ const FIT_VIEW_OPTIONS = { padding: 0.15, duration: 300 }
  * wireframe overview tier before they have seen a real card.
  */
 const INITIAL_FIT = { padding: 0.12, minZoom: 0.55, maxZoom: 1 }
+const DEMO_FIT = { padding: 0.16, minZoom: DEMO_MIN_ZOOM, maxZoom: 1.15, duration: 300 }
 
 function minimapNodeColor(node: { type?: string }) {
   switch (node.type) {
@@ -135,15 +138,29 @@ function ZoomButton({
   )
 }
 
-function ZoomControlsPanel({ wiring, onToggleWiring }: { wiring: boolean; onToggleWiring: () => void }) {
+function ZoomControlsPanel({
+  wiring,
+  onToggleWiring,
+  minZoom,
+}: {
+  wiring: boolean
+  onToggleWiring: () => void
+  minZoom: number
+}) {
   const zoom = useStore((s) => s.transform[2])
   const tier = tierForZoom(zoom, STEP_W)
   const { getViewport, setViewport, fitView } = useReactFlow()
+  const demoFloor = minZoom > MIN_ZOOM + 1e-3
+
+  useEffect(() => {
+    const { x, y, zoom: k } = getViewport()
+    if (k < minZoom - 1e-3) setViewport({ x, y, zoom: minZoom })
+  }, [minZoom, getViewport, setViewport])
 
   /** Zoom keeps the middle of the viewport fixed, the way scroll-zoom does. */
   const zoomTo = (target: number) => {
     const { x, y, zoom: k } = getViewport()
-    const nextK = clamp(target, MIN_ZOOM, MAX_ZOOM)
+    const nextK = clamp(target, minZoom, MAX_ZOOM)
     const pane = document.querySelector('.react-flow__pane')?.parentElement
     const cx = pane ? pane.clientWidth / 2 : 400
     const cy = pane ? pane.clientHeight / 2 : 300
@@ -151,13 +168,16 @@ function ZoomControlsPanel({ wiring, onToggleWiring }: { wiring: boolean; onTogg
     setViewport({ x: cx - (cx - x) * ratio, y: cy - (cy - y) * ratio, zoom: nextK }, { duration: 150 })
   }
 
+  const fitOpts = demoFloor ? DEMO_FIT : FIT_VIEW_OPTIONS
+  const resetOpts = demoFloor ? { ...DEMO_FIT, duration: 250 } : { ...INITIAL_FIT, duration: 250 }
+
   return (
     // The demo chip rides in the same row rather than stacking above it: the
     // corner above the controls belongs to the minimap.
     <Panel position="bottom-right" className="nowheel nopan !m-4 flex items-center gap-2">
       <DemoChip />
       <div className="flex h-9 items-center gap-0.5 rounded-xl border border-slate-200 bg-white/95 px-1 shadow-sm backdrop-blur">
-      <ZoomButton title="Zoom out" onClick={() => zoomTo(zoom * 0.87)} disabled={zoom <= MIN_ZOOM + 1e-3}>
+      <ZoomButton title="Zoom out" onClick={() => zoomTo(zoom * 0.87)} disabled={zoom <= minZoom + 1e-3}>
         <svg {...iconProps} width={14} height={14}>
           <path d="M5 12h14" />
         </svg>
@@ -175,14 +195,22 @@ function ZoomControlsPanel({ wiring, onToggleWiring }: { wiring: boolean; onTogg
 
       <div className="flex h-7 items-center gap-1.5 rounded-md bg-slate-50 pl-1 pr-2">
         <span className="flex items-end">
-          {TIERS.map((t, i) => (
+          {TIERS.map((t, i) => {
+            const target = zoomForTier(t)
+            const blocked = target < minZoom - 1e-3
+            return (
             <button
               key={t}
               type="button"
-              onClick={() => zoomTo(zoomForTier(t))}
-              title={`${TIER_LABEL[t]} — ${TIER_HINT[t]}`}
+              onClick={() => zoomTo(target)}
+              disabled={blocked}
+              title={
+                blocked
+                  ? `${TIER_LABEL[t]} — too far out to keep this demo readable`
+                  : `${TIER_LABEL[t]} — ${TIER_HINT[t]}`
+              }
               aria-label={`Zoom to ${TIER_LABEL[t]}`}
-              className="group flex h-6 w-[9px] items-end justify-center"
+              className="group flex h-6 w-[9px] items-end justify-center disabled:pointer-events-none disabled:opacity-30"
             >
               <span
                 className={`w-[3px] rounded-full transition-colors ${
@@ -191,7 +219,8 @@ function ZoomControlsPanel({ wiring, onToggleWiring }: { wiring: boolean; onTogg
                 style={{ height: TIER_BAR[i] }}
               />
             </button>
-          ))}
+            )
+          })}
         </span>
         <span className="text-[11.5px] font-semibold text-slate-700">{TIER_LABEL[tier]}</span>
       </div>
@@ -222,12 +251,12 @@ function ZoomControlsPanel({ wiring, onToggleWiring }: { wiring: boolean; onTogg
 
       <span className="mx-1 h-5 w-px bg-slate-200" />
 
-      <ZoomButton title="Reset view" onClick={() => fitView({ ...INITIAL_FIT, duration: 250 })}>
+      <ZoomButton title="Reset view" onClick={() => fitView(resetOpts)}>
         <svg {...iconProps} width={14} height={14}>
           <path d="M3 12a9 9 0 1 0 3-6.7L3 8m0 0V3m0 5h5" />
         </svg>
       </ZoomButton>
-      <ZoomButton title="Fit view" onClick={() => fitView(FIT_VIEW_OPTIONS)}>
+      <ZoomButton title="Fit view" onClick={() => fitView(fitOpts)}>
         <svg {...iconProps} width={14} height={14}>
           <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
         </svg>
@@ -247,6 +276,8 @@ function FlowCanvasInner() {
   const experiences = useExperience((s) => s.experiences)
   const previewing = useExperience((s) => s.mode === 'play')
   const collapsedFlows = useOrchestration((s) => s.collapsedFlows)
+  const emptyDemo = useEmptyJourneyDemo()
+  const canvasMinZoom = emptyDemo ? DEMO_MIN_ZOOM : MIN_ZOOM
 
   const paneRef = useRef<HTMLDivElement>(null)
 
@@ -271,8 +302,8 @@ function FlowCanvasInner() {
   // same graph whether or not a card is open, which is why coming back out of a
   // card lands exactly where the merchant left, with no viewport to restore.
   const { nodes, edges: graphEdges, flowLayouts } = useMemo(
-    () => buildFlowGraph({ play, experiences, collapsedFlows, selectedNodeId }),
-    [play, experiences, collapsedFlows, selectedNodeId],
+    () => buildFlowGraph({ play, experiences, collapsedFlows, selectedNodeId, emptyDemo }),
+    [play, experiences, collapsedFlows, selectedNodeId, emptyDemo],
   )
 
   // Pointing at a reason row lifts its wires and pushes the other routes back.
@@ -332,8 +363,8 @@ function FlowCanvasInner() {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       fitView
-      fitViewOptions={INITIAL_FIT}
-      minZoom={MIN_ZOOM}
+      fitViewOptions={emptyDemo ? DEMO_FIT : INITIAL_FIT}
+      minZoom={canvasMinZoom}
       maxZoom={MAX_ZOOM}
       nodesDraggable={false}
       nodesConnectable={false}
@@ -372,7 +403,11 @@ function FlowCanvasInner() {
       )}
       {/* Add palette is authoring chrome — the file owns structure now. */}
       {!previewing && (
-        <ZoomControlsPanel wiring={wiring} onToggleWiring={() => setWiring((w) => !w)} />
+        <ZoomControlsPanel
+          wiring={wiring}
+          onToggleWiring={() => setWiring((w) => !w)}
+          minZoom={canvasMinZoom}
+        />
       )}
       <CanvasAnchor />
       <FocusAutoPan />

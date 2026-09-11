@@ -1,0 +1,118 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Source+Sans+3:wght@400;600;700&display=swap");
+
+:root {
+  --ink: #14261c;
+  --paper: #f4efe4;
+  --panel: #fffdf8;
+  --accent: #c45c26;
+  --accent-ink: #fff8ef;
+  --line: rgba(20, 38, 28, 0.14);
+  --mute: #5c6b62;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+}
+body {
+  background:
+    radial-gradient(1200px 480px at 10% -10%, rgba(196, 92, 38, 0.12), transparent 55%),
+    var(--paper);
+}
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 28px 64px;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+h1 {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 40px;
+  line-height: 1.15;
+  font-weight: 600;
+  margin: 8px 0 12px;
+}
+p.lede {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--mute);
+  margin: 0 0 28px;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 28px 0;
+}
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 14px;
+}
+.stat b {
+  display: block;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 28px;
+}
+.stat span { color: var(--mute); font-size: 13px; }
+.reasons { display: grid; gap: 10px; margin: 8px 0 28px; }
+.reason {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.reason:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(196, 92, 38, 0.15);
+}
+.offer {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 18px 40px rgba(20, 38, 28, 0.06);
+}
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+button, .btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: 650;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.btn-danger {
+  background: var(--ink);
+  color: var(--paper);
+}

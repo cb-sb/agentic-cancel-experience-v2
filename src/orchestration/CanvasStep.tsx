@@ -1,6 +1,6 @@
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
-import { brandStyle } from '../render/brand'
+import { BrandRoot } from '../render/BrandUI'
 import { RenderProvider, defaultRenderActions, type MappingInfo, type RenderCtxValue } from '../render/RenderContext'
 import { StepFrame } from '../render/StepFrame'
 import { StepRenderer } from '../render/StepRenderer'
@@ -8,6 +8,8 @@ import { EditableCTA } from '../render/Editable'
 import { colorForOfferFactory, linkableOffers, offerStepIndex, reasonsByOffer } from '../lib/mapping'
 import type { PlaySession } from '../store/useExperience'
 import type { Step } from '../types/experience'
+import { useJourney } from '../store/useJourney'
+import { ArtifactPlayer } from '../upload/ArtifactPlayer'
 
 function previewSession(): PlaySession {
   return {
@@ -48,6 +50,7 @@ export function CanvasStep({
   const updateStep = useExperience((s) => s.updateStep)
   const updateComponent = useExperience((s) => s.updateComponent)
   const focusStep = useOrchestration((s) => s.focusStep)
+  const journey = useJourney((s) => s.file)
 
   // Reason↔offer mapping context — colors/badges/links stay consistent with the
   // connector overlay drawn on the canvas.
@@ -75,6 +78,22 @@ export function CanvasStep({
       updateComponent: (componentId, patch) => updateComponent(step.id, componentId, patch),
     },
     mapping,
+  }
+
+  if (journey.source === 'uploaded' && journey.artifact && journey.manifest) {
+    return (
+      <div
+        className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm"
+        style={{ width, minHeight: 420, height: 520 }}
+      >
+        <ArtifactPlayer
+          artifact={journey.artifact}
+          manifest={journey.manifest}
+          stepId={step.id}
+          interactive={false}
+        />
+      </div>
+    )
   }
 
   const confirmation = step.components.find((c) => c.kind === 'confirmation')
@@ -152,7 +171,7 @@ export function CanvasStep({
 
   return (
     <RenderProvider value={ctx}>
-      <div style={{ width, ...brandStyle(experience.branding) }}>
+      <BrandRoot branding={experience.branding} style={{ width }}>
         <StepFrame
           index={index}
           total={total}
@@ -170,7 +189,7 @@ export function CanvasStep({
         >
           <StepRenderer step={step} />
         </StepFrame>
-      </div>
+      </BrandRoot>
     </RenderProvider>
   )
 }

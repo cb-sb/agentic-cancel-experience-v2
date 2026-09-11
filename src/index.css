@@ -46,6 +46,13 @@
   --brand-radius: 12px;
   --brand-btn-border-width: 0px;
   --brand-btn-border-color: #2563eb;
+  --brand-btn-fill: #2563eb;
+  --brand-btn-text: #ffffff;
+  --brand-btn-clip: none;
+  --brand-btn-radius: 8px;
+  --brand-card-solid: #ffffff;
+  --brand-card-shadow: 0 12px 40px -12px rgba(15, 23, 42, 0.18);
+  --brand-site-image: none;
 }
 
 body {

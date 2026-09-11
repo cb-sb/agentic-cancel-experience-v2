@@ -3,6 +3,7 @@ import { DeviceIcon, DEVICE_KINDS } from '../render/DevicePicker'
 import { DeviceChrome } from '../render/DeviceChrome'
 import { PlayerShell } from '../runtime/PlayerShell'
 import { useExperience } from '../store/useExperience'
+import { useJourney } from '../store/useJourney'
 
 /**
  * Subscriber preview as a stage over the canvas, not a separate page.
@@ -19,6 +20,7 @@ export function PreviewOverlay() {
   const setDevice = useExperience((s) => s.setDevice)
   const brandName = useExperience((s) => s.experience.branding.merchantName)
   const shell = useExperience((s) => s.experience.shell)
+  const uploaded = useJourney((s) => s.file.source === 'uploaded')
 
   return (
     <div className="absolute inset-0 z-50 overflow-hidden">
@@ -64,7 +66,7 @@ export function PreviewOverlay() {
       </button>
 
       <div className="relative z-10 h-full px-20 pb-10 pt-16">
-        <DeviceChrome device={device} brandName={brandName} fullBleed={shell !== 'modal'}>
+        <DeviceChrome device={device} brandName={brandName} fullBleed={uploaded || shell !== 'modal'}>
           <PlayerShell />
         </DeviceChrome>
       </div>

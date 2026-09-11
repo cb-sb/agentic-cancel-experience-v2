@@ -2,20 +2,24 @@ import { useMemo } from 'react'
 import { buildStepColumns, isOutcomeStep } from '../lib/stepColumns'
 import { useExperience } from '../store/useExperience'
 import type { ConfirmationComponent, OutcomeComponent } from '../types/experience'
-import { brandStyle } from '../render/brand'
 import { RenderProvider, type RenderActions, type RenderCtxValue } from '../render/RenderContext'
 import { StepFrame } from '../render/StepFrame'
 import { StepRenderer } from '../render/StepRenderer'
-import { BrandButton } from '../render/BrandUI'
+import { BrandButton, BrandRoot } from '../render/BrandUI'
 import { OutcomeCard } from '../render/components/OutcomeCard'
 import { DummyCheckout } from './DummyCheckout'
 import { FullPageScroll } from './FullPageScroll'
+import { useJourney } from '../store/useJourney'
+import { ArtifactPlayer } from '../upload/ArtifactPlayer'
+import { canPlayUploaded } from '../upload/validate'
 
 export function PlayerShell() {
   const experience = useExperience((s) => s.experience)
   const session = useExperience((s) => s.session)
   const device = useExperience((s) => s.device)
   const store = useExperience()
+  const file = useJourney((s) => s.file)
+  const uploaded = file.source === 'uploaded' && !!file.artifact && !!file.manifest
 
   // Disabled steps stay in the composer but are skipped for the subscriber.
   const steps = experience.steps.filter((s) => !s.disabled)
@@ -97,10 +101,10 @@ export function PlayerShell() {
   const wrapClass = experience.shell !== 'modal' ? 'h-full' : undefined
 
   // ---- Outcome (cancelled / saved) -----------------------------------------
-  if (session.result && outcomeComponent) {
+  if (!uploaded && session.result && outcomeComponent) {
     return (
       <RenderProvider value={ctxValue}>
-        <div className={wrapClass} style={brandStyle(experience.branding)}>
+        <BrandRoot branding={experience.branding} className={wrapClass}>
           <StepFrame
             index={total - 1}
             total={total}
@@ -122,7 +126,7 @@ export function PlayerShell() {
               onUndo={store.undoCancel}
             />
           </StepFrame>
-        </div>
+        </BrandRoot>
       </RenderProvider>
     )
   }
@@ -131,7 +135,7 @@ export function PlayerShell() {
   if (session.checkout.open) {
     return (
       <RenderProvider value={ctxValue}>
-        <div className={wrapClass} style={brandStyle(experience.branding)}>
+        <BrandRoot branding={experience.branding} className={wrapClass}>
           <StepFrame
             index={index}
             total={total}
@@ -149,8 +153,23 @@ export function PlayerShell() {
           >
             <DummyCheckout component={acceptedComponent} />
           </StepFrame>
-        </div>
+        </BrandRoot>
       </RenderProvider>
+    )
+  }
+
+  if (uploaded && file.artifact && file.manifest) {
+    if (!canPlayUploaded(file.manifest)) {
+      return (
+        <div className="flex h-full items-center justify-center px-8 text-center text-sm text-slate-500">
+          Confirm template mappings before walking this as a subscriber.
+        </div>
+      )
+    }
+    return (
+      <div className="h-full min-h-0 w-full overflow-hidden bg-white">
+        <ArtifactPlayer artifact={file.artifact} manifest={file.manifest} interactive />
+      </div>
     )
   }
 
@@ -161,6 +180,7 @@ export function PlayerShell() {
   const isOfferStep = step.components.length > 0 && step.components.every((c) => c.kind === 'offer')
   const hasSurvey = step.components.some((c) => c.kind === 'survey')
   const hasOffer = step.components.some((c) => c.kind === 'offer')
+  const hasPricing = step.components.some((c) => c.kind === 'pricing_table')
 
   const surveyReady = (() => {
     if (!hasSurvey) return true
@@ -197,9 +217,10 @@ export function PlayerShell() {
     )
   } else {
     const continueLabel =
-      step.navContinueLabel ?? (hasOffer ? 'No thanks, continue cancelling →' : 'Continue')
+      step.navContinueLabel ??
+      (hasOffer || hasPricing ? 'No thanks, continue cancelling →' : 'Continue')
     footerActions = (
-      <BrandButton onClick={store.goNext} disabled={!surveyReady}>
+      <BrandButton onClick={hasPricing ? store.declineOffer : store.goNext} disabled={!surveyReady}>
         <span dangerouslySetInnerHTML={{ __html: continueLabel }} />
       </BrandButton>
     )
@@ -209,16 +230,16 @@ export function PlayerShell() {
   if (experience.shell === 'fullpage_scroll') {
     return (
       <RenderProvider value={ctxValue}>
-        <div className={wrapClass} style={brandStyle(experience.branding)}>
+        <BrandRoot branding={experience.branding} className={wrapClass}>
           <FullPageScroll />
-        </div>
+        </BrandRoot>
       </RenderProvider>
     )
   }
 
   return (
     <RenderProvider value={ctxValue}>
-      <div className={wrapClass} style={brandStyle(experience.branding)}>
+      <BrandRoot branding={experience.branding} className={wrapClass}>
         <StepFrame
           index={index}
           total={total}
@@ -227,7 +248,7 @@ export function PlayerShell() {
           frame={experience.frame}
           branding={experience.branding}
           showBack={session.index > 0}
-          onBack={store.goBack}
+          onBack={isCheckout ? store.cancelCheckout : store.goBack}
           onExit={store.resetSession}
           hideTitleBlock={isConfirmation || isOutcome || isOfferStep || isCheckout}
           centerActions={isConfirmation && total === 1}
@@ -235,7 +256,7 @@ export function PlayerShell() {
         >
           <StepRenderer step={step} />
         </StepFrame>
-      </div>
+      </BrandRoot>
     </RenderProvider>
   )
 }

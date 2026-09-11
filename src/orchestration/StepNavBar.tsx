@@ -4,6 +4,7 @@ import { compactStepLabel } from '../lib/stepLabels'
 import { useExperience } from '../store/useExperience'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
+import { DEMO_STAGES, useEmptyDemoWalk, useEmptyJourneyDemo } from './emptyDemoFlag'
 
 /**
  * The sequence, as a bar. Click focuses the step; drag rewrites `steps:` in
@@ -17,6 +18,31 @@ export function StepNavBar() {
   const setActiveStep = useExperience((s) => s.setActiveStep)
   const focusStep = useOrchestration((s) => s.focusStep)
   const [dragging, setDragging] = useState<string | null>(null)
+  const emptyDemo = useEmptyJourneyDemo()
+  const demoIndex = useEmptyDemoWalk((s) => s.index)
+  const setDemoIndex = useEmptyDemoWalk((s) => s.setIndex)
+
+  if (emptyDemo) {
+    return (
+      <div className="flex h-10 flex-none items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-5">
+        {DEMO_STAGES.map((stage, i) => (
+          <button
+            key={stage.label}
+            type="button"
+            onClick={() => setDemoIndex(i)}
+            className={`flex flex-none items-center rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${
+              demoIndex === i
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            {stage.label}
+          </button>
+        ))}
+        <span className="ml-2 text-[11px] text-slate-400">Demo — file not started</span>
+      </div>
+    )
+  }
 
   if (file.steps.length === 0) {
     return (

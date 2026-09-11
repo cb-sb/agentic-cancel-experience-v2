@@ -547,11 +547,11 @@ export const useExperience = create<ExperienceState>((set, get) => ({
   acceptOffer: (offerId) =>
     set((state) => {
       const live = state.experience.steps.filter((s) => !s.disabled)
-      const checkoutIdx = live.findIndex((s) => s.components.some((c) => c.kind === 'checkout'))
       const component = state.experience.steps
         .flatMap((s) => s.components)
         .find((c) => c.id === offerId)
-      if (checkoutIdx >= 0) {
+      const checkoutIdx = live.findIndex((s) => s.components.some((c) => c.kind === 'checkout'))
+      if (component?.kind === 'pricing_table' && checkoutIdx >= 0) {
         return {
           session: {
             ...state.session,
@@ -581,6 +581,16 @@ export const useExperience = create<ExperienceState>((set, get) => ({
     }),
 
   declineOffer: () => {
+    const state = get()
+    const live = state.experience.steps.filter((s) => !s.disabled)
+    const current = live[Math.min(state.session.index, live.length - 1)]
+    if (current?.components.some((c) => c.kind === 'pricing_table')) {
+      const confirmIdx = live.findIndex((s) => s.components.some((c) => c.kind === 'confirmation'))
+      if (confirmIdx >= 0) {
+        set({ session: { ...state.session, index: confirmIdx } })
+        return
+      }
+    }
     get().goNext()
   },
 
@@ -590,9 +600,34 @@ export const useExperience = create<ExperienceState>((set, get) => ({
     })),
 
   cancelCheckout: () =>
-    set((state) => ({
-      session: { ...state.session, checkout: { open: false, offerId: null } },
-    })),
+    set((state) => {
+      const live = state.experience.steps.filter((s) => !s.disabled)
+      const idx = Math.min(state.session.index, Math.max(live.length - 1, 0))
+      const current = live[idx]
+      const onCheckoutStep = current?.components.some((c) => c.kind === 'checkout')
+      const confirmIdx = live.findIndex((s) => s.components.some((c) => c.kind === 'confirmation'))
+      if (onCheckoutStep && confirmIdx >= 0) {
+        return {
+          session: {
+            ...state.session,
+            checkout: { open: false, offerId: null },
+            index: confirmIdx,
+          },
+        }
+      }
+      if (onCheckoutStep) {
+        return {
+          session: {
+            ...state.session,
+            checkout: { open: false, offerId: null },
+            index: Math.max(idx - 1, 0),
+          },
+        }
+      }
+      return {
+        session: { ...state.session, checkout: { open: false, offerId: null } },
+      }
+    }),
 
   confirmCancel: () => set((state) => ({ session: { ...state.session, result: 'cancelled' } })),
 

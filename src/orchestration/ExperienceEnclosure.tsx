@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { SButton } from '@chargebee/sting-react'
 import { blueprintMeta } from '../lib/blueprints'
 import { AddMenu, type AddOption } from './flow/AddMenu'
 import { experienceBadge } from '../lib/experienceUtils'
@@ -6,14 +7,13 @@ import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
 import type { Experience, StageId } from '../types/experience'
 import type { TargetType } from '../types/orchestration'
-import {
-  COLLAPSED_H,
-  COLLAPSED_W,
-  FRAME_BORDER,
-  TITLE_MAX_SCALE,
-  TITLE_PILL_GAP,
-} from './flow/canvasTokens'
+import { COLLAPSED_H, COLLAPSED_W, FRAME_BORDER, TITLE_MAX_SCALE, TITLE_PILL_GAP } from './flow/canvasTokens'
 import { ScreenBox, useCounterScale } from './flow/screen'
+import { EmptyJourneyDemo } from './EmptyJourneyDemo'
+import { useEmptyJourneyDemo } from './emptyDemoFlag'
+import { useGrowthShell } from '../shell/useGrowthShell'
+import { useJourney } from '../store/useJourney'
+import { useUpload } from '../upload/useUpload'
 
 const TARGET_FLOW: TargetType[] = ['CANCEL_PAGE', 'HOSTED_PAGE']
 
@@ -98,10 +98,16 @@ export function ExperienceEnclosure({
   const focusStep = useOrchestration((s) => s.focusStep)
   const play = useOrchestration((s) => s.play)
   const removeBranch = useOrchestration((s) => s.removeBranch)
+  const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
+  const requestCopilotGuide = useOrchestration((s) => s.requestCopilotGuide)
   const [renaming, setRenaming] = useState(false)
   const [dupOpen, setDupOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [draftName, setDraftName] = useState(experience.name)
+  const emptyDemo = useEmptyJourneyDemo()
+  const go = useGrowthShell((s) => s.go)
+  const uploaded = useJourney((s) => s.file.source === 'uploaded')
+  const openUpload = useUpload((s) => s.open)
 
   const split = play.targeting.kind === 'split' ? play.targeting : null
   const treatmentCount = split?.branches.filter((b) => b.node.kind === 'flow').length ?? 0
@@ -177,12 +183,14 @@ export function ExperienceEnclosure({
       <div
         data-chrome
         data-enclosure-title
-        // `w-max` matters: an absolutely positioned box otherwise shrink-to-fits
-        // inside the frame's width, so a narrow frame — a collapsed one, say —
-        // wrapped the pill onto two lines and clipped the name. The pill floats
-        // over empty canvas, so it is free to be wider than what it labels.
-        className={`peer/title absolute bottom-full left-0 z-20 flex w-max items-center whitespace-nowrap rounded-xl ${
-          renaming ? 'gap-1.5' : 'gap-0.5 bg-white p-[3px] shadow-[0_1px_4px_rgba(15,23,42,0.1)]'
+        // Started journeys keep `w-max` so a collapsed frame does not wrap the
+        // name. The demo label is identity only — commit actions sit under the frame.
+        className={`peer/title absolute bottom-full left-0 z-20 flex items-center whitespace-nowrap ${
+          renaming
+            ? 'gap-1.5 rounded-xl'
+            : emptyDemo
+              ? 'w-max'
+              : 'w-max gap-0.5 rounded-xl bg-white p-[3px] shadow-[0_1px_4px_rgba(15,23,42,0.1)]'
         }`}
         style={{
           transform: `scale(${titleScale}) translateY(-${TITLE_PILL_GAP}px)`,
@@ -206,6 +214,36 @@ export function ExperienceEnclosure({
             onClick={(e) => e.stopPropagation()}
             className="rounded-md border border-indigo-300 px-2 py-1 text-[12.5px] font-semibold text-slate-900 outline-none ring-2 ring-indigo-200"
           />
+        ) : emptyDemo ? (
+          <>
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect()
+            }}
+            title="Click to select this experience"
+            className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200/90 bg-white py-1 pl-1.5 pr-2.5 text-left shadow-[0_2px_10px_rgba(15,23,42,0.08)] hover:border-slate-300 hover:bg-slate-50"
+          >
+            <span className="flex-none rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+              Demo
+            </span>
+            <span className="truncate text-[13px] font-semibold text-slate-800">Recommended 4-step</span>
+          </button>
+          <button
+            type="button"
+            title="Open branding studio"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              go('experiences.branding')
+            }}
+            className="ml-1 flex h-8 w-8 flex-none items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-500 shadow-[0_2px_10px_rgba(15,23,42,0.08)] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+          >
+            <PaletteIcon />
+          </button>
+          </>
         ) : (
           <button
             type="button"
@@ -234,6 +272,15 @@ export function ExperienceEnclosure({
               <path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5" />
             </svg>
             <span className="truncate">{experience.name}</span>
+            {uploaded && (
+              <span
+                className={`flex-none rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide ${
+                  selected ? 'bg-white/20 text-white' : 'bg-orange-50 text-[#C45C26]'
+                }`}
+              >
+                Uploaded
+              </span>
+            )}
             <span
               className={`flex-none font-mono text-[9.5px] uppercase tracking-wide ${
                 selected ? 'text-indigo-100' : 'text-slate-400'
@@ -243,6 +290,7 @@ export function ExperienceEnclosure({
             </span>
           </button>
         )}
+        {!emptyDemo && (
         <div className="flex items-center gap-0.5">
           <EnclosureBtn
             title="Edit this experience — opens the step editor"
@@ -250,6 +298,9 @@ export function ExperienceEnclosure({
             disabled={!experience.steps.length}
           >
             <PencilIcon />
+          </EnclosureBtn>
+          <EnclosureBtn title="Open branding studio" onClick={() => go('experiences.branding')}>
+            <PaletteIcon />
           </EnclosureBtn>
           <div className="relative">
             <EnclosureBtn title="Duplicate…" onClick={() => setDupOpen((v) => !v)}>
@@ -293,6 +344,7 @@ export function ExperienceEnclosure({
             </EnclosureBtn>
           )}
         </div>
+        )}
       </div>
 
       <div
@@ -325,7 +377,38 @@ export function ExperienceEnclosure({
             )}
           </ScreenBox>
         )}
+        {emptyDemo && !collapsed && (
+          <div className="h-full w-full min-h-0">
+            <EmptyJourneyDemo />
+          </div>
+        )}
       </div>
+
+      {emptyDemo && (
+        <div
+          data-chrome
+          data-demo-footer
+          className="absolute left-0 right-0 top-full z-20 flex justify-center"
+          style={{
+            transform: `scale(${titleScale}) translateY(${TITLE_PILL_GAP}px)`,
+            transformOrigin: 'top center',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-2.5">
+            <SButton size="small" variant="neutral-outline" onClick={() => requestCopilotGuide()}>
+              Help me choose
+            </SButton>
+            <SButton size="small" variant="primary" onClick={() => applyLibraryTemplate('cancel_4')}>
+              Use this flow
+            </SButton>
+            <SButton size="small" variant="neutral-outline" onClick={openUpload}>
+              Upload my own template
+            </SButton>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -508,6 +591,16 @@ const CopyIcon = () => (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <rect x="9" y="9" width="13" height="13" rx="2" />
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+)
+
+const PaletteIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="13.5" cy="6.5" r="2" />
+    <circle cx="17.5" cy="10.5" r="2" />
+    <circle cx="8.5" cy="7.5" r="2" />
+    <circle cx="6.5" cy="12.5" r="2" />
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.2-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10Z" />
   </svg>
 )
 

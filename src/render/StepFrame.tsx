@@ -171,7 +171,7 @@ function ModalFrame({
         backgroundImage: 'var(--brand-card), var(--brand-card-border)',
         backgroundOrigin: 'border-box',
         backgroundClip: 'padding-box, border-box',
-        boxShadow: '0 12px 40px -12px rgba(15, 23, 42, 0.18)',
+        boxShadow: 'var(--brand-card-shadow, 0 12px 40px -12px rgba(15, 23, 42, 0.18))',
         // The card is pinned to the current step's measured height and eased
         // between steps, so switching steps gently grows/shrinks the surface
         // instead of snapping. Falls back to a min height when unmeasured.
@@ -248,7 +248,15 @@ function FullPageFrame({
   const colMax = device === 'desktop' ? 1120 : device === 'tablet' ? 720 : undefined
   const padX = device === 'mobile' ? 'px-6' : 'px-12'
   return (
-    <div className="brand-surface flex h-full flex-col" style={{ background: 'var(--brand-site)' }}>
+    <div
+      className="brand-surface flex h-full flex-col"
+      style={{
+        backgroundColor: 'var(--brand-site)',
+        backgroundImage: 'var(--brand-site-image, none)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       {/* Header bar — logo left, progress + exit right, hairline underline. */}
       <header className="flex-none border-b border-black/5" style={{ background: 'var(--brand-header, transparent)' }}>
         <div className={`mx-auto flex w-full items-center justify-between ${padX} py-5`} style={{ maxWidth: colMax }}>

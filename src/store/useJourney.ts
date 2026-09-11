@@ -4,7 +4,9 @@ import { AUDIENCE_LIBRARY } from '../types/orchestration'
 import { compileJourney } from '../journey/compile'
 import { stringifyJourney, parseJourney } from '../journey/yaml'
 import { parseContext } from '../journey/contextDoc'
+import { journeyBrandFrom } from '../brand/theme'
 import { EMPTY_JOURNEY, DEFAULT_JOURNEY_BRAND, isTailKind, type JourneyFile } from '../journey/types'
+import type { Branding } from '../types/experience'
 import { useExperience } from './useExperience'
 import { useOrchestration } from './useOrchestration'
 
@@ -75,6 +77,7 @@ interface JourneyState {
   setYaml: (text: string) => void
   applyContextDoc: (text: string) => void
   reorderSteps: (fromId: string, toId: string) => void
+  applyBrand: (branding: Branding) => void
 }
 
 export const useJourney = create<JourneyState>((set, get) => ({
@@ -100,7 +103,16 @@ export const useJourney = create<JourneyState>((set, get) => ({
       set({ yaml: text, yamlError: parsed.error ?? 'Could not read this file' })
       return
     }
-    set({ ...pushFile(parsed.file, text), contextError: null })
+    const current = get().file
+    const file =
+      parsed.file.source === 'uploaded'
+        ? {
+            ...parsed.file,
+            artifact: parsed.file.artifact ?? current.artifact,
+            manifest: parsed.file.manifest ?? current.manifest,
+          }
+        : parsed.file
+    set({ ...pushFile(file, text), contextError: null })
   },
 
   applyContextDoc: (text) => {
@@ -110,6 +122,10 @@ export const useJourney = create<JourneyState>((set, get) => ({
       return
     }
     set({ ...pushFile(parsed.file), contextError: null })
+  },
+
+  applyBrand: (branding) => {
+    set({ ...pushFile({ ...get().file, brand: journeyBrandFrom(branding) }), contextError: null })
   },
 
   reorderSteps: (fromId, toId) => {
@@ -132,9 +148,16 @@ export function restoreJourney(file: JourneyFile) {
   const hydrated: JourneyFile = {
     ...EMPTY_JOURNEY,
     ...file,
-    brand: { ...DEFAULT_JOURNEY_BRAND, ...file.brand },
+    brand: {
+      ...DEFAULT_JOURNEY_BRAND,
+      ...file.brand,
+      theme: file.brand.theme ?? DEFAULT_JOURNEY_BRAND.theme,
+    },
     holdout: file.holdout ?? 0,
     steps: file.steps ?? [],
+    source: file.source ?? 'authored',
+    artifact: file.artifact,
+    manifest: file.manifest,
   }
   useJourney.setState(pushFile(hydrated))
 }

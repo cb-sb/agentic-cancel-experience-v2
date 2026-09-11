@@ -1,8 +1,10 @@
+import { patchBrandShortcuts } from '../brand/theme'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
 import { LIBRARY, setStepOffer, templateLabel } from '../journey/templates'
 import type { AudienceKey, JourneyFile, OfferKey } from '../journey/types'
 import { audienceLabel, useJourney } from '../store/useJourney'
 import type { ShellLayout } from '../types/experience'
+import { useGrowthShell } from '../shell/useGrowthShell'
 
 const AUDIENCES: AudienceKey[] = ['all', 'paying', 'high_value', 'high_risk', 'annual', 'in_trial']
 
@@ -42,7 +44,7 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
     case 'holdout':
       return 'A holdout is a slice that skips this experience so you can measure lift. Leave it at none until you are ready to experiment.'
     case 'brand':
-      return 'Name and color the subscriber sees. Defaults are Chargebee until you tint it.'
+      return 'Name, color, and the look of the subscriber UI. Match the page the snippet will run on — then open the branding studio for type, buttons, and scoped CSS.'
     case 'review':
       return 'Walk this as a subscriber to see if it’s right. Open any row on the plan to change a default — you don’t have to.'
   }
@@ -50,7 +52,7 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
 
 export function planIntro(file: JourneyFile): string {
   const label = templateLabel(file.template)
-  if (file.kind === 'acquisition') {
+  if (file.kind === 'acquisition' || !file.steps.some((s) => s.kind === 'offer')) {
     return `I’ve started ${label.toLowerCase()}. Defaults are in — walk it as a subscriber, or open a row on the plan to change who sees it or how it sits on the site.`
   }
   return `I’ve started ${label.toLowerCase()}. Defaults are in — walk it as a subscriber, or open a row on the plan to change who sees it, the offer, or how it sits on the site.`
@@ -83,7 +85,7 @@ function beatHint(beat: PlanBeat): string | null {
     case 'holdout':
       return 'Skip this until you want a control group. Zero means everyone sees the experience.'
     case 'brand':
-      return 'Enough to preview. Fine-tune copy on the canvas.'
+      return 'Match the page the snippet will run on. Fine-tune tokens and scoped CSS in the branding studio.'
     default:
       return null
   }
@@ -190,6 +192,7 @@ export function PlanBeatCard({
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
   const patchFile = useJourney((s) => s.patchFile)
+  const go = useGrowthShell((s) => s.go)
   const offerSteps = file.steps.filter((s) => s.kind === 'offer')
 
   if (beat === 'review') {
@@ -301,7 +304,9 @@ export function PlanBeatCard({
         <div className="space-y-3">
           <input
             value={file.brand.merchant}
-            onChange={(e) => patchFile({ brand: { ...file.brand, merchant: e.target.value } })}
+            onChange={(e) =>
+              patchFile({ brand: patchBrandShortcuts(file.brand, { merchant: e.target.value }) })
+            }
             placeholder="Merchant name"
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-slate-400"
           />
@@ -312,13 +317,17 @@ export function PlanBeatCard({
                 <input
                   type="color"
                   value={file.brand.primary}
-                  onChange={(e) => patchFile({ brand: { ...file.brand, primary: e.target.value } })}
+                  onChange={(e) =>
+                    patchFile({ brand: patchBrandShortcuts(file.brand, { primary: e.target.value }) })
+                  }
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                 />
               </label>
               <input
                 value={file.brand.primary.toUpperCase()}
-                onChange={(e) => patchFile({ brand: { ...file.brand, primary: e.target.value } })}
+                onChange={(e) =>
+                  patchFile({ brand: patchBrandShortcuts(file.brand, { primary: e.target.value }) })
+                }
                 spellCheck={false}
                 className="w-[90px] border-l border-slate-200 px-2 py-1.5 text-[12px] uppercase text-slate-600 outline-none"
               />
@@ -335,10 +344,19 @@ export function PlanBeatCard({
               max={24}
               step={1}
               value={file.brand.corners}
-              onChange={(e) => patchFile({ brand: { ...file.brand, corners: Number(e.target.value) } })}
+              onChange={(e) =>
+                patchFile({ brand: patchBrandShortcuts(file.brand, { corners: Number(e.target.value) }) })
+              }
               className="mt-1 w-full accent-slate-800"
             />
           </div>
+          <button
+            type="button"
+            onClick={() => go('experiences.branding')}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Open branding studio
+          </button>
         </div>
       )}
 

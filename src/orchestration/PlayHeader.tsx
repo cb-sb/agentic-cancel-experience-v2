@@ -2,7 +2,10 @@ import { SButton } from '@chargebee/sting-react'
 import { useExperience } from '../store/useExperience'
 import { saveDraft } from '../store/draft'
 import { useOrchestration } from '../store/useOrchestration'
+import { useJourney } from '../store/useJourney'
 import { StepNavBar } from './StepNavBar'
+import { useUpload } from '../upload/useUpload'
+import { canPublishUploaded, manifestErrors } from '../upload/validate'
 
 /**
  * The play's mode switch, and nothing else.
@@ -82,7 +85,10 @@ function sinceLabel(at: number): string {
 export function PublishControls() {
   const publishState = useOrchestration((s) => s.play.publishState)
   const togglePublish = useOrchestration((s) => s.togglePublish)
+  const file = useJourney((s) => s.file)
   const live = publishState === 'live'
+  const uploadedBlocked = file.source === 'uploaded' && !canPublishUploaded(file.manifest)
+  const why = uploadedBlocked ? manifestErrors(file.manifest)[0] : undefined
 
   return (
     <>
@@ -93,7 +99,13 @@ export function PublishControls() {
       >
         {live ? 'Live' : 'Draft'}
       </span>
-      <SButton size="small" variant="primary" onClick={togglePublish}>
+      <SButton
+        size="small"
+        variant="primary"
+        disabled={uploadedBlocked && !live}
+        title={why}
+        onClick={togglePublish}
+      >
         {live ? 'Unpublish' : 'Publish'}
       </SButton>
     </>
@@ -127,12 +139,20 @@ export function PlayIdentity() {
  * on that wash; this bar stays the play's — identity, mode, and publish.
  */
 export function PlayHeader() {
+  const uploaded = useJourney((s) => s.file.source === 'uploaded')
+  const openRemap = useUpload((s) => s.openRemap)
+
   return (
     <>
       <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-slate-200 bg-white px-5">
         <PlayIdentity />
         <PlayToolbar />
         <div className="flex flex-none items-center gap-2">
+          {uploaded && (
+            <SButton size="small" variant="neutral-outline" onClick={openRemap}>
+              Remap slots
+            </SButton>
+          )}
           <SaveDraft />
           <span className="mx-1 h-5 w-px bg-slate-200" />
           <PublishControls />

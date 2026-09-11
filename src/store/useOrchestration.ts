@@ -159,6 +159,8 @@ interface OrchestrationState {
   templatesOpen: boolean
   /** Copilot consumes this to start the same draft-plan path as a suggestion chip. */
   pendingLibraryTemplate: Exclude<JourneyTemplate, 'none'> | null
+  /** Canvas demo asked Copilot to open the job guide. */
+  pendingCopilotGuide: boolean
   selectedNodeId: string | null
   openFlowNodeId: string | null
   /** Flow-node ids whose experience enclosure is collapsed to a summary card. */
@@ -196,6 +198,8 @@ interface OrchestrationState {
   closeTemplates: () => void
   applyLibraryTemplate: (id: Exclude<JourneyTemplate, 'none'>) => void
   consumeLibraryTemplate: () => void
+  requestCopilotGuide: () => void
+  consumeCopilotGuide: () => void
   selectNode: (id: string | null) => void
   openFlow: (nodeId: string) => void
   backToCanvas: () => void
@@ -247,6 +251,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   view: 'canvas',
   templatesOpen: false,
   pendingLibraryTemplate: null,
+  pendingCopilotGuide: false,
   selectedNodeId: null,
   openFlowNodeId: null,
   collapsedFlows: {},
@@ -266,6 +271,8 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   applyLibraryTemplate: (id) =>
     set({ pendingLibraryTemplate: id, templatesOpen: false, assistantOpen: true }),
   consumeLibraryTemplate: () => set({ pendingLibraryTemplate: null }),
+  requestCopilotGuide: () => set({ pendingCopilotGuide: true, assistantOpen: true }),
+  consumeCopilotGuide: () => set({ pendingCopilotGuide: false }),
 
   // Selecting an experience hands the right pane to branding, so the pinned play
   // section has to let go; deselecting hands the pane back to play config.

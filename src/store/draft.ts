@@ -95,4 +95,12 @@ export function watchForChanges() {
       mark()
     }
   })
+
+  let lastJourney = useJourney.getState().file
+  useJourney.subscribe((s) => {
+    if (s.file !== lastJourney) {
+      lastJourney = s.file
+      mark()
+    }
+  })
 }

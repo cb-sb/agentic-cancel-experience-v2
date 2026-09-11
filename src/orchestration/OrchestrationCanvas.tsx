@@ -12,6 +12,7 @@ import { FocusPresentation } from './focus'
 import { PlayHeader } from './PlayHeader'
 import { PreviewOverlay } from './PreviewHeader'
 import { TemplatesModal } from './TemplatesModal'
+import { UploadFlow } from '../upload/UploadFlow'
 
 export function OrchestrationCanvas() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
@@ -52,6 +53,7 @@ export function OrchestrationCanvas() {
         <AssistantColumn />
       </div>
       {templatesOpen && <TemplatesModal />}
+      <UploadFlow />
     </div>
   )
 }

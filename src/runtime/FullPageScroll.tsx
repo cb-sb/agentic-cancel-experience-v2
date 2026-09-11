@@ -39,6 +39,8 @@ export function FullPageScroll() {
         const isConfirmation = !!confirmation
         const isOutcome = step.components.some((c) => c.kind === 'outcome')
         const hasOffer = step.components.some((c) => c.kind === 'offer')
+        const hasPricing = step.components.some((c) => c.kind === 'pricing_table')
+        const isCheckout = step.components.some((c) => c.kind === 'checkout')
         const isOfferStep = step.components.length > 0 && step.components.every((c) => c.kind === 'offer')
 
         let actions
@@ -47,6 +49,10 @@ export function FullPageScroll() {
             <BrandButton variant="ghost" onClick={() => store.resetSession()}>
               Close
             </BrandButton>
+          )
+        } else if (isCheckout) {
+          actions = (
+            <BrandButton onClick={() => store.completeCheckout()}>Confirm &amp; apply</BrandButton>
           )
         } else if (isConfirmation && confirmation?.kind === 'confirmation') {
           const c = confirmation
@@ -69,9 +75,13 @@ export function FullPageScroll() {
           )
         } else {
           const continueLabel =
-            step.navContinueLabel ?? (hasOffer ? 'No thanks, continue cancelling →' : 'Continue')
+            step.navContinueLabel ??
+            (hasOffer || hasPricing ? 'No thanks, continue cancelling →' : 'Continue')
           actions = (
-            <BrandButton onClick={() => goTo(i + 1)} disabled={!stepSurveyReady(step)}>
+            <BrandButton
+              onClick={() => (hasPricing ? store.declineOffer() : goTo(i + 1))}
+              disabled={!stepSurveyReady(step)}
+            >
               <span dangerouslySetInnerHTML={{ __html: continueLabel }} />
             </BrandButton>
           )
@@ -101,9 +111,9 @@ export function FullPageScroll() {
               frame={experience.frame}
               branding={experience.branding}
               showBack={i > 0}
-              onBack={() => goTo(i - 1)}
+              onBack={isCheckout ? () => store.cancelCheckout() : () => goTo(i - 1)}
               onExit={() => store.resetSession()}
-              hideTitleBlock={isConfirmation || isOutcome || isOfferStep}
+              hideTitleBlock={isConfirmation || isOutcome || isOfferStep || isCheckout}
               centerActions={(isConfirmation && total === 1) || isOutcome}
               actions={actions}
             >

@@ -1,3 +1,4 @@
+import { patchBrandShortcuts } from '../brand/theme'
 import { offerVariantLabel } from '../lib/offerVariants'
 import type { ShellLayout } from '../types/experience'
 import { interpret } from './intake'
@@ -139,11 +140,11 @@ function parseBrand(raw: string, current: JourneyFile['brand']): JourneyFile['br
     .split(',')
     .map((p) => p.trim())
     .find((p) => p && !/#|[0-9a-f]{6}|px|corners?/i.test(p))
-  return {
+  return patchBrandShortcuts(current, {
     merchant: merchant || current.merchant,
     primary: hex ? (hex[0].startsWith('#') ? hex[0] : `#${hex[0]}`) : current.primary,
     corners: corners ? Number(corners[1]) : current.corners,
-  }
+  })
 }
 
 function parseOffers(raw: string): OfferKey[] {
@@ -155,8 +156,15 @@ function parseOffers(raw: string): OfferKey[] {
 
 function parseTemplate(text: string, current: JourneyFile): JourneyTemplate | null {
   const t = text.toLowerCase()
-  if (/\bpric(?:e|ing)\b/.test(t) && /\bcheckout\b/.test(t)) return 'acquire_2'
-  if (/\bacquisition|\bacquire subscribers\b/.test(t) && current.kind !== 'cancel') return 'acquire_2'
+  const pricingAndCheckout = /\bpric(?:e|ing)\b/.test(t) && /\bcheckout\b/.test(t)
+  const acquire = /\bacquisition|\bacquire subscribers\b|\bnew subscriber/.test(t)
+  const cancel = /\bcancel|\bchurn|\bretention|\bplan change to save/.test(t)
+
+  if (pricingAndCheckout && (current.kind === 'cancel' || cancel) && !acquire) {
+    return 'cancel_plan_change'
+  }
+  if (pricingAndCheckout && current.template === 'none' && !cancel) return 'acquire_2'
+  if (acquire && current.kind !== 'cancel') return 'acquire_2'
 
   for (const entry of LIBRARY) {
     if (t.includes(templateLabel(entry.id).toLowerCase())) return entry.id
@@ -164,7 +172,10 @@ function parseTemplate(text: string, current: JourneyFile): JourneyTemplate | nu
 
   const digits = t.match(/\b([1-5])[ -]?step/)
   if (digits) {
-    if (current.kind === 'acquisition' || /\bacquire|\bpricing|\bcheckout\b/.test(t)) return 'acquire_2'
+    if (current.kind === 'acquisition' || (acquire && !cancel)) return 'acquire_2'
+    if (pricingAndCheckout || (current.kind === 'cancel' && /\bpricing|\bcheckout\b/.test(t))) {
+      return 'cancel_plan_change'
+    }
     return templateForCount(Number(digits[1]))
   }
   return null

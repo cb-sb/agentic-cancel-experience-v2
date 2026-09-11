@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cancel — sample</title>
+    <link rel="stylesheet" href="shared.css" />
+  </head>
+  <body>
+    <section class="page" data-cb-step="value" data-cb-kind="loss_aversion">
+      <div class="eyebrow">Before you go</div>
+      <h1>You’ve built a lot on this plan.</h1>
+      <p class="lede">
+        Cancelling ends access to
+        <span data-cb-field="plan_name">Pro annual</span>
+        at the next renewal. Your work stays until then.
+      </p>
+      <div class="stats" data-cb-slot="la_stats">
+        <div class="stat">
+          <b data-cb-field="credits_remaining">1,240</b>
+          <span>credits remaining</span>
+        </div>
+        <div class="stat">
+          <b data-cb-field="days_on_plan">412</b>
+          <span>days on the plan</span>
+        </div>
+        <div class="stat">
+          <b data-cb-field="usage_hours">92</b>
+          <span>hours saved this year</span>
+        </div>
+      </div>
+      <div class="cta-row">
+        <button type="button" class="btn btn-primary" data-cb-action="continue">Continue</button>
+        <button type="button" class="btn btn-ghost" data-cb-action="keep">Keep my plan</button>
+      </div>
+    </section>
+
+    <section class="page" data-cb-step="survey" data-cb-kind="survey">
+      <div class="eyebrow">One question</div>
+      <h1>What’s pulling you away?</h1>
+      <p class="lede">This routes the next screen. It is not a brick wall.</p>
+      <div class="reasons" data-cb-slot="survey">
+        <label class="reason"><input type="radio" name="reason" value="price" /> It’s too expensive</label>
+        <label class="reason"><input type="radio" name="reason" value="too_complex" /> Too complicated</label>
+        <label class="reason"><input type="radio" name="reason" value="missing_features" /> Missing features</label>
+        <label class="reason"><input type="radio" name="reason" value="not_using" /> Not using it enough</label>
+        <label class="reason"><input type="radio" name="reason" value="switching_competitor" /> Switching away</label>
+      </div>
+      <div class="cta-row">
+        <button type="button" class="btn btn-ghost" data-cb-action="back">Back</button>
+        <button type="button" class="btn btn-primary" data-cb-action="continue">Continue</button>
+      </div>
+    </section>
+
+    <section class="page" data-cb-step="offer" data-cb-kind="offer">
+      <div class="eyebrow">A different path</div>
+      <h1>Stay, on different terms.</h1>
+      <p class="lede">This block is filled from the offer catalog when you bind it.</p>
+      <div class="offer" data-cb-slot="offer">
+        <div class="eyebrow" data-cb-bind="eyebrow">Exclusive discount</div>
+        <h1 data-cb-bind="title" style="font-size: 32px">50% off for 3 months</h1>
+        <p class="lede" data-cb-bind="body">Same plan, half the price for your next three cycles.</p>
+        <div class="cta-row">
+          <button type="button" class="btn btn-primary" data-cb-bind="cta" data-cb-action="accept_offer">
+            Claim 50% discount
+          </button>
+          <button type="button" class="btn btn-ghost" data-cb-action="decline_offer">No thanks, continue</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" data-cb-step="confirm" data-cb-kind="confirmation">
+      <div class="eyebrow">Last step</div>
+      <h1>Cancel <span data-cb-field="plan_name">Pro annual</span>?</h1>
+      <p class="lede">
+        Access runs through
+        <span data-cb-field="next_renewal">12 Oct</span>.
+        You can come back later — this just stops renewal.
+      </p>
+      <div class="cta-row">
+        <button type="button" class="btn btn-ghost" data-cb-action="keep">Keep my plan</button>
+        <button type="button" class="btn btn-danger" data-cb-action="cancel">Cancel plan</button>
+      </div>
+    </section>
+  </body>
+</html>

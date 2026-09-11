@@ -1,4 +1,4 @@
-import { applyOffers, startFromTemplate, templateForCount, templateLabel, withLive } from './templates'
+import { applyOffers, hasPlanChangeBlocks, insertPlanChangeBlocks, startFromTemplate, templateForCount, templateLabel, withLive } from './templates'
 import type {
   AudienceKey,
   JourneyFile,
@@ -6,6 +6,8 @@ import type {
   JourneyTemplate,
   OfferKey,
 } from './types'
+import { compileBrand, journeyBrandFrom } from '../brand/theme'
+import { brandingFromSpeech, isBrandIntent } from '../brand/matchSite'
 import type { ShellLayout } from '../types/experience'
 
 /**
@@ -45,11 +47,27 @@ const OFFER_WORDS: { key: OfferKey; test: RegExp; label: string }[] = [
   { key: 'addon', test: /\badd-?on|\bonboarding|\bpriority support/, label: 'add-on' },
 ]
 
-function readKind(t: string): JourneyKind | null {
-  if (/\bacquisition|\bacquire|\bsign ?up|\bpricing (table|page)|\bcheckout|\bupsell\b/.test(t)) {
-    return 'acquisition'
-  }
-  if (/\bcancel|\bchurn|\bsave flow|\bretention|\bwin ?back\b/.test(t)) return 'cancel'
+function wantsAcquire(t: string): boolean {
+  return /\bacquisition|\bacquire|\bsign ?up|\bnew subscriber|\bupsell\b/.test(t)
+}
+
+function wantsCancel(t: string): boolean {
+  return /\bcancel|\bchurn|\bsave flow|\bretention|\bwin ?back|\bbefore (they|you) (go|leave)/.test(t)
+}
+
+/** Pricing table + hosted checkout as blocks — not the same as acquiring. */
+function wantsPlanPicker(t: string): boolean {
+  return /\bpricing(\s+table|\s+page)?\b|\bcheckout\b|\bplan picker\b/.test(t)
+}
+
+function readKind(t: string, current: JourneyFile): JourneyKind | null {
+  const acquire = wantsAcquire(t)
+  const cancel = wantsCancel(t)
+  if (cancel && !acquire) return 'cancel'
+  if (acquire && !cancel) return 'acquisition'
+  if (cancel && acquire) return 'cancel'
+  if (wantsPlanPicker(t) && current.kind === 'cancel' && current.steps.length > 0) return 'cancel'
+  if (wantsPlanPicker(t) && current.template === 'none') return 'acquisition'
   return null
 }
 
@@ -106,12 +124,13 @@ function list(items: string[]): string {
 
 export function interpret(text: string, current: JourneyFile): Interpretation {
   const t = text.toLowerCase()
-  const kind = readKind(t)
+  const kind = readKind(t, current)
   const count = readStepCount(t)
   const shell = readShell(t)
   const audience = readAudience(t)
   const { keys: offers, labels: offerLabels } = readOffers(t)
   const wantsSurvey = /\bsurvey|\breason|\bwhy they|\bfeedback\b/.test(t)
+  const planPicker = wantsPlanPicker(t)
 
   let file = current
   const did: string[] = []
@@ -125,6 +144,18 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
       file = startFromTemplate(file, 'acquire_2')
       rebuilt = true
       did.push('built a 2-step acquire: pricing table, then checkout')
+    }
+  } else if (nextKind === 'cancel' && planPicker) {
+    if (hasPlanChangeBlocks(file)) {
+      // Already a cancel with a plan picker — leave the spine, apply knobs below.
+    } else if (current.kind === 'cancel' && current.steps.length > 0) {
+      file = insertPlanChangeBlocks(file)
+      rebuilt = true
+      did.push('put a plan picker and checkout before they confirm they can still leave')
+    } else {
+      file = startFromTemplate({ ...file, kind: 'cancel' }, 'cancel_plan_change')
+      rebuilt = true
+      did.push('built the plan-change-to-save cancel flow')
     }
   } else if (nextKind === 'cancel') {
     let template: JourneyTemplate | null = count ? templateForCount(count) : null
@@ -183,6 +214,14 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
     did.push(`targeted ${audience === 'all' ? 'all subscribers' : audience.replace(/_/g, '-')}`)
   }
 
+  if (isBrandIntent(text)) {
+    const spoken = brandingFromSpeech(text, compileBrand(file.brand))
+    if (spoken.notes.length) {
+      file = { ...file, brand: journeyBrandFrom(spoken.branding) }
+      did.push(spoken.notes.join('; '))
+    }
+  }
+
   const changed = file !== current
 
   if (!changed) {
@@ -192,7 +231,7 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
       rebuilt: false,
       reply:
         current.template === 'none'
-          ? 'I can read a journey out of one line — try “4-step cancel with a pause, full page” or “acquisition, full page”. Or pick an option above.'
+          ? 'I can read a journey out of one line — try “4-step cancel with a pause, full page”, “match my site https://account.example.com”, or “acquisition, full page”. Or pick an option above.'
           : 'I could not read a change out of that. Use the plan below for offers, audience, shell, and brand — or type a step count, an offer name, the shell, or the audience.',
     }
   }

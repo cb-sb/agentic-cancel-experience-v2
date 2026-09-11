@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useExperience } from '../store/useExperience'
-import { brandStyle } from '../render/brand'
+import { BrandRoot } from '../render/BrandUI'
 import { RenderProvider, defaultRenderActions, type RenderCtxValue } from '../render/RenderContext'
 import { StepFrame } from '../render/StepFrame'
 import { StepRenderer } from '../render/StepRenderer'
@@ -153,10 +153,12 @@ export function ComposerPreview() {
           <div className="flex-none">
             <StepTabs />
           </div>
-          <div className="min-h-0 w-full flex-1" style={brandStyle(experience.branding)}>
-            <DeviceChrome device={device} brandName={experience.branding.merchantName} fullBleed bare>
-              {stepFrameFor(step, index)}
-            </DeviceChrome>
+          <div className="min-h-0 w-full flex-1">
+            <BrandRoot branding={experience.branding} className="h-full">
+              <DeviceChrome device={device} brandName={experience.branding.merchantName} fullBleed bare>
+                {stepFrameFor(step, index)}
+              </DeviceChrome>
+            </BrandRoot>
           </div>
         </RenderProvider>
       </div>
@@ -219,7 +221,8 @@ function ModalPreview({ ctx, steps, step, index, device, branding, stepFrameFor 
         <div className="flex-none">
           <StepTabs />
         </div>
-        <div className="min-h-0 w-full flex-1" style={brandStyle(branding)}>
+        <div className="min-h-0 w-full flex-1">
+          <BrandRoot branding={branding} className="h-full">
           <FittedDevice>
             <div
               className="relative flex items-center justify-center overflow-hidden rounded-[26px] bg-slate-100 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.55)] ring-1 ring-black/10"
@@ -231,6 +234,7 @@ function ModalPreview({ ctx, steps, step, index, device, branding, stepFrameFor 
               </div>
             </div>
           </FittedDevice>
+          </BrandRoot>
         </div>
       </RenderProvider>
 
@@ -242,7 +246,7 @@ function ModalPreview({ ctx, steps, step, index, device, branding, stepFrameFor 
         style={{ width: cardWidth, visibility: 'hidden' }}
       >
         <RenderProvider value={ctx}>
-          <div style={brandStyle(branding)}>
+          <BrandRoot branding={branding}>
             {steps.map((s, i) => (
               <div
                 key={s.id}
@@ -254,7 +258,7 @@ function ModalPreview({ ctx, steps, step, index, device, branding, stepFrameFor 
                 {stepFrameFor(s, i)}
               </div>
             ))}
-          </div>
+          </BrandRoot>
         </RenderProvider>
       </div>
     </div>

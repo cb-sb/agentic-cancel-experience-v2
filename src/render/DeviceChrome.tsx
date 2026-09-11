@@ -6,11 +6,9 @@ import { DEVICE_WIDTHS } from './DeviceFrame'
  * Realistic hardware/browser chrome for the subscriber Preview.
  *
  * Each device is a FIXED-SIZE frame whose screen keeps a true-to-life aspect
- * ratio — monitor 16:10, iPad 3:4, phone 19.5:9. The frame is drawn at its
- * native design size, then proportionally scaled (via transform) to fit the
- * available viewport height so the whole preview never scrolls. The cancel
- * modal sits over a faint "page behind" mock + scrim inside a screen that
- * scrolls internally when the content is taller than the device.
+ * ratio — monitor 16:10, iPad Air 11" portrait (~0.715 body), phone 19.5:9. The
+ * frame is drawn at its native design size, then proportionally scaled (via
+ * transform) to fit the available viewport so the whole preview never scrolls.
  */
 
 // Screen viewport dimensions (device-independent pixels), matched to common
@@ -27,8 +25,28 @@ import { DEVICE_WIDTHS } from './DeviceFrame'
 // wider than the modal (minus `pad`) so the dialog reads as a centered overlay,
 // except on mobile where the modal nearly fills the phone as it would in real life.
 const DESKTOP = { width: 1024, screenH: 640, contentMax: DEVICE_WIDTHS.desktop, pad: 40 }
-const TABLET = { screenW: 820, screenH: 1180, contentMax: DEVICE_WIDTHS.tablet, pad: 32 }
+/**
+ * iPad Air 11" portrait. Screen 820×1180 is the Chrome DevTools preset; bezels
+ * are ~50px so the *body* hits Apple's 178.5×249.7 mm aspect (≈0.715), not a
+ * phone-thin frame around a 3:4 glass.
+ */
+const TABLET = { screenW: 820, screenH: 1180, contentMax: DEVICE_WIDTHS.tablet, pad: 36 }
+const TABLET_BEZEL = 50
+const TABLET_RADIUS_OUTER = 56
+const TABLET_RADIUS_SCREEN = 22
 const MOBILE = { screenW: 390, screenH: 844, contentMax: DEVICE_WIDTHS.mobile, pad: 5 }
+/** Bezel (`p-3.5`), toolbar (`h-11`), stand (`h-7` + `h-2.5`). Keep in lockstep with DesktopChrome. */
+const DESKTOP_BEZEL = 14
+const DESKTOP_TOOLBAR = 44
+const DESKTOP_STAND = 28 + 10
+
+/** Outer box of the desktop monitor chrome, including bezel and stand. */
+export const DESKTOP_CHROME_W = DESKTOP.width + DESKTOP_BEZEL * 2
+export const DESKTOP_CHROME_H = DESKTOP_BEZEL * 2 + DESKTOP_TOOLBAR + DESKTOP.screenH + DESKTOP_STAND
+
+/** Outer box of the iPad portrait chrome, including equal bezels. */
+export const TABLET_CHROME_W = TABLET.screenW + TABLET_BEZEL * 2
+export const TABLET_CHROME_H = TABLET.screenH + TABLET_BEZEL * 2
 
 const SCREEN_DIMS: Record<DeviceKind, { width: number; height: number; contentMax: number; pad: number }> = {
   desktop: { width: DESKTOP.width, height: DESKTOP.screenH, contentMax: DESKTOP.contentMax, pad: DESKTOP.pad },
@@ -81,10 +99,8 @@ export function DeviceChrome({
 }
 
 /**
- * Centers a native-size device in the available stage and scales it down
- * proportionally (never up) so it always fits without the page scrolling. The
- * device's layout box stays native — a CSS transform only affects the visual —
- * so the surrounding stage clips the (now smaller) frame and never overflows.
+ * Uniformly scales a native-size device to fit the stage. Aspect comes from
+ * the chrome (iPad 0.715, etc.), never from stretching to fill the stage.
  */
 export function FittedDevice({ children }: { children: ReactNode }) {
   const stageRef = useRef<HTMLDivElement>(null)
@@ -96,11 +112,12 @@ export function FittedDevice({ children }: { children: ReactNode }) {
       const stage = stageRef.current
       const dev = deviceRef.current
       if (!stage || !dev) return
-      // offsetWidth/Height report the untransformed (native) layout size.
       const natW = dev.offsetWidth
       const natH = dev.offsetHeight
-      if (!natW || !natH) return
-      const next = Math.min(1, stage.clientHeight / natH, stage.clientWidth / natW)
+      const sw = stage.clientWidth
+      const sh = stage.clientHeight
+      if (!natW || !natH || sw < 8 || sh < 8) return
+      const next = Math.min(1, sh / natH, sw / natW)
       setScale((prev) => (Math.abs(prev - next) > 0.002 ? next : prev))
     }
     compute()
@@ -114,12 +131,13 @@ export function FittedDevice({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Top-align (not center) so the device hugs the top of the stage — on large
-  // viewports the device caps at scale 1 and a centered layout would otherwise
-  // leave a big empty band above it, making the card look pushed down.
   return (
-    <div ref={stageRef} className="flex h-full w-full items-start justify-center overflow-hidden">
-      <div ref={deviceRef} className="flex-none" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
+    <div ref={stageRef} className="flex h-full w-full items-center justify-center overflow-hidden">
+      <div
+        ref={deviceRef}
+        className="flex-none"
+        style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
+      >
         {children}
       </div>
     </div>
@@ -174,7 +192,7 @@ function ScreenSurface({
     )
   }
   return (
-    <div className="relative w-full overflow-hidden bg-slate-100" style={{ height, ...style }}>
+    <div className="relative w-full overflow-hidden" style={{ height, background: 'var(--brand-site, #f1f5f9)', ...style }}>
       <PageBehind />
       <div className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain">
         <div className="flex min-h-full items-center justify-center" style={{ padding: pad }}>
@@ -228,13 +246,38 @@ function DesktopChrome({ brandName, fullBleed, children }: { brandName?: string;
 
 function TabletChrome({ fullBleed, children }: { fullBleed?: boolean; children: ReactNode }) {
   return (
-    <div className="relative flex-none rounded-[2rem] bg-slate-900 p-4 shadow-2xl ring-1 ring-black/10">
-      {/* Front camera */}
-      <div className="absolute left-1/2 top-1.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-slate-700" />
-      <div className="overflow-hidden rounded-[1.3rem]" style={{ width: TABLET.screenW }}>
+    <div
+      className="relative flex-none shadow-2xl ring-1 ring-black/20"
+      style={{
+        width: TABLET_CHROME_W,
+        height: TABLET_CHROME_H,
+        padding: TABLET_BEZEL,
+        borderRadius: TABLET_RADIUS_OUTER,
+        background: 'linear-gradient(160deg, #3a3a3c 0%, #1c1c1e 55%, #2c2c2e 100%)',
+        boxShadow: '0 24px 48px -20px rgba(15,23,42,0.55), inset 0 1px 0 rgba(255,255,255,0.12)',
+      }}
+    >
+      {/* Front camera — in the top bezel, like iPad Air, not on the glass. */}
+      <div
+        aria-hidden
+        className="absolute left-1/2 rounded-full bg-black ring-1 ring-white/10"
+        style={{ top: 18, width: 10, height: 10, transform: 'translateX(-50%)' }}
+      />
+      <div
+        className="relative overflow-hidden bg-black"
+        style={{
+          width: TABLET.screenW,
+          height: TABLET.screenH,
+          borderRadius: TABLET_RADIUS_SCREEN,
+        }}
+      >
         <ScreenSurface height={TABLET.screenH} contentMax={TABLET.contentMax} pad={TABLET.pad} fullBleed={fullBleed}>
           {children}
         </ScreenSurface>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-2 left-1/2 z-20 h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-black/30"
+        />
       </div>
     </div>
   )

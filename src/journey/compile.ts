@@ -1,4 +1,5 @@
-import { DEFAULT_BRANDING, DEFAULT_FRAME } from '../lib/blueprints'
+import { compileBrand } from '../brand/theme'
+import { DEFAULT_FRAME } from '../lib/blueprints'
 import {
   makeCheckout,
   makeConfirmation,
@@ -22,6 +23,7 @@ const TEMPLATE_BLUEPRINT: Record<JourneyFile['template'], BlueprintId> = {
   cancel_3: 'clean_exit_2',
   cancel_4: 'balanced',
   cancel_5: 'save_aggressive',
+  cancel_plan_change: 'balanced',
   acquire_2: 'clean_exit_1',
 }
 
@@ -184,13 +186,7 @@ export function compileJourney(file: JourneyFile, experienceId = PRIMARY_EXPERIE
     name: file.name,
     blueprint: TEMPLATE_BLUEPRINT[file.template],
     shell: file.shell,
-    branding: {
-      ...DEFAULT_BRANDING,
-      merchantName: file.brand.merchant,
-      primaryColor: file.brand.primary,
-      buttonBorderColor: file.brand.primary,
-      cornerRadius: file.brand.corners,
-    },
+    branding: compileBrand(file.brand),
     frame: { ...DEFAULT_FRAME },
     steps: file.steps.map(compileStep),
   }

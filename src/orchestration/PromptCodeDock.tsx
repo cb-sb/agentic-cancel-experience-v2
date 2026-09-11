@@ -5,6 +5,8 @@ import { useExperience } from '../store/useExperience'
 import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
 import { LIBRARY, startFromTemplate, templateLabel, withLive } from '../journey/templates'
 import { interpret } from '../journey/intake'
+import { compileBrand } from '../brand/theme'
+import { isBrandIntent, matchMerchantBrand } from '../brand/matchSite'
 import { renderContext } from '../journey/contextDoc'
 import {
   PlanBeatCard,
@@ -17,6 +19,7 @@ import { CopilotMark } from './CopilotMark'
 import { DesignModeIcon } from './DesignModeIcon'
 import { useCopilotThread } from './copilotThread'
 import { useAssistant } from './assistant/useAssistant'
+import { useUpload } from '../upload/useUpload'
 
 function OptionBtn({
   label,
@@ -132,6 +135,7 @@ export function PromptCodeDock() {
   const setDockMode = useJourney((s) => s.setDockMode)
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
+  const applyBrand = useJourney((s) => s.applyBrand)
   const applyContextDoc = useJourney((s) => s.applyContextDoc)
   const contextError = useJourney((s) => s.contextError)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
@@ -141,6 +145,7 @@ export function PromptCodeDock() {
   const focusing = useOrchestration((s) => s.focusTarget !== null)
   const openTemplates = useOrchestration((s) => s.openTemplates)
   const pendingLibraryTemplate = useOrchestration((s) => s.pendingLibraryTemplate)
+  const pendingCopilotGuide = useOrchestration((s) => s.pendingCopilotGuide)
 
   const lines = useCopilotThread((s) => s.lines)
   const say = useCopilotThread((s) => s.say)
@@ -231,6 +236,30 @@ export function PromptCodeDock() {
     applyTemplate(template)
   }
 
+  const startMatchSite = () => {
+    say('you', 'Match my site branding')
+    say(
+      'bot',
+      'Where will the snippet run? Paste that URL — the account or billing page, not a marketing homepage. I’ll sample what I can and apply it as tokens. You can also describe it: dark navy, gold buttons, Inter.',
+    )
+    setTurn('match_site')
+  }
+
+  const startUpload = () => {
+    say('you', 'Upload my own template')
+    say(
+      'bot',
+      'Drop an HTML file or a zip of static pages. I’ll scan steps and slots; you confirm what binds to offers, the survey, and fields. Chargebee hosts it — targeting, A/B, and reporting stay here.',
+    )
+    useUpload.getState().open()
+  }
+
+  const applyMatchedBrand = async (text: string) => {
+    const result = await matchMerchantBrand(text, compileBrand(useJourney.getState().file.brand))
+    applyBrand(result.branding)
+    say('bot', result.reply)
+  }
+
   const startGuide = () => {
     say('you', 'Help me choose a cancel flow')
     say('bot', 'What job is this cancel for? I’ll pick a path and put defaults in so you can walk it.')
@@ -263,6 +292,14 @@ export function PromptCodeDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingLibraryTemplate])
 
+  useEffect(() => {
+    if (!pendingCopilotGuide) return
+    useOrchestration.getState().consumeCopilotGuide()
+    if (turn === 'kind' && lines.length === 0) startGuide()
+    else if (turn !== 'guide') startGuide()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCopilotGuide])
+
   const confirmPlan = () => {
     say('you', 'Looks good — I’m done for now')
     say(
@@ -273,14 +310,23 @@ export function PromptCodeDock() {
   }
 
   /**
-   * Typing skips the turns. Whatever the free text can be read as goes
-   * straight into the file, then we land on the recap — knobs stay on demand.
+   * Typing skips the turns. Brand matching can sample a live URL; everything
+   * else is a patch to the journey file, then we land on the recap.
    */
   const send = () => {
     const text = draft.trim()
     if (!text) return
     setDraft('')
     say('you', text)
+    if (turn === 'match_site') {
+      void applyMatchedBrand(text)
+      setTurn('kind')
+      return
+    }
+    if (isBrandIntent(text) && !/\b(cancel|acquire|acquisition|step|survey|offer|pause|discount|checkout|pricing)\b/i.test(text)) {
+      void applyMatchedBrand(text)
+      return
+    }
     const read = interpret(text, file)
     if (read.changed) replaceFile(read.file)
     say('bot', read.reply)
@@ -312,11 +358,35 @@ export function PromptCodeDock() {
             onClick={openTemplates}
           />
           <OptionBtn
+            label="Match my site branding"
+            hint="Sample the page the snippet will run on"
+            onClick={startMatchSite}
+          />
+          <OptionBtn
+            label="Upload my own template"
+            hint="HTML or zip — we host it and overlay the workflow"
+            onClick={startUpload}
+          />
+          <OptionBtn
+            label="Offer a cheaper plan before they leave"
+            hint="Pricing table and checkout, then they can still cancel"
+            onClick={() =>
+              recommendTemplate('cancel_plan_change', 'Offer a cheaper plan before they leave')
+            }
+          />
+          <OptionBtn
             label="Pricing table → hosted checkout"
-            hint="Acquire, not retain"
+            hint="Acquire a subscriber — not a cancel flow"
             onClick={startAcquire}
           />
         </div>
+      )
+    }
+    if (turn === 'match_site') {
+      return (
+        <p className="text-[12.5px] leading-relaxed text-slate-500">
+          Paste the live URL, or describe the look — colors, dark or light, type, button shape.
+        </p>
       )
     }
     if (turn === 'guide') {
@@ -331,6 +401,13 @@ export function PromptCodeDock() {
             label="I want a fair save"
             hint="Recommended — value, survey, one offer, confirm"
             onClick={() => recommendTemplate('cancel_4', 'I want a fair save')}
+          />
+          <OptionBtn
+            label="I want them to pick a cheaper plan"
+            hint="Plan picker and checkout, then they can still leave"
+            onClick={() =>
+              recommendTemplate('cancel_plan_change', 'I want them to pick a cheaper plan')
+            }
           />
           <OptionBtn
             label="I need to save as many as I can"
@@ -531,9 +608,11 @@ export function PromptCodeDock() {
               onChange={setDraft}
               onSend={send}
               placeholder={
-                emptyHome
-                  ? 'Or say it: 4-step cancel with a pause, full page.'
-                  : 'Ask Copilot...'
+                turn === 'match_site'
+                  ? 'https://account.example.com — or: dark navy, gold buttons, Inter'
+                  : emptyHome
+                    ? 'Or say it: 4-step cancel, match my site, or cancel with a pricing table.'
+                    : 'Ask Copilot...'
               }
             />
             <p className="mt-2 px-1 text-center text-[10px] leading-snug text-slate-400">
