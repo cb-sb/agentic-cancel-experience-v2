@@ -217,7 +217,7 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
   if (isBrandIntent(text)) {
     const spoken = brandingFromSpeech(text, compileBrand(file.brand))
     if (spoken.notes.length) {
-      file = { ...file, brand: journeyBrandFrom(spoken.branding) }
+      file = { ...file, brand: journeyBrandFrom(spoken.branding, true) }
       did.push(spoken.notes.join('; '))
     }
   }
@@ -231,7 +231,7 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
       rebuilt: false,
       reply:
         current.template === 'none'
-          ? 'I can read a journey out of one line — try “4-step cancel with a pause, full page”, “match my site https://account.example.com”, or “acquisition, full page”. Or pick an option above.'
+          ? 'I can read a journey out of one line — try “4-step cancel with a pause, full page” or “acquisition, full page”. I’ll match your site look as part of starting it.'
           : 'I could not read a change out of that. Use the plan below for offers, audience, shell, and brand — or type a step count, an offer name, the shell, or the audience.',
     }
   }

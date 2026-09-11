@@ -127,6 +127,51 @@ body {
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /*
+ * Empty-demo iPad: one card size on every step. Benefit lines in the composer
+ * are nowrap so they can set column width; inside this preview they must wrap
+ * or they blow the card's proportions and overlap the footer.
+ */
+.demo-ipad-modal {
+  overflow: hidden;
+}
+.demo-ipad-modal .whitespace-nowrap {
+  white-space: normal;
+}
+
+@keyframes demo-step-in {
+  from {
+    opacity: 0.35;
+    transform: translateX(var(--demo-dx, 18px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes demo-copy-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.demo-step-in {
+  animation: demo-step-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.demo-copy-in {
+  animation: demo-copy-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-step-in,
+  .demo-copy-in {
+    animation: none;
+  }
+}
+
+/*
  * Canvas wires. Stroke widths are world units inside React Flow's transform, so
  * left alone a wire thins to nothing as the canvas zooms out — exactly when the
  * wires are the only thing still legible. `non-scaling-stroke` pins the width to

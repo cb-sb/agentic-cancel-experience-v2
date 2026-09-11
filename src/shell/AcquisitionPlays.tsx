@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { SButton, SIcon, SSwitch } from '@chargebee/sting-react'
+import { CANCEL_ROUTE, useGrowthShell } from './useGrowthShell'
+import { useOrchestration } from '../store/useOrchestration'
 
 const PLAYS = [
   {
@@ -21,6 +23,8 @@ const PLAYS = [
  * has a real door rather than dropping the merchant on a blank canvas.
  */
 export function AcquisitionPlays() {
+  const go = useGrowthShell((s) => s.go)
+  const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
   const [tab, setTab] = useState<'list' | 'dashboard' | 'trends'>('list')
   const [demo, setDemo] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pricing' | 'in_app'>('all')
@@ -44,7 +48,15 @@ export function AcquisitionPlays() {
           <SButton size="small" variant="neutral-outline" icon={<SIcon name="kanban" size={14} />}>
             Play Priority
           </SButton>
-          <SButton size="small" variant="primary" icon={<SIcon name="plus" size={14} />}>
+          <SButton
+            size="small"
+            variant="primary"
+            icon={<SIcon name="plus" size={14} />}
+            onClick={() => {
+              go(CANCEL_ROUTE)
+              applyLibraryTemplate('acquire_2')
+            }}
+          >
             Create New Play
           </SButton>
         </div>
@@ -128,7 +140,14 @@ export function AcquisitionPlays() {
                       <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300" />
                     </td>
                     <td className="py-3">
-                      <button type="button" className="font-medium text-blue-600 hover:underline">
+                      <button
+                        type="button"
+                        className="font-medium text-blue-600 hover:underline"
+                        onClick={() => {
+                          go(CANCEL_ROUTE)
+                          applyLibraryTemplate('acquire_2')
+                        }}
+                      >
                         {play.name}
                       </button>
                     </td>

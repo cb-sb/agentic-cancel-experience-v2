@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { SButton } from '@chargebee/sting-react'
 import { blueprintMeta } from '../lib/blueprints'
 import { AddMenu, type AddOption } from './flow/AddMenu'
 import { experienceBadge } from '../lib/experienceUtils'
@@ -13,7 +12,6 @@ import { EmptyJourneyDemo } from './EmptyJourneyDemo'
 import { useEmptyJourneyDemo } from './emptyDemoFlag'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useJourney } from '../store/useJourney'
-import { useUpload } from '../upload/useUpload'
 
 const TARGET_FLOW: TargetType[] = ['CANCEL_PAGE', 'HOSTED_PAGE']
 
@@ -98,8 +96,6 @@ export function ExperienceEnclosure({
   const focusStep = useOrchestration((s) => s.focusStep)
   const play = useOrchestration((s) => s.play)
   const removeBranch = useOrchestration((s) => s.removeBranch)
-  const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
-  const requestCopilotGuide = useOrchestration((s) => s.requestCopilotGuide)
   const [renaming, setRenaming] = useState(false)
   const [dupOpen, setDupOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -107,7 +103,6 @@ export function ExperienceEnclosure({
   const emptyDemo = useEmptyJourneyDemo()
   const go = useGrowthShell((s) => s.go)
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
-  const openUpload = useUpload((s) => s.open)
 
   const split = play.targeting.kind === 'split' ? play.targeting : null
   const treatmentCount = split?.branches.filter((b) => b.node.kind === 'flow').length ?? 0
@@ -175,11 +170,9 @@ export function ExperienceEnclosure({
 
   return (
     <div style={{ width, height }} className="group/frame relative">
-      {/* Frame title — sits just OUTSIDE, above the frame. Clicking it selects
-          the whole enclosure; clicking inside the frame does not. Counter-scaled
-          so it holds its on-screen size as the canvas zooms out, as far as the
-          clearance above the frame allows — past that it shrinks with the canvas
-          rather than landing on the row above. */}
+      {/* Frame title — sits just OUTSIDE, above the frame. The empty demo
+          draws its Demo nav inside the node instead. */}
+      {!emptyDemo && (
       <div
         data-chrome
         data-enclosure-title
@@ -346,6 +339,7 @@ export function ExperienceEnclosure({
         </div>
         )}
       </div>
+      )}
 
       <div
         onPointerDown={(e) => e.stopPropagation()}
@@ -353,15 +347,17 @@ export function ExperienceEnclosure({
         // Selection and editing tint the fill; zoom never does. The artboard has
         // to look like one surface whether you are reading the whole play or a
         // single card, so nothing here keys off the tier.
-        className={`cursor-default rounded-2xl transition-all ${
-          selected
-            ? 'border-2 border-indigo-500 bg-indigo-50/40 shadow-md ring-2 ring-indigo-500/20'
+        className={`cursor-default transition-all ${
+          emptyDemo
+            ? 'overflow-visible bg-transparent'
+            : selected
+            ? 'rounded-2xl border-2 border-indigo-500 bg-indigo-50/40 shadow-md ring-2 ring-indigo-500/20'
             : active
-            ? `border-2 border-indigo-300 bg-indigo-50/25 shadow-sm ${TITLE_HOVER_FRAME}`
+            ? `rounded-2xl border-2 border-indigo-300 bg-indigo-50/25 shadow-sm ${TITLE_HOVER_FRAME}`
             : // Pale but not thin: the frame's job is to group, so its edge
               // should never compete with the cards inside it — but a 1px stroke
               // in world units falls below a screen pixel once zoomed out.
-              `border-2 border-slate-200 bg-white/60 hover:border-slate-300 ${TITLE_HOVER_FRAME}`
+              `rounded-2xl border-2 border-slate-200 bg-white/60 hover:border-slate-300 ${TITLE_HOVER_FRAME}`
         }`}
       >
         {collapsed && (
@@ -383,32 +379,6 @@ export function ExperienceEnclosure({
           </div>
         )}
       </div>
-
-      {emptyDemo && (
-        <div
-          data-chrome
-          data-demo-footer
-          className="absolute left-0 right-0 top-full z-20 flex justify-center"
-          style={{
-            transform: `scale(${titleScale}) translateY(${TITLE_PILL_GAP}px)`,
-            transformOrigin: 'top center',
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-2.5">
-            <SButton size="small" variant="neutral-outline" onClick={() => requestCopilotGuide()}>
-              Help me choose
-            </SButton>
-            <SButton size="small" variant="primary" onClick={() => applyLibraryTemplate('cancel_4')}>
-              Use this flow
-            </SButton>
-            <SButton size="small" variant="neutral-outline" onClick={openUpload}>
-              Upload my own template
-            </SButton>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -24,6 +24,7 @@ import {
   TARGET_W,
   STEP_WIRE_COLOR,
   TITLE_ALLOWANCE,
+  DEMO_TITLE_ALLOWANCE,
   WIRE_COLOR,
   Y_MID,
 } from './canvasTokens'
@@ -177,7 +178,8 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
       h = DEMO_ENCLOSURE_H
     }
     const footer = emptyDemo && isExpTarget ? DEMO_FOOTER_ALLOWANCE : 0
-    return { branch, flow, exp, collapsed, grid, w, h, rowH: TITLE_ALLOWANCE + h + footer }
+    const titleGap = emptyDemo && isExpTarget ? DEMO_TITLE_ALLOWANCE : TITLE_ALLOWANCE
+    return { branch, flow, exp, collapsed, grid, w, h, rowH: titleGap + h + footer }
   })
 
   const totalH = rows.reduce((s, r) => s + r.rowH, 0) + Math.max(0, rows.length - 1) * ROW_GAP
@@ -210,7 +212,7 @@ export function buildFlowGraph(input: BuildFlowGraphInput): BuildFlowGraphResult
       const encX = emptyDemo
         ? sx
         : (carded ? bx + CARD_W : sx + CARD_W) + ENCLOSURE_GAP
-      const encY = rowTop + TITLE_ALLOWANCE
+      const encY = rowTop + (emptyDemo ? DEMO_TITLE_ALLOWANCE : TITLE_ALLOWANCE)
       const cardY = encY + Math.max(0, (r.h - CARD_H) / 2)
       const layout: FlowBranchLayout = {
         flow: r.flow,

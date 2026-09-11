@@ -40,6 +40,11 @@ export interface JourneyBrand {
   corners: number
   /** Full Branding object. Compile copies this through instead of DEFAULT_BRANDING. */
   theme?: Partial<Branding>
+  /**
+   * True after the merchant matched the page the snippet will run on (URL or
+   * description). Required for every authored cancel and acquisition experience.
+   */
+  matched?: boolean
 }
 
 export const DEFAULT_JOURNEY_BRAND: JourneyBrand = {

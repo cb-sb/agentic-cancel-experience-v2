@@ -1,4 +1,6 @@
 import { patchBrandShortcuts } from '../brand/theme'
+import { isBrandMatched } from '../brand/matchSite'
+import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
 import { LIBRARY, setStepOffer, templateLabel } from '../journey/templates'
 import type { AudienceKey, JourneyFile, OfferKey } from '../journey/types'
@@ -44,7 +46,7 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
     case 'holdout':
       return 'A holdout is a slice that skips this experience so you can measure lift. Leave it at none until you are ready to experiment.'
     case 'brand':
-      return 'Name, color, and the look of the subscriber UI. Match the page the snippet will run on — then open the branding studio for type, buttons, and scoped CSS.'
+      return 'Name, color, and the look of the subscriber UI. Matching the page the snippet will run on is required for every cancel and pricing-table experience — then open the branding studio for type, buttons, and scoped CSS.'
     case 'review':
       return 'Walk this as a subscriber to see if it’s right. Open any row on the plan to change a default — you don’t have to.'
   }
@@ -85,7 +87,7 @@ function beatHint(beat: PlanBeat): string | null {
     case 'holdout':
       return 'Skip this until you want a control group. Zero means everyone sees the experience.'
     case 'brand':
-      return 'Match the page the snippet will run on. Fine-tune tokens and scoped CSS in the branding studio.'
+      return 'Required for every experience. Match the page the snippet will run on, then fine-tune tokens and scoped CSS in the branding studio.'
     default:
       return null
   }
@@ -129,7 +131,9 @@ export function PlanSummary({
     {
       beat: 'brand',
       label: 'Brand',
-      value: `${file.brand.merchant} · ${file.brand.primary.toUpperCase()}`,
+      value: isBrandMatched(file.brand)
+        ? `${file.brand.merchant} · ${file.brand.primary.toUpperCase()}`
+        : 'Match the page this will run on',
     },
   ]
 
@@ -302,6 +306,9 @@ export function PlanBeatCard({
 
       {beat === 'brand' && (
         <div className="space-y-3">
+          <MatchSiteCard />
+          {isBrandMatched(file.brand) && (
+            <>
           <input
             value={file.brand.merchant}
             onChange={(e) =>
@@ -350,6 +357,8 @@ export function PlanBeatCard({
               className="mt-1 w-full accent-slate-800"
             />
           </div>
+            </>
+          )}
           <button
             type="button"
             onClick={() => go('experiences.branding')}
@@ -360,7 +369,7 @@ export function PlanBeatCard({
         </div>
       )}
 
-      {beat !== 'audience' && beat !== 'shell' && (
+      {beat !== 'audience' && beat !== 'shell' && (beat !== 'brand' || isBrandMatched(file.brand)) && (
         <button
           type="button"
           onClick={() => onContinue(keepLabel(beat, file))}
@@ -369,13 +378,15 @@ export function PlanBeatCard({
           {keepLabel(beat, file)}
         </button>
       )}
-      <button
-        type="button"
-        onClick={onKeepDefaults}
-        className="mt-2 w-full rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-      >
-        Keep defaults and walk it
-      </button>
+      {(beat !== 'brand' || isBrandMatched(file.brand)) && (
+        <button
+          type="button"
+          onClick={onKeepDefaults}
+          className="mt-2 w-full rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+        >
+          Keep defaults and walk it
+        </button>
+      )}
     </div>
   )
 }

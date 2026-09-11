@@ -77,7 +77,7 @@ interface JourneyState {
   setYaml: (text: string) => void
   applyContextDoc: (text: string) => void
   reorderSteps: (fromId: string, toId: string) => void
-  applyBrand: (branding: Branding) => void
+  applyBrand: (branding: Branding, matched?: boolean) => void
 }
 
 export const useJourney = create<JourneyState>((set, get) => ({
@@ -124,8 +124,12 @@ export const useJourney = create<JourneyState>((set, get) => ({
     set({ ...pushFile(parsed.file), contextError: null })
   },
 
-  applyBrand: (branding) => {
-    set({ ...pushFile({ ...get().file, brand: journeyBrandFrom(branding) }), contextError: null })
+  applyBrand: (branding, matched) => {
+    const keep = matched ?? get().file.brand.matched ?? false
+    set({
+      ...pushFile({ ...get().file, brand: journeyBrandFrom(branding, keep) }),
+      contextError: null,
+    })
   },
 
   reorderSteps: (fromId, toId) => {

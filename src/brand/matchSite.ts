@@ -1,5 +1,6 @@
 import { DEFAULT_BRANDING } from '../lib/blueprints'
 import type { Branding } from '../types/experience'
+import type { JourneyBrand, JourneyKind } from '../journey/types'
 
 /** Generic notched CTA. Merchants who need clip-path start from this, then edit. */
 export const DEFAULT_BUTTON_CLIP =
@@ -271,11 +272,23 @@ export interface MatchSiteResult {
   branding: Branding
   reply: string
   sampled: boolean
+  /** Tokens were written — enough to count the brand step as done. */
+  applied: boolean
+}
+
+export function isBrandMatched(brand: JourneyBrand): boolean {
+  return brand.matched === true
+}
+
+export function brandGatePrompt(kind: JourneyKind): string {
+  const what = kind === 'acquisition' ? 'pricing table' : 'cancel UI'
+  return `This ${what} sits on your site. Paste the account or billing URL so it matches — not a marketing homepage. You can also describe it: dark navy, gold buttons, Inter.`
 }
 
 /**
- * Match the cancel UI to the merchant — from a live URL, from copy they typed,
- * or both. Never inherits host CSS; tokens + scoped hatch stay the apply path.
+ * Match the subscriber UI to the merchant — from a live URL, from copy they typed,
+ * or both. Applies to cancel and acquisition. Never inherits host CSS; tokens +
+ * scoped hatch stay the apply path.
  */
 export async function matchMerchantBrand(text: string, base: Branding): Promise<MatchSiteResult> {
   const spoken = brandingFromSpeech(text, base)
@@ -304,6 +317,7 @@ export async function matchMerchantBrand(text: string, base: Branding): Promise<
     return {
       branding: base,
       sampled: false,
+      applied: false,
       reply:
         'I need the URL where the snippet will run, or a description — name, colors, dark or light, type, button shape. Capture from the account or billing page, not a marketing homepage.',
     }
@@ -316,6 +330,7 @@ export async function matchMerchantBrand(text: string, base: Branding): Promise<
   return {
     branding,
     sampled,
-    reply: `Matched your brand: ${list}. The cancel UI stays isolated — native look is applied as tokens (and scoped CSS if you need geometry the tokens can’t express). Refine anything in Experiences → Branding.`,
+    applied: true,
+    reply: `Matched your brand: ${list}. Native look is applied as tokens (and scoped CSS if you need geometry the tokens can’t express) — it stays isolated from the host page. Refine anything in Experiences → Branding.`,
   }
 }

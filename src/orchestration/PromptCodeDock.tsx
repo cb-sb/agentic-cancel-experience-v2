@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { useExperience } from '../store/useExperience'
@@ -6,7 +6,8 @@ import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
 import { LIBRARY, startFromTemplate, templateLabel, withLive } from '../journey/templates'
 import { interpret } from '../journey/intake'
 import { compileBrand } from '../brand/theme'
-import { isBrandIntent, matchMerchantBrand } from '../brand/matchSite'
+import { brandGatePrompt, isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
+import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { renderContext } from '../journey/contextDoc'
 import {
   PlanBeatCard,
@@ -38,6 +39,47 @@ function OptionBtn({
     >
       <div className="text-[13px] font-medium text-slate-800">{label}</div>
       {hint && <div className="mt-0.5 text-[11.5px] text-slate-500">{hint}</div>}
+    </button>
+  )
+}
+
+function OptionGroup({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      {children}
+    </div>
+  )
+}
+
+function LibraryCta({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-2xl border border-slate-900 bg-slate-900 px-4 py-3.5 text-left text-white transition-colors hover:bg-slate-800"
+    >
+      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-white/10" aria-hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold">Template library</span>
+        <span className="mt-0.5 block text-[11.5px] text-white/70">Browse every cancel and acquisition path</span>
+      </span>
+      <span className="text-[16px] text-white/50" aria-hidden>
+        →
+      </span>
     </button>
   )
 }
@@ -182,18 +224,34 @@ export function PromptCodeDock() {
   }, [lines, turn, beat])
 
   const reset = () => {
-    replaceFile(EMPTY_JOURNEY)
+    replaceFile({ ...EMPTY_JOURNEY, brand: useJourney.getState().file.brand })
     setTurn('kind')
     setBeat('review')
     setDraft('')
     resetThread()
   }
 
-  /** Recap first. Knobs are on demand from the plan rows, not a forced queue. */
+  const finishBrandGate = () => {
+    const current = useJourney.getState().file
+    if (current.steps.length === 0 || current.template === 'none') {
+      setTurn('kind')
+      return
+    }
+    setTurn('plan')
+    setBeat('review')
+    say('bot', beatPrompt('review', current))
+  }
+
+  /** Recap first — except brand, which is required for every authored experience. */
   const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
     say('bot', planIntro(live), { widget: 'plan' })
+    if (live.source !== 'uploaded' && !isBrandMatched(live.brand)) {
+      say('bot', brandGatePrompt(live.kind))
+      setTurn('match_site')
+      return
+    }
     setTurn('plan')
     setBeat('review')
     say('bot', beatPrompt('review', live))
@@ -207,8 +265,13 @@ export function PromptCodeDock() {
   }
 
   const keepDefaults = () => {
-    say('you', 'Keep defaults and walk it')
     const current = useJourney.getState().file
+    if (current.source !== 'uploaded' && !isBrandMatched(current.brand)) {
+      say('bot', brandGatePrompt(current.kind))
+      setTurn('match_site')
+      return
+    }
+    say('you', 'Keep defaults and walk it')
     setTurn('plan')
     setBeat('review')
     say('bot', beatPrompt('review', current))
@@ -216,11 +279,16 @@ export function PromptCodeDock() {
   }
 
   const jumpPlan = (next: PlanBeat) => {
+    const current = useJourney.getState().file
+    if (current.source !== 'uploaded' && !isBrandMatched(current.brand) && next !== 'brand') {
+      setTurn('match_site')
+      return
+    }
     const alreadyOnBeat = turn === 'plan' && beat === next
     setTurn('plan')
     setBeat(next)
     if (alreadyOnBeat) return
-    say('bot', beatPrompt(next, useJourney.getState().file))
+    say('bot', beatPrompt(next, current))
   }
 
   const applyTemplate = (template: JourneyTemplate) => {
@@ -236,15 +304,6 @@ export function PromptCodeDock() {
     applyTemplate(template)
   }
 
-  const startMatchSite = () => {
-    say('you', 'Match my site branding')
-    say(
-      'bot',
-      'Where will the snippet run? Paste that URL — the account or billing page, not a marketing homepage. I’ll sample what I can and apply it as tokens. You can also describe it: dark navy, gold buttons, Inter.',
-    )
-    setTurn('match_site')
-  }
-
   const startUpload = () => {
     say('you', 'Upload my own template')
     say(
@@ -256,8 +315,13 @@ export function PromptCodeDock() {
 
   const applyMatchedBrand = async (text: string) => {
     const result = await matchMerchantBrand(text, compileBrand(useJourney.getState().file.brand))
-    applyBrand(result.branding)
+    if (!result.applied) {
+      say('bot', result.reply)
+      return false
+    }
+    applyBrand(result.branding, true)
     say('bot', result.reply)
+    return true
   }
 
   const startGuide = () => {
@@ -319,8 +383,9 @@ export function PromptCodeDock() {
     setDraft('')
     say('you', text)
     if (turn === 'match_site') {
-      void applyMatchedBrand(text)
-      setTurn('kind')
+      void applyMatchedBrand(text).then((ok) => {
+        if (ok) finishBrandGate()
+      })
       return
     }
     if (isBrandIntent(text) && !/\b(cancel|acquire|acquisition|step|survey|offer|pause|discount|checkout|pricing)\b/i.test(text)) {
@@ -332,61 +397,74 @@ export function PromptCodeDock() {
     say('bot', read.reply)
     if (read.changed && read.file.steps.length > 0) {
       say('bot', planIntro(read.file), { widget: 'plan' })
-      setTurn('plan')
-      setBeat('review')
-      say('bot', beatPrompt('review', read.file))
+      if (read.file.source !== 'uploaded' && !isBrandMatched(read.file.brand)) {
+        say('bot', brandGatePrompt(read.file.kind))
+        setTurn('match_site')
+      } else {
+        setTurn('plan')
+        setBeat('review')
+        say('bot', beatPrompt('review', read.file))
+      }
     }
   }
 
   const options = useMemo(() => {
     if (turn === 'kind') {
       return (
-        <div className="space-y-2">
-          <OptionBtn
-            label="Help me choose a cancel flow"
-            hint="I’ll ask the job, then recommend a path"
-            onClick={startGuide}
-          />
-          <OptionBtn
-            label="Use the recommended 4-step default"
-            hint="Value, survey, one save offer, confirm"
-            onClick={() => recommendTemplate('cancel_4', 'Use the recommended 4-step default')}
-          />
-          <OptionBtn
-            label="Browse template library"
-            hint="Every cancel and acquisition path Copilot knows"
-            onClick={openTemplates}
-          />
-          <OptionBtn
-            label="Match my site branding"
-            hint="Sample the page the snippet will run on"
-            onClick={startMatchSite}
-          />
+        <div className="space-y-5">
+          <OptionGroup label="Start a cancel">
+            <OptionBtn
+              label="Help me choose a cancel flow"
+              hint="I’ll ask the job, then recommend a path"
+              onClick={startGuide}
+            />
+            <OptionBtn
+              label="Use the recommended 4-step default"
+              hint="Value, survey, one save offer, confirm"
+              onClick={() => recommendTemplate('cancel_4', 'Use the recommended 4-step default')}
+            />
+            <OptionBtn
+              label="Offer a cheaper plan before they leave"
+              hint="Pricing table and checkout, then they can still cancel"
+              onClick={() =>
+                recommendTemplate('cancel_plan_change', 'Offer a cheaper plan before they leave')
+              }
+            />
+          </OptionGroup>
+          <LibraryCta onClick={openTemplates} />
           <OptionBtn
             label="Upload my own template"
             hint="HTML or zip — we host it and overlay the workflow"
             onClick={startUpload}
           />
-          <OptionBtn
-            label="Offer a cheaper plan before they leave"
-            hint="Pricing table and checkout, then they can still cancel"
-            onClick={() =>
-              recommendTemplate('cancel_plan_change', 'Offer a cheaper plan before they leave')
-            }
-          />
-          <OptionBtn
-            label="Pricing table → hosted checkout"
-            hint="Acquire a subscriber — not a cancel flow"
+          <button
+            type="button"
             onClick={startAcquire}
-          />
+            className="w-full px-1 text-left text-[12.5px] text-slate-500 hover:text-slate-800"
+          >
+            Acquiring a subscriber instead?{' '}
+            <span className="font-semibold text-slate-700">Pricing table → hosted checkout</span>
+          </button>
         </div>
       )
     }
     if (turn === 'match_site') {
       return (
-        <p className="text-[12.5px] leading-relaxed text-slate-500">
-          Paste the live URL, or describe the look — colors, dark or light, type, button shape.
-        </p>
+        <div className="space-y-2">
+          <MatchSiteCard
+            onMatched={() => finishBrandGate()}
+            onFailed={(result) => say('bot', result.reply)}
+          />
+          {isBrandMatched(file.brand) && (
+            <button
+              type="button"
+              onClick={finishBrandGate}
+              className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-[13px] font-bold text-white hover:bg-slate-800"
+            >
+              Continue with {file.brand.merchant}
+            </button>
+          )}
+        </div>
       )
     }
     if (turn === 'guide') {
@@ -564,9 +642,12 @@ export function PromptCodeDock() {
                 <CopilotMark size={72} className="shadow-[0_8px_24px_rgba(15,23,42,0.12)]" alt="" />
                 <h3 className="mt-5 text-[22px] font-bold tracking-tight text-slate-900">Ask me anything</h3>
                 <p className="mt-2 max-w-[320px] text-center text-[13px] leading-relaxed text-slate-500">
-                  I’ll recommend a live cancel experience. Walk it as a subscriber, then change only what still matters.
+                  I’ll recommend a live experience that looks like your site. Walk it as a subscriber, then change only what still matters.
                 </p>
-                <div className="mt-6 w-full space-y-2">{options}</div>
+                <div className="mt-6 w-full space-y-4">
+                  <MatchSiteCard compact />
+                  {options}
+                </div>
               </div>
             ) : (
               <>
@@ -611,7 +692,7 @@ export function PromptCodeDock() {
                 turn === 'match_site'
                   ? 'https://account.example.com — or: dark navy, gold buttons, Inter'
                   : emptyHome
-                    ? 'Or say it: 4-step cancel, match my site, or cancel with a pricing table.'
+                    ? 'Or say it: 4-step cancel, or a pricing table to acquire subscribers.'
                     : 'Ask Copilot...'
               }
             />

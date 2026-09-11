@@ -22,6 +22,10 @@ interface StepFrameProps {
   centerActions?: boolean
   /** Modal only: pin the card to this height so it never jumps between steps. */
   fixedHeight?: number
+  /** Modal only: override the unmeasured min height. 0 lets the card hug content. */
+  minHeight?: number
+  /** Tighter chrome for a small preview surface (empty-demo iPad). */
+  compact?: boolean
   /** Optional guardrails for the step title (H2). */
   titleMaxWords?: number
   titleMaxChars?: number
@@ -72,10 +76,10 @@ function useHeaderBits({
  * driven by `--brand-header` (transparent by default, so it reads as the card
  * fill) and is editable independently under Branding → Colors.
  */
-function ModalHeader({ logo, meta }: { logo: ReactNode; meta: ReactNode }) {
+function ModalHeader({ logo, meta, compact }: { logo: ReactNode; meta: ReactNode; compact?: boolean }) {
   return (
     <div
-      className="flex items-center justify-between border-b border-black/5 px-8 py-5"
+      className={`flex items-center justify-between border-b border-black/5 ${compact ? 'px-5 py-3' : 'px-8 py-5'}`}
       style={{ background: 'var(--brand-header, transparent)' }}
     >
       {logo}
@@ -92,15 +96,16 @@ function TitleBlock({
   titleMaxWords,
   titleMaxChars,
   descriptionMaxChars,
+  compact,
 }: Pick<
   StepFrameProps,
-  'title' | 'description' | 'frame' | 'titleMaxWords' | 'titleMaxChars' | 'descriptionMaxChars'
+  'title' | 'description' | 'frame' | 'titleMaxWords' | 'titleMaxChars' | 'descriptionMaxChars' | 'compact'
 >) {
   const { edit, shell } = useRenderCtx()
   if (!(frame.title || frame.description)) return null
   const fullPage = shell !== 'modal'
   return (
-    <div className={fullPage ? 'mb-4 max-w-xl' : 'mb-6'}>
+    <div className={fullPage ? 'mb-4 max-w-xl' : compact ? 'mb-3' : 'mb-6'}>
       {frame.title && (
         <EditableText
           as="h2"
@@ -113,7 +118,9 @@ function TitleBlock({
           className={
             fullPage
               ? 'text-[30px] font-extrabold leading-[1.14] tracking-tight'
-              : 'text-[22px] font-bold leading-tight'
+              : compact
+                ? 'text-lg font-bold leading-tight'
+                : 'text-[22px] font-bold leading-tight'
           }
           style={{ fontFamily: 'var(--brand-font-heading)', color: 'var(--brand-title)' }}
         />
@@ -128,7 +135,9 @@ function TitleBlock({
           className={
             fullPage
               ? 'mt-2.5 text-[15px] leading-relaxed text-slate-500'
-              : 'mt-1.5 text-sm leading-relaxed text-slate-500'
+              : compact
+                ? 'mt-1 text-[13px] leading-snug text-slate-500'
+                : 'mt-1.5 text-sm leading-relaxed text-slate-500'
           }
         />
       )}
@@ -151,12 +160,16 @@ function ModalFrame({
   hideTitleBlock,
   centerActions,
   fixedHeight,
+  minHeight = 520,
+  compact,
   titleMaxWords,
   titleMaxChars,
   descriptionMaxChars,
   children,
 }: StepFrameProps) {
   const { logo, meta } = useHeaderBits({ frame, branding, index, total, onExit })
+  const bodyPad = compact ? 'px-5 py-4' : 'px-8 py-7'
+  const footPad = compact ? 'px-5 py-3' : 'px-8 py-4'
   return (
     <div
       className="brand-surface flex flex-col overflow-hidden"
@@ -175,28 +188,29 @@ function ModalFrame({
         // The card is pinned to the current step's measured height and eased
         // between steps, so switching steps gently grows/shrinks the surface
         // instead of snapping. Falls back to a min height when unmeasured.
-        ...(fixedHeight ? { height: fixedHeight } : { minHeight: 520 }),
+        ...(fixedHeight ? { height: fixedHeight } : { minHeight }),
         transition: 'height 280ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      <ModalHeader logo={logo} meta={meta} />
+      <ModalHeader logo={logo} meta={meta} compact={compact} />
 
-      <div className="flex flex-1 flex-col px-8 py-7">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${bodyPad}`}>
         {!hideTitleBlock && (
           <TitleBlock
             title={title}
             description={description}
             frame={frame}
+            compact={compact}
             titleMaxWords={titleMaxWords}
             titleMaxChars={titleMaxChars}
             descriptionMaxChars={descriptionMaxChars}
           />
         )}
-        <div className="flex-1">{children}</div>
+        <div className={`min-h-0 flex-1 ${fixedHeight ? 'overflow-y-auto no-scrollbar' : ''}`}>{children}</div>
       </div>
 
       <div
-        className={`relative flex items-center border-t border-black/5 px-8 py-4 ${
+        className={`relative flex flex-none flex-wrap items-center gap-2 border-t border-black/5 ${footPad} ${
           centerActions ? 'justify-center' : 'justify-between'
         }`}
       >

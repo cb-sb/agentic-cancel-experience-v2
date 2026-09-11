@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { SButton, SIcon } from '@chargebee/sting-react'
 import { DEFAULT_BRANDING } from '../lib/blueprints'
-import { matchMerchantBrand } from '../brand/matchSite'
+import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { compileJourney } from '../journey/compile'
 import { startFromTemplate, withLive } from '../journey/templates'
 import { EMPTY_JOURNEY } from '../journey/types'
@@ -38,17 +38,14 @@ function idleSession(): PlaySession {
 }
 
 /**
- * Experiences → Branding. Tokens plus a live device preview of the cancel UI.
- * Copilot stays on copy/structure; this studio owns look for any merchant.
+ * Experiences → Branding. Tokens plus a live device preview of the subscriber UI.
+ * Copilot stays on copy/structure; this studio owns look for cancel and acquisition.
  */
 export function BrandingStudio() {
   const go = useGrowthShell((s) => s.go)
   const file = useJourney((s) => s.file)
   const applyBrand = useJourney((s) => s.applyBrand)
   const live = useExperience((s) => s.experience)
-  const [siteUrl, setSiteUrl] = useState('')
-  const [sampling, setSampling] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
 
   const preview = useMemo(() => {
     if (live.steps.some((s) => !s.disabled)) return live
@@ -74,16 +71,6 @@ export function BrandingStudio() {
       }
     : null
 
-  const sampleSite = async () => {
-    const text = siteUrl.trim()
-    if (!text) return
-    setSampling(true)
-    const result = await matchMerchantBrand(text, preview.branding)
-    applyBrand(result.branding)
-    setNote(result.reply)
-    setSampling(false)
-  }
-
   return (
     <div className="flex h-full min-h-0 bg-white">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -91,8 +78,9 @@ export function BrandingStudio() {
           <div>
             <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Branding</h1>
             <p className="mt-1 max-w-lg text-[13px] text-slate-500">
-              The cancel UI is isolated from the host page. Native look is applied here — sample
-              the live site, then tokens, then scoped CSS when a token cannot express the shape.
+              Every cancel and pricing-table experience uses this look. Native look is applied
+              here — sample the live site, then tokens, then scoped CSS when a token cannot
+              express the shape. The UI stays isolated from the host page.
             </p>
           </div>
           <SButton size="small" variant="neutral-outline" onClick={() => go(CANCEL_ROUTE)}>
@@ -146,29 +134,10 @@ export function BrandingStudio() {
 
       <aside className="flex w-[380px] flex-none flex-col overflow-hidden border-l border-slate-200">
         <div className="flex-none space-y-3 border-b border-slate-100 px-4 py-4">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Match my site</div>
-          <p className="text-[12px] leading-relaxed text-slate-500">
-            Point at the URL where the snippet will run — account or billing, not a marketing
-            homepage. We’ll sample what we can; isolation stays.
-          </p>
-          <input
-            value={siteUrl}
-            onChange={(e) => setSiteUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void sampleSite()
-            }}
-            placeholder="https://account.example.com"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-slate-400"
-          />
-          <div className="flex gap-2">
-            <SButton size="small" variant="primary" disabled={!siteUrl.trim() || sampling} onClick={() => void sampleSite()}>
-              {sampling ? 'Sampling…' : 'Use live branding'}
-            </SButton>
-            <SButton size="small" variant="neutral-outline" onClick={() => applyBrand({ ...DEFAULT_BRANDING })}>
-              Reset
-            </SButton>
-          </div>
-          {note && <p className="text-[11px] leading-relaxed text-slate-500">{note}</p>}
+          <MatchSiteCard />
+          <SButton size="small" variant="neutral-outline" onClick={() => applyBrand({ ...DEFAULT_BRANDING }, false)}>
+            Reset to Chargebee look
+          </SButton>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <BrandingPanel />

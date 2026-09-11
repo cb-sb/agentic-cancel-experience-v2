@@ -1,0 +1,20 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="80.9902" height="80.9902" viewBox="0 0 80.9902 80.9902" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 8">
+<g id="Ellipse 5" filter="url(#filter0_d_0_7)">
+<circle cx="40.4951" cy="36.4951" r="26.4951" fill="white"/>
+</g>
+<path id="Vector 335 (Stroke)" fill-rule="evenodd" clip-rule="evenodd" d="M46.8721 36.8212C47.165 37.1141 47.165 37.589 46.8721 37.8819L39.3721 45.3819C39.0792 45.6748 38.6044 45.6748 38.3115 45.3819C38.0186 45.089 38.0186 44.6141 38.3115 44.3212L45.2811 37.3516L38.3115 30.3819C38.0186 30.089 38.0186 29.6141 38.3115 29.3212C38.6044 29.0283 39.0792 29.0283 39.3721 29.3212L46.8721 36.8212Z" fill="#0F172A"/>
+</g>
+<defs>
+<filter id="filter0_d_0_7" x="0" y="0" width="80.9902" height="80.9902" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="7"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_7"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_7" result="shape"/>
+</filter>
+</defs>
+</svg>

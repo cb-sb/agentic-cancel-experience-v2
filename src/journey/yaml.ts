@@ -64,6 +64,7 @@ export function stringifyJourney(file: JourneyFile): string {
     `  primary: ${yamlStr(file.brand.primary)}`,
     `  corners: ${file.brand.corners}`,
   ]
+  if (file.brand.matched) head.push('  matched: true')
   if (file.brand.theme) head.push(`  theme: ${JSON.stringify(file.brand.theme)}`)
   if (file.source === 'uploaded') {
     head.push('source: uploaded')
@@ -158,6 +159,8 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
           return { error: `Line ${n}: corners must be 0–32` }
         }
         file.brand.corners = corners
+      } else if (bm[1] === 'matched') {
+        file.brand.matched = val === 'true'
       } else return { error: `Line ${n}: unknown brand field ${bm[1]}` }
       continue
     }

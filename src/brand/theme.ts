@@ -22,7 +22,7 @@ export function patchBrandShortcuts(
   brand: JourneyBrand,
   patch: Partial<Pick<JourneyBrand, 'merchant' | 'primary' | 'corners'>>,
 ): JourneyBrand {
-  const next: JourneyBrand = { ...brand, ...patch }
+  const next: JourneyBrand = { ...brand, ...patch, matched: brand.matched }
   if (!next.theme) return next
   next.theme = {
     ...next.theme,
@@ -33,12 +33,13 @@ export function patchBrandShortcuts(
   return next
 }
 
-export function journeyBrandFrom(branding: Branding): JourneyBrand {
+export function journeyBrandFrom(branding: Branding, matched = false): JourneyBrand {
   return {
     merchant: branding.merchantName,
     primary: branding.primaryColor,
     corners: branding.cornerRadius,
     theme: { ...branding },
+    matched,
   }
 }
 
