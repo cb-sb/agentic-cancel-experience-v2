@@ -10,7 +10,8 @@
     "audit:canvas": "node --experimental-strip-types scripts/canvas-audit.ts",
     "audit:focus": "node --experimental-strip-types scripts/focus-audit.ts",
     "audit:toolbar": "node --experimental-strip-types scripts/toolbar-audit.ts",
-    "audit:tiers": "node --experimental-strip-types scripts/tier-strip.ts"
+    "audit:tiers": "node --experimental-strip-types scripts/tier-strip.ts",
+    "eval:setup": "tsx scripts/setup-eval.ts"
   },
   "dependencies": {
     "@chargebee/sting-react": "file:vendor/chargebee-sting-react-1.2.0.tgz",
@@ -28,6 +29,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "playwright": "^1.62.1",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
     "typescript": "~6.0.2",
     "vite": "^6.4.3"
   }

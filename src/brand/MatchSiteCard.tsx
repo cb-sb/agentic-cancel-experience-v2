@@ -10,10 +10,13 @@ import { isBrandMatched, matchMerchantBrand, type MatchSiteResult } from './matc
  */
 export function MatchSiteCard({
   compact,
+  setup,
   onMatched,
   onFailed,
 }: {
   compact?: boolean
+  /** Copilot home — Figma cancel-flow-setup card. Label lives on the parent section. */
+  setup?: boolean
   onMatched?: (result: MatchSiteResult) => void
   onFailed?: (result: MatchSiteResult) => void
 }) {
@@ -38,6 +41,51 @@ export function MatchSiteCard({
     applyBrand(result.branding, true)
     setUrl('')
     onMatched?.(result)
+  }
+
+  if (setup) {
+    const ready = Boolean(url.trim()) && !sampling
+    return (
+      <div
+        className={`flex flex-col gap-3 rounded-[12px] border p-4 ${
+          matched ? 'border-emerald-200 bg-emerald-50/60' : 'border-[#e5e7eb] bg-white'
+        }`}
+      >
+        {matched ? (
+          <p className="text-[12px] leading-[1.3] text-[#4b5563]">
+            <span className="font-semibold text-[#111827]">{brand.merchant}</span>
+            {' · '}
+            every cancel and pricing-table experience uses this look.
+          </p>
+        ) : (
+          <p className="text-[12px] leading-[1.3] text-[#4b5563]">
+            Required for every experience. Paste the account or billing page URL the snippet will run on.
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void sample()
+            }}
+            placeholder={matched ? 'Paste a new URL to rematch' : 'https://account.example.com'}
+            className="h-[38px] min-w-0 flex-1 rounded-lg border border-[#e5e7eb] bg-[#f9fafb] px-3 text-[13px] leading-[1.4] text-[#111827] outline-none placeholder:text-[#4b5563] focus:border-slate-400"
+          />
+          <button
+            type="button"
+            disabled={!url.trim() || sampling}
+            onClick={() => void sample()}
+            className={`flex h-[38px] flex-none items-center justify-center rounded-lg px-4 text-[13px] font-semibold ${
+              ready ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-[#9ca3af] text-[#f9fafb]'
+            }`}
+          >
+            {sampling ? 'Sampling…' : matched ? 'Rematch' : 'Match'}
+          </button>
+        </div>
+        {note && <p className="text-[11px] leading-relaxed text-slate-500">{note}</p>}
+      </div>
+    )
   }
 
   return (

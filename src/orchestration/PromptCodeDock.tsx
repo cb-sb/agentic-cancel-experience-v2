@@ -16,7 +16,7 @@ import {
   planIntro,
   type PlanBeat,
 } from './JourneyPlan'
-import { CopilotMark } from './CopilotMark'
+import { CopilotHomeSetup } from './CopilotHomeSetup'
 import { DesignModeIcon } from './DesignModeIcon'
 import { useCopilotThread } from './copilotThread'
 import { useAssistant } from './assistant/useAssistant'
@@ -533,7 +533,11 @@ export function PromptCodeDock() {
         : 'New Conversation'
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+    <div
+      className={`flex h-full min-h-0 w-full flex-col overflow-hidden ${
+        emptyHome && dockMode === 'prompt' ? 'bg-[#f9fafb]' : 'bg-white'
+      }`}
+    >
       <div className="flex h-14 flex-none items-center justify-between gap-2 border-b border-slate-100 px-3">
         <div className="min-w-0">
           <h2 className="truncate text-[14px] font-bold leading-tight text-slate-900">Chargebee Copilot</h2>
@@ -636,19 +640,20 @@ export function PromptCodeDock() {
         </div>
       ) : (
         <>
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-white px-4 pb-3 pt-5">
+          <div
+            ref={scrollRef}
+            className={`min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4 ${
+              emptyHome ? 'bg-[#f9fafb]' : 'bg-white'
+            }`}
+          >
             {emptyHome ? (
-              <div className="flex flex-col items-center">
-                <CopilotMark size={72} className="shadow-[0_8px_24px_rgba(15,23,42,0.12)]" alt="" />
-                <h3 className="mt-5 text-[22px] font-bold tracking-tight text-slate-900">Ask me anything</h3>
-                <p className="mt-2 max-w-[320px] text-center text-[13px] leading-relaxed text-slate-500">
-                  I’ll recommend a live experience that looks like your site. Walk it as a subscriber, then change only what still matters.
-                </p>
-                <div className="mt-6 w-full space-y-4">
-                  <MatchSiteCard compact />
-                  {options}
-                </div>
-              </div>
+              <CopilotHomeSetup
+                onGuide={startGuide}
+                onRecommend={recommendTemplate}
+                onTemplates={openTemplates}
+                onUpload={startUpload}
+                onAcquire={startAcquire}
+              />
             ) : (
               <>
                 <div className="space-y-3">
@@ -683,7 +688,7 @@ export function PromptCodeDock() {
               </>
             )}
           </div>
-          <div className="flex-none bg-white px-3 pb-2 pt-1">
+          <div className={`flex-none px-3 pb-2 pt-1 ${emptyHome ? 'bg-[#f9fafb]' : 'bg-white'}`}>
             <PromptInput
               value={draft}
               onChange={setDraft}

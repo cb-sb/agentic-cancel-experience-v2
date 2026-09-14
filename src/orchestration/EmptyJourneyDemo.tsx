@@ -115,17 +115,18 @@ function ProgressPips({ index, total, onPick }: { index: number; total: number; 
   return (
     <div className="flex items-center gap-1" role="tablist" aria-label="Demo screens">
       {Array.from({ length: total }, (_, i) => (
-        <button
-          key={i}
-          type="button"
-          role="tab"
-          aria-selected={i === index}
-          aria-label={`Step ${i + 1}`}
-          onClick={() => onPick(i)}
-          className={`h-2 rounded-full transition-all ${
-            i === index ? 'w-8 bg-[#ff3300]' : i < index ? 'w-4 bg-[#ff3300]/50' : 'w-2 bg-slate-200 hover:bg-slate-300'
-          }`}
-        />
+        <span key={i} className="flex h-2 w-8 items-center">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={i === index}
+            aria-label={`Step ${i + 1}`}
+            onClick={() => onPick(i)}
+            className={`h-2 rounded-full ${
+              i === index ? 'w-8 bg-[#ff3300]' : i < index ? 'w-4 bg-[#ff3300]/50' : 'w-2 bg-slate-200 hover:bg-slate-300'
+            }`}
+          />
+        </span>
       ))}
     </div>
   )
@@ -143,47 +144,45 @@ function FlowNavBar({
   onGuide: () => void
 }) {
   return (
-    <div className="flex h-[72px] w-max flex-none items-center rounded-2xl border border-slate-200 bg-white py-3 pl-5 pr-6 shadow-[0_8px_12px_rgba(15,23,42,0.04)]">
-      <div className="flex flex-nowrap items-center gap-5">
-        <span className="flex h-8 items-center rounded-[40px] bg-[#012a38] px-2.5 text-[14px] font-semibold text-[#effeff]">
-          Demo
-        </span>
-        <div className="flex h-8 w-[547px] items-center gap-2.5 overflow-hidden rounded-[40px] bg-[#effeff] px-2.5">
-          {DEMO_STAGES.map((stage, i) => (
-            <span key={stage.crumb} className="flex items-center gap-2.5">
-              {i > 0 && <span className="text-[13px] font-normal text-slate-400">→</span>}
-              <button
-                type="button"
-                onClick={() => onPick(i)}
-                className={`whitespace-nowrap font-semibold ${
-                  i === index ? 'text-[13px] text-[#ff3300]' : 'text-[14px] text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {stage.crumb}
-              </button>
-            </span>
-          ))}
-          <span className="flex items-center gap-2.5">
-            <span className="text-[13px] font-normal text-slate-400">→</span>
-            <span className="whitespace-nowrap text-[14px] font-semibold text-slate-500">{DEMO_OUTCOME_CRUMB}</span>
+    <div className="flex h-10 w-max flex-none items-center gap-3 rounded-full border border-slate-200/70 bg-white/80 px-2 pl-1.5">
+      <span className="flex h-6 items-center rounded-full bg-[#012a38] px-2.5 text-[12px] font-semibold text-[#effeff]">
+        Demo
+      </span>
+      <div className="flex items-center gap-2">
+        {DEMO_STAGES.map((stage, i) => (
+          <span key={stage.crumb} className="flex items-center gap-2">
+            {i > 0 && <span className="text-[12px] font-normal text-slate-300">→</span>}
+            <button
+              type="button"
+              onClick={() => onPick(i)}
+              className={`whitespace-nowrap text-[13px] font-medium ${
+                i === index ? 'text-[#ff3300]' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {stage.crumb}
+            </button>
           </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onGuide}
-            className="whitespace-nowrap rounded-full border border-slate-200 bg-white px-[18px] py-3 text-[14px] font-semibold text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-          >
-            Help me choose
-          </button>
-          <button
-            type="button"
-            onClick={onUse}
-            className="whitespace-nowrap rounded-full bg-[#2563eb] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_4px_6px_rgba(37,99,235,0.2)] hover:bg-[#1d4ed8]"
-          >
-            Use this flow →
-          </button>
-        </div>
+        ))}
+        <span className="flex items-center gap-2">
+          <span className="text-[12px] font-normal text-slate-300">→</span>
+          <span className="whitespace-nowrap text-[13px] font-medium text-slate-400">{DEMO_OUTCOME_CRUMB}</span>
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onGuide}
+          className="whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        >
+          Help me choose
+        </button>
+        <button
+          type="button"
+          onClick={onUse}
+          className="whitespace-nowrap rounded-full bg-[#2563eb] px-3 py-1 text-[13px] font-medium text-white hover:bg-[#1d4ed8]"
+        >
+          Use this flow →
+        </button>
       </div>
     </div>
   )
@@ -287,17 +286,25 @@ export function EmptyJourneyDemo() {
           className="flex h-full w-full items-center overflow-hidden rounded-[60px] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.25)]"
           style={{ paddingLeft: 120, paddingRight: 80 }}
         >
-          <div className="w-[504px] flex-none">
-            <p className="text-[12px] font-semibold uppercase text-[#ff3300]">
+          <div className="flex h-full w-[504px] flex-none flex-col justify-center">
+            <p className="h-4 text-[12px] font-semibold uppercase leading-4 text-[#ff3300]">
               Step {index + 1} of {DEMO_STAGES.length}: {stage.label}
             </p>
-            <div className="mt-2.5">
+            <div className="mt-2.5 h-2">
               <ProgressPips index={index} total={DEMO_STAGES.length} onPick={goTo} />
             </div>
-            <div key={stage.label} className="demo-copy-in">
-              <h3 className="mt-4 text-[24px] font-bold leading-[1.15] text-slate-500">{stage.caption}</h3>
-              <p className="mt-4 text-[18px] font-normal leading-[1.6] text-slate-600">{stage.body}</p>
-            </div>
+            <h3
+              key={`caption-${stage.label}`}
+              className="demo-copy-in mt-4 min-h-[110px] text-[24px] font-bold leading-[1.15] text-slate-500"
+            >
+              {stage.caption}
+            </h3>
+            <p
+              key={`body-${stage.label}`}
+              className="demo-copy-in mt-4 min-h-[116px] text-[18px] font-normal leading-[1.6] text-slate-600"
+            >
+              {stage.body}
+            </p>
           </div>
 
           <div className="flex min-w-0 flex-1 items-center justify-center">
