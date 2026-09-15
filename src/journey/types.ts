@@ -41,8 +41,9 @@ export interface JourneyBrand {
   /** Full Branding object. Compile copies this through instead of DEFAULT_BRANDING. */
   theme?: Partial<Branding>
   /**
-   * True after the merchant matched the page the snippet will run on (URL or
-   * description). Required for every authored cancel and acquisition experience.
+   * True after the merchant matched the page the snippet will run on (URL,
+   * screenshot/video, or description). Required for every authored cancel
+   * and acquisition experience.
    */
   matched?: boolean
 }

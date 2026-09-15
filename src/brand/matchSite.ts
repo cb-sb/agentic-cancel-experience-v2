@@ -1,6 +1,7 @@
 import { DEFAULT_BRANDING } from '../lib/blueprints'
 import type { Branding } from '../types/experience'
 import type { JourneyBrand, JourneyKind } from '../journey/types'
+import { samplePaletteFromFile, type MediaKind, type PaletteSwatch } from './sampleMedia'
 
 /** Generic notched CTA. Merchants who need clip-path start from this, then edit. */
 export const DEFAULT_BUTTON_CLIP =
@@ -282,7 +283,7 @@ export function isBrandMatched(brand: JourneyBrand): boolean {
 
 export function brandGatePrompt(kind: JourneyKind): string {
   const what = kind === 'acquisition' ? 'pricing table' : 'cancel UI'
-  return `This ${what} sits on your site. Paste the account or billing URL so it matches — not a marketing homepage. You can also describe it: dark navy, gold buttons, Inter.`
+  return `This ${what} sits on your site. An in-product URL can be hard to paste — drop a screenshot or video of the billing page, or add the URL. You can also describe it: dark navy, gold buttons, Inter.`
 }
 
 /**
@@ -306,7 +307,7 @@ export async function matchMerchantBrand(text: string, base: Branding): Promise<
       sampled = true
     } else if (page.blocked) {
       notes.push(
-        "couldn't sample computed styles from here (the page isn't readable in this studio). Describe colors, type, and button shape, or finish them in Branding",
+        "couldn't sample computed styles from here (the page isn't readable in this studio). Drop a screenshot of the billing page, or describe colors, type, and button shape",
       )
     } else if (page.status) {
       notes.push(`the site returned ${page.status}, so I used the URL and what you described`)
@@ -319,7 +320,7 @@ export async function matchMerchantBrand(text: string, base: Branding): Promise<
       sampled: false,
       applied: false,
       reply:
-        'I need the URL where the snippet will run, or a description — name, colors, dark or light, type, button shape. Capture from the account or billing page, not a marketing homepage.',
+        'I need a screenshot or video of the billing page, the URL where the snippet will run, or a description — colors, dark or light, type, button shape.',
     }
   }
 
@@ -332,5 +333,146 @@ export async function matchMerchantBrand(text: string, base: Branding): Promise<
     sampled,
     applied: true,
     reply: `Matched your brand: ${list}. Native look is applied as tokens (and scoped CSS if you need geometry the tokens can’t express) — it stays isolated from the host page. Refine anything in Experiences → Branding.`,
+  }
+}
+
+function rgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const n = parseInt(full.slice(0, 6), 16)
+  if (Number.isNaN(n)) return { r: 255, g: 255, b: 255 }
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+
+function saturation(hex: string): number {
+  const { r, g, b } = rgb(hex)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  return max === 0 ? 0 : (max - min) / max
+}
+
+function dist(a: string, b: string): number {
+  const A = rgb(a)
+  const B = rgb(b)
+  return Math.hypot(A.r - B.r, A.g - B.g, A.b - B.b)
+}
+
+function mix(a: string, b: string, t: number): string {
+  const A = rgb(a)
+  const B = rgb(b)
+  const ch = (x: number, y: number) => Math.round(x + (y - x) * t)
+  const hex = (n: number) => n.toString(16).padStart(2, '0')
+  return `#${hex(ch(A.r, B.r))}${hex(ch(A.g, B.g))}${hex(ch(A.b, B.b))}`
+}
+
+function contrastOn(bg: string): string {
+  return luminance(bg) > 0.55 ? '#111827' : '#ffffff'
+}
+
+/**
+ * Map a sampled screenshot/video palette onto the token set the subscriber UI
+ * actually uses. Dominant paint becomes the surface; saturated leftovers become
+ * primary/accent; type colors follow surface luminance.
+ */
+export function brandingFromPalette(
+  base: Branding,
+  palette: PaletteSwatch[],
+  source: MediaKind,
+): { branding: Branding; notes: string[] } {
+  const notes: string[] = []
+  const next: Branding = { ...base }
+  if (palette.length === 0) return { branding: next, notes }
+
+  const surface = palette[0].hex
+  next.siteColor = surface
+  next.cardColor = surface
+  next.headerColor = surface
+  next.cardFillType = 'solid'
+  notes.push(`set the surface to ${surface.toUpperCase()} from the ${source}`)
+
+  const rest = palette.filter((s) => dist(s.hex, surface) > 36)
+  const colorful = rest
+    .filter((s) => saturation(s.hex) > 0.22 && dist(s.hex, surface) > 70)
+    .sort((a, b) => saturation(b.hex) * Math.sqrt(b.count) - saturation(a.hex) * Math.sqrt(a.count))
+
+  const primary = colorful[0]?.hex
+  if (primary) {
+    next.primaryColor = primary
+    next.buttonBorderColor = primary
+    next.buttonGradientFrom = primary
+    notes.push(`set primary to ${primary.toUpperCase()}`)
+  }
+  const accent = colorful.find((s) => dist(s.hex, next.primaryColor) > 40)?.hex
+  if (accent) {
+    next.accentColor = accent
+    next.buttonGradientTo = accent
+    notes.push(`set accent to ${accent.toUpperCase()}`)
+  }
+
+  const typeCandidates = rest.length > 0 ? rest : palette
+  if (luminance(surface) > 0.55) {
+    const dark = [...typeCandidates].sort((a, b) => luminance(a.hex) - luminance(b.hex))[0]?.hex
+    next.titleColor = dark ?? '#0f172a'
+    next.textColor = dark ? mix(dark, surface, 0.18) : '#334155'
+    next.mutedColor = mix(next.textColor, surface, 0.45)
+    Object.assign(next, lightSurfaces(), {
+      siteColor: surface,
+      cardColor: surface,
+      headerColor: surface,
+      titleColor: next.titleColor,
+      textColor: next.textColor,
+      mutedColor: next.mutedColor,
+    })
+  } else {
+    const light = [...typeCandidates].sort((a, b) => luminance(b.hex) - luminance(a.hex))[0]?.hex
+    Object.assign(next, darkSurfaces(next.primaryColor), {
+      siteColor: surface,
+      cardColor: surface,
+      headerColor: surface,
+      titleColor: light ?? '#ffffff',
+      textColor: light ? mix(light, surface, 0.12) : '#d7d7d7',
+      mutedColor: mix(light ?? '#ffffff', surface, 0.4),
+    })
+    notes.push('applied dark surfaces so type stays readable')
+  }
+
+  next.buttonTextColor = contrastOn(next.primaryColor)
+  next.cardBorderColor = mix(surface, next.textColor, 0.18)
+
+  return { branding: next, notes }
+}
+
+export async function matchMerchantBrandFromMedia(
+  file: File,
+  base: Branding,
+): Promise<MatchSiteResult> {
+  try {
+    const { palette, kind } = await samplePaletteFromFile(file)
+    const { branding, notes } = brandingFromPalette(base, palette, kind)
+    if (notes.length === 0) {
+      return {
+        branding: base,
+        sampled: false,
+        applied: false,
+        reply: 'I couldn’t read enough color from that file. Try a clearer crop of the billing page.',
+      }
+    }
+    const list =
+      notes.length === 1
+        ? notes[0]
+        : `${notes.slice(0, -1).join('; ')}; ${notes[notes.length - 1]}`
+    return {
+      branding,
+      sampled: true,
+      applied: true,
+      reply: `Matched your brand from the ${kind}: ${list}. Edit the tokens below, or refine further in Experiences → Branding.`,
+    }
+  } catch (err) {
+    return {
+      branding: base,
+      sampled: false,
+      applied: false,
+      reply: err instanceof Error ? err.message : 'That file could not be sampled.',
+    }
   }
 }
