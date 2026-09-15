@@ -13,7 +13,7 @@ import { useJourney } from '../store/useJourney'
  *  - or set EMPTY_JOURNEY_DEMO_DEFAULT to false and reload
  * Re-enable with `?emptyDemo=1`.
  */
-export const EMPTY_JOURNEY_DEMO_DEFAULT = true
+export const EMPTY_JOURNEY_DEMO_DEFAULT = false
 const STORAGE_KEY = 'cb-empty-journey-demo'
 
 export const DEMO_STAGES: { label: string; crumb: string; caption: string; body: string }[] = [

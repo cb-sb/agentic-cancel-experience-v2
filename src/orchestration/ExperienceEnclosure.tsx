@@ -12,6 +12,7 @@ import { EmptyJourneyDemo } from './EmptyJourneyDemo'
 import { useEmptyJourneyDemo } from './emptyDemoFlag'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useJourney } from '../store/useJourney'
+import { logicalStepCount } from '../lib/stepColumns'
 
 const TARGET_FLOW: TargetType[] = ['CANCEL_PAGE', 'HOSTED_PAGE']
 
@@ -265,6 +266,13 @@ export function ExperienceEnclosure({
               <path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5" />
             </svg>
             <span className="truncate">{experience.name}</span>
+            <span
+              className={`flex-none rounded px-1.5 py-0.5 text-[9.5px] font-bold tabular-nums ${
+                selected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {logicalStepCount(experience.steps)} steps
+            </span>
             {uploaded && (
               <span
                 className={`flex-none rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide ${

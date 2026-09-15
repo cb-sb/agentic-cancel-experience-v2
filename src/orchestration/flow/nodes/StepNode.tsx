@@ -1,6 +1,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { compactStepLabel } from '../../../lib/stepLabels'
+import { stepNeedsWork } from '../../../lib/stepNeedsWork'
 import { useExperience } from '../../../store/useExperience'
+import { useJourney } from '../../../store/useJourney'
 import { useOrchestration } from '../../../store/useOrchestration'
 import { AnnotationDock } from '../../AnnotationComposer'
 import { useAnnotatePick } from '../../useAnnotatePick'
@@ -24,6 +26,8 @@ export function StepNode({ id, data }: NodeProps) {
   const setActiveStep = useExperience((s) => s.setActiveStep)
   const focusStep = useOrchestration((s) => s.focusStep)
   const focusTarget = useOrchestration((s) => s.focusTarget)
+  const file = useJourney((s) => s.file)
+  const needsWork = stepNeedsWork(step, file)
   const setHovered = useSetHoveredStep()
   const annTarget = {
     id,
@@ -110,6 +114,34 @@ export function StepNode({ id, data }: NodeProps) {
           )}
         </ScreenBox>
       </div>
+      <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded text-slate-400">
+        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden>
+          <circle cx="3" cy="2" r="1.1" />
+          <circle cx="7" cy="2" r="1.1" />
+          <circle cx="3" cy="7" r="1.1" />
+          <circle cx="7" cy="7" r="1.1" />
+          <circle cx="3" cy="12" r="1.1" />
+          <circle cx="7" cy="12" r="1.1" />
+        </svg>
+      </div>
+      <button
+        type="button"
+        data-chrome
+        title={needsWork ? 'Needs work — open config' : 'Ready — open config'}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          focusStep({ experienceId, stepId: step.id })
+        }}
+        className={`absolute right-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-sm ${
+          needsWork ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'
+        }`}
+      >
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${needsWork ? 'bg-amber-500' : 'bg-emerald-500'}`}
+        />
+        {needsWork ? 'Needs work' : 'Ready'}
+      </button>
       <AnnotationDock forId={id} />
     </div>
   )

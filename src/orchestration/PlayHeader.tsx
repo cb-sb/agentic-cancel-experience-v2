@@ -6,6 +6,7 @@ import { useJourney } from '../store/useJourney'
 import { StepNavBar } from './StepNavBar'
 import { useUpload } from '../upload/useUpload'
 import { canPublishUploaded, manifestErrors } from '../upload/validate'
+import { SetupTrackerChip, useSetupProgress } from './JourneySetupChrome'
 
 /**
  * The play's mode switch, and nothing else.
@@ -31,7 +32,10 @@ function PlayToolbar() {
           key={m}
           type="button"
           role="radio"
-          onClick={() => setMode(m)}
+          onClick={() => {
+            if (m === 'play') useOrchestration.getState().setWalkedOrSkipped(true)
+            setMode(m)
+          }}
           aria-checked={previewing === (m === 'play')}
           className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
             previewing === (m === 'play')
@@ -85,13 +89,25 @@ function sinceLabel(at: number): string {
 export function PublishControls() {
   const publishState = useOrchestration((s) => s.play.publishState)
   const togglePublish = useOrchestration((s) => s.togglePublish)
+  const publishGapsOpen = useOrchestration((s) => s.publishGapsOpen)
+  const setPublishGapsOpen = useOrchestration((s) => s.setPublishGapsOpen)
   const file = useJourney((s) => s.file)
   const live = publishState === 'live'
   const uploadedBlocked = file.source === 'uploaded' && !canPublishUploaded(file.manifest)
   const why = uploadedBlocked ? manifestErrors(file.manifest)[0] : undefined
+  const progress = useSetupProgress()
+
+  const onPublish = () => {
+    if (!live && !progress.ready && !publishGapsOpen) {
+      setPublishGapsOpen(true)
+      return
+    }
+    setPublishGapsOpen(false)
+    togglePublish()
+  }
 
   return (
-    <>
+    <div className="relative flex items-center gap-2">
       <span
         className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
           live ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
@@ -104,11 +120,16 @@ export function PublishControls() {
         variant="primary"
         disabled={uploadedBlocked && !live}
         title={why}
-        onClick={togglePublish}
+        onClick={onPublish}
       >
-        {live ? 'Unpublish' : 'Publish'}
+        {live ? 'Unpublish' : publishGapsOpen ? 'Publish anyway' : 'Publish'}
       </SButton>
-    </>
+      {publishGapsOpen && !live && progress.gaps.length > 0 && (
+        <div className="absolute right-0 top-full z-40 mt-ti w-[320px] rounded-xl border border-amber-200 bg-amber-50 px-st py-st text-[12px] leading-relaxed text-amber-900 shadow-lg">
+          Still open: {progress.gaps.join(' · ')}. You can publish anyway in this prototype.
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -141,6 +162,8 @@ export function PlayIdentity() {
 export function PlayHeader() {
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
   const openRemap = useUpload((s) => s.openRemap)
+  const trackerOpen = useOrchestration((s) => s.trackerOpen)
+  const setTrackerOpen = useOrchestration((s) => s.setTrackerOpen)
 
   return (
     <>
@@ -148,6 +171,7 @@ export function PlayHeader() {
         <PlayIdentity />
         <PlayToolbar />
         <div className="flex flex-none items-center gap-2">
+          <SetupTrackerChip expanded={trackerOpen} onToggle={() => setTrackerOpen(!trackerOpen)} />
           {uploaded && (
             <SButton size="small" variant="neutral-outline" onClick={openRemap}>
               Remap slots

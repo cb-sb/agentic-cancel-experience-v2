@@ -21,7 +21,7 @@ function patchStep(manifest: TemplateManifest, id: string, patch: Partial<Manife
   }
 }
 
-export function ConfirmManifest() {
+export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
   const manifest = useUpload((s) => s.manifest)
   const setManifest = useUpload((s) => s.setManifest)
   const confirm = useUpload((s) => s.confirm)
@@ -283,7 +283,15 @@ export function ConfirmManifest() {
         <SButton size="small" variant="neutral-outline" onClick={backToPick}>
           {mappingOnly ? 'Replace file' : 'Back'}
         </SButton>
-        <SButton size="small" variant="primary" disabled={!ready} onClick={confirm}>
+        <SButton
+          size="small"
+          variant="primary"
+          disabled={!ready}
+          onClick={() => {
+            confirm()
+            onConfirmed?.()
+          }}
+        >
           Confirm and host
         </SButton>
       </div>

@@ -167,8 +167,19 @@ function parseTemplate(text: string, current: JourneyFile): JourneyTemplate | nu
   if (acquire && current.kind !== 'cancel') return 'acquire_2'
 
   for (const entry of LIBRARY) {
-    if (t.includes(templateLabel(entry.id).toLowerCase())) return entry.id
+    if (
+      t.includes(templateLabel(entry.id).toLowerCase()) ||
+      t.includes(entry.posture.toLowerCase()) ||
+      t.includes(entry.title.toLowerCase())
+    ) {
+      return entry.id
+    }
   }
+  if (t.includes('4-step balanced') || t.includes('4-step')) return templateForCount(4)
+  if (t.includes('1-step click')) return 'cancel_1'
+  if (t.includes('2-step clean')) return 'cancel_2'
+  if (t.includes('3-step with survey')) return 'cancel_3'
+  if (t.includes('5-step save')) return 'cancel_5'
 
   const digits = t.match(/\b([1-5])[ -]?step/)
   if (digits) {

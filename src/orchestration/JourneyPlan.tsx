@@ -18,12 +18,12 @@ const SHELLS: { id: ShellLayout; label: string; hint: string }[] = [
 
 const OFFER_KEYS = OFFER_VARIANTS.map((v) => v.category as OfferKey)
 
-export type PlanBeat = 'offers' | 'audience' | 'shell' | 'holdout' | 'brand' | 'review'
+export type PlanBeat = 'walk' | 'offers' | 'audience' | 'shell' | 'holdout' | 'brand' | 'review' | 'publish'
 
 export function planBeats(file: JourneyFile): PlanBeat[] {
-  const beats: PlanBeat[] = []
+  const beats: PlanBeat[] = ['walk']
   if (file.steps.some((s) => s.kind === 'offer')) beats.push('offers')
-  beats.push('audience', 'shell', 'holdout', 'brand', 'review')
+  beats.push('audience', 'holdout', 'publish')
   return beats
 }
 
@@ -35,6 +35,8 @@ export function nextBeat(file: JourneyFile, current: PlanBeat): PlanBeat | null 
 
 export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
   switch (beat) {
+    case 'walk':
+      return 'Walk this as a subscriber. Editor is optional — you can come back to a step from the canvas.'
     case 'offers':
       return file.steps.filter((s) => s.kind === 'offer').length > 1
         ? 'These are the save mechanics on the path. Keep them unless you already know you want a pause, skip, or plan change.'
@@ -49,6 +51,8 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
       return 'Name, color, and the look of the subscriber UI. Matching the page the snippet will run on is required for every cancel and pricing-table experience — then open the branding studio for type, buttons, and scoped CSS.'
     case 'review':
       return 'Walk this as a subscriber to see if it’s right. Open any row on the plan to change a default — you don’t have to.'
+    case 'publish':
+      return 'Publish when both tracks look right. Gaps stay listed — this prototype will still go live if you choose to.'
   }
 }
 
@@ -199,7 +203,28 @@ export function PlanBeatCard({
   const go = useGrowthShell((s) => s.go)
   const offerSteps = file.steps.filter((s) => s.kind === 'offer')
 
-  if (beat === 'review') {
+  if (beat === 'walk') {
+    return (
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={onPreview}
+          className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-[13px] font-bold text-white hover:bg-slate-800"
+        >
+          Walk this as a subscriber
+        </button>
+        <button
+          type="button"
+          onClick={() => onContinue('Skip walk for now')}
+          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Skip walk for now
+        </button>
+      </div>
+    )
+  }
+
+  if (beat === 'publish' || beat === 'review') {
     return (
       <div className="space-y-2">
         <button
@@ -214,7 +239,7 @@ export function PlanBeatCard({
           onClick={onConfirm}
           className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
         >
-          Looks good — I’m done for now
+          {beat === 'publish' ? 'Publish anyway' : 'Looks good — I’m done for now'}
         </button>
       </div>
     )

@@ -64,21 +64,42 @@ export function skeletonSteps(template: JourneyTemplate): JourneyStepFile[] {
 export function templateLabel(template: JourneyTemplate): string {
   switch (template) {
     case 'cancel_1':
-      return '1-step click to cancel'
+      return 'Confirm'
     case 'cancel_2':
-      return '2-step clean exit'
+      return 'What you keep → Confirm'
     case 'cancel_3':
-      return '3-step with survey'
+      return 'What you keep → Why they’re leaving → Confirm'
     case 'cancel_4':
-      return '4-step balanced'
+      return 'What you keep → Why they’re leaving → One save → Confirm'
     case 'cancel_5':
-      return '5-step save-aggressive'
+      return 'What you keep → Entry offer → Why they’re leaving → One save → Confirm'
+    case 'cancel_plan_change':
+      return 'What you keep → Why they’re leaving → Choose a plan → Checkout → Confirm'
+    case 'acquire_2':
+      return 'Pricing table → Hosted checkout'
+    default:
+      return 'Untitled'
+  }
+}
+
+export function templatePosture(template: JourneyTemplate): string {
+  switch (template) {
+    case 'cancel_1':
+      return 'Frictionless exit'
+    case 'cancel_2':
+      return 'Clean exit'
+    case 'cancel_3':
+      return 'Learn why they leave'
+    case 'cancel_4':
+      return 'Fair save'
+    case 'cancel_5':
+      return 'Save-aggressive'
     case 'cancel_plan_change':
       return 'Plan change to save'
     case 'acquire_2':
-      return '2-step pricing to checkout'
+      return 'Acquire a subscriber'
     default:
-      return 'Untitled'
+      return ''
   }
 }
 
@@ -88,6 +109,7 @@ export type LibraryKind = 'cancel' | 'acquisition'
 export interface LibraryEntry {
   id: Exclude<JourneyTemplate, 'none'>
   title: string
+  posture: string
   why: string
   /** Captions under the thumbnail strip, in screen order. */
   stepLabels: string[]
@@ -98,7 +120,8 @@ export interface LibraryEntry {
 export const LIBRARY: LibraryEntry[] = [
   {
     id: 'cancel_1',
-    title: '1-step click to cancel',
+    title: 'Confirm',
+    posture: 'Frictionless exit',
     why: 'Use this when the law or your brand asks for a frictionless exit. The subscriber confirms once and is done — no survey, no save offer. Best for FTC-style click-to-cancel, and for merchants who would rather lose the revenue than add friction.',
     stepLabels: ['Confirm', 'Saved', 'Cancelled'],
     kind: 'cancel',
@@ -106,7 +129,8 @@ export const LIBRARY: LibraryEntry[] = [
   },
   {
     id: 'cancel_2',
-    title: '2-step clean exit',
+    title: 'What you keep → Confirm',
+    posture: 'Clean exit',
     why: 'Remind them what they keep on this plan, then let them confirm. Two screens make the cost of leaving visible without asking why or putting an offer in the way — a clean exit that still feels considered.',
     stepLabels: ['What you keep', 'Confirm'],
     kind: 'cancel',
@@ -114,39 +138,44 @@ export const LIBRARY: LibraryEntry[] = [
   },
   {
     id: 'cancel_3',
-    title: '3-step with survey',
+    title: 'What you keep → Why they’re leaving → Confirm',
+    posture: 'Learn why they leave',
     why: 'Learn why they are leaving, then let them go. The survey is for you — it does not gate the cancel. Use this when you want the reason data and a short value reminder, but you are not ready to put a save offer on the path.',
-    stepLabels: ['What you keep', 'Survey', 'Confirm'],
+    stepLabels: ['What you keep', 'Why they’re leaving', 'Confirm'],
     kind: 'cancel',
     stepCount: 3,
   },
   {
     id: 'cancel_4',
-    title: '4-step balanced',
+    title: 'What you keep → Why they’re leaving → One save → Confirm',
+    posture: 'Fair save',
     why: 'The default cancel journey: show what they lose, ask why, make one save offer, then confirm. One offer after the reason is enough to be consultative without stacking discounts. Start here unless you already know you need more or less.',
-    stepLabels: ['What you keep', 'Survey', 'Save offer', 'Confirm'],
+    stepLabels: ['What you keep', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 4,
   },
   {
     id: 'cancel_5',
-    title: '5-step save-aggressive',
+    title: 'What you keep → Entry offer → Why they’re leaving → One save → Confirm',
+    posture: 'Save-aggressive',
     why: 'Lead with an entry offer, then survey, then a second save offer before confirmation. Use this when the account is high value and you are willing to ask twice. Heavier than most merchants need — pick it on purpose, not by habit.',
-    stepLabels: ['What you keep', 'Entry offer', 'Survey', 'Save offer', 'Confirm'],
+    stepLabels: ['What you keep', 'Entry offer', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
   },
   {
     id: 'cancel_plan_change',
-    title: 'Plan change to save',
+    title: 'What you keep → Why they’re leaving → Choose a plan → Checkout → Confirm',
+    posture: 'Plan change to save',
     why: 'Keep them as a subscriber by letting them pick a cheaper plan, then hand off to hosted checkout. They can still confirm and leave — this is a save mechanic on a cancel path, not acquiring a new subscriber.',
-    stepLabels: ['What you keep', 'Survey', 'Choose a plan', 'Checkout', 'Confirm'],
+    stepLabels: ['What you keep', 'Why they’re leaving', 'Choose a plan', 'Checkout', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
   },
   {
     id: 'acquire_2',
-    title: 'Pricing table → checkout',
+    title: 'Pricing table → Hosted checkout',
+    posture: 'Acquire a subscriber',
     why: 'Not a cancel flow. Put a pricing table in front of hosted checkout so a new subscriber can pick a plan and pay. Use this when you are acquiring, not retaining.',
     stepLabels: ['Pricing', 'Checkout'],
     kind: 'acquisition',

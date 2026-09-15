@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { uid } from '../lib/id'
 import type { JourneyTemplate } from '../journey/types'
 import { seedPlay } from '../lib/orchestrationSeed'
+import type { SetupDoor } from '../orchestration/copilotStage'
+import type { ConfirmedSetup, SetupItemId } from '../orchestration/setupTracker'
 import { useExperience } from './useExperience'
 import {
   CONTROL,
@@ -193,6 +195,18 @@ interface OrchestrationState {
   savedAt: number | null
   /** Whether the play or its experiences have changed since that write. */
   dirty: boolean
+  /** Blank-state door the merchant chose this session, or null on the doors screen. */
+  setupDoor: SetupDoor | null
+  /** True after Copilot has started the door's journey — survives remount when the rail snaps in. */
+  setupDoorConsumed: boolean
+  /** Copilot has shown the step strip; required to leave center stage. */
+  stepStripShown: boolean
+  /** Beats the merchant confirmed — defaults do not count until this is set. */
+  confirmedSetup: ConfirmedSetup
+  walkedOrSkipped: boolean
+  dismissedStepNeedsWork: boolean
+  trackerOpen: boolean
+  publishGapsOpen: boolean
 
   openTemplates: () => void
   closeTemplates: () => void
@@ -216,6 +230,15 @@ interface OrchestrationState {
   focusStep: (target: FocusTarget) => void
   exitFocus: () => void
   setFocusPresentation: (presentation: FocusPresentation) => void
+  chooseDoor: (door: SetupDoor) => void
+  consumeSetupDoor: () => void
+  markStepStripShown: () => void
+  confirmSetupItem: (id: SetupItemId) => void
+  setWalkedOrSkipped: (value: boolean) => void
+  dismissStepNeedsWork: () => void
+  setTrackerOpen: (open: boolean) => void
+  setPublishGapsOpen: (open: boolean) => void
+  resetSetup: () => void
 
   updatePlay: (patch: Partial<Play>) => void
   updateAudience: (patch: Partial<Audience>) => void
@@ -265,6 +288,14 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   focusPresentation: 'drawer',
   savedAt: null,
   dirty: false,
+  setupDoor: null,
+  setupDoorConsumed: false,
+  stepStripShown: false,
+  confirmedSetup: {},
+  walkedOrSkipped: false,
+  dismissedStepNeedsWork: false,
+  trackerOpen: false,
+  publishGapsOpen: false,
 
   openTemplates: () => set({ templatesOpen: true }),
   closeTemplates: () => set({ templatesOpen: false }),
@@ -315,6 +346,32 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   },
   exitFocus: () => set({ focusTarget: null }),
   setFocusPresentation: (focusPresentation) => set({ focusPresentation }),
+
+  chooseDoor: (door) => set({ setupDoor: door, setupDoorConsumed: false, assistantOpen: true }),
+  consumeSetupDoor: () => set({ setupDoorConsumed: true }),
+  markStepStripShown: () => set({ stepStripShown: true }),
+  confirmSetupItem: (id) =>
+    set((s) => ({ confirmedSetup: { ...s.confirmedSetup, [id]: true } })),
+  setWalkedOrSkipped: (walkedOrSkipped) =>
+    set((s) => ({
+      walkedOrSkipped,
+      confirmedSetup: walkedOrSkipped ? { ...s.confirmedSetup, walk: true } : s.confirmedSetup,
+    })),
+  dismissStepNeedsWork: () => set({ dismissedStepNeedsWork: true }),
+  setTrackerOpen: (trackerOpen) => set({ trackerOpen }),
+  setPublishGapsOpen: (publishGapsOpen) => set({ publishGapsOpen }),
+  resetSetup: () =>
+    set({
+      setupDoor: null,
+      setupDoorConsumed: false,
+      stepStripShown: false,
+      confirmedSetup: {},
+      walkedOrSkipped: false,
+      dismissedStepNeedsWork: false,
+      trackerOpen: false,
+      publishGapsOpen: false,
+      assistantOpen: true,
+    }),
 
   toggleFlowCollapsed: (flowId) =>
     set((s) => ({ collapsedFlows: { ...s.collapsedFlows, [flowId]: !s.collapsedFlows[flowId] } })),

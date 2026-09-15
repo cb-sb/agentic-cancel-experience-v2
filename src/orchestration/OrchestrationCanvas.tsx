@@ -13,16 +13,58 @@ import { PlayHeader } from './PlayHeader'
 import { PreviewOverlay } from './PreviewHeader'
 import { TemplatesModal } from './TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
+import { BlankJourneyDoors } from './BlankJourneyDoors'
+import { useCopilotStage } from './copilotStage'
+
+const CENTER_W = 620
 
 export function OrchestrationCanvas() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const previewing = useExperience((s) => s.mode === 'play')
+  const stage = useCopilotStage()
 
   useEffect(() => {
+    if (stage === 'doors') {
+      setAssistantOpen(false)
+      return
+    }
     setAssistantOpen(!previewing)
-  }, [previewing, setAssistantOpen])
+  }, [previewing, setAssistantOpen, stage])
+
+  if (stage === 'doors') {
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-slate-100">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <FlowCanvas />
+          <BlankJourneyDoors />
+        </div>
+        <UploadFlow />
+      </div>
+    )
+  }
+
+  if (stage === 'center') {
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-slate-100">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 opacity-40">
+            <FlowCanvas />
+          </div>
+          <div className="absolute inset-0 z-20 flex justify-center px-md py-lg">
+            <div
+              className="flex h-full w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)]"
+              style={{ width: CENTER_W }}
+            >
+              <PromptCodeDock compact />
+            </div>
+          </div>
+        </div>
+        <UploadFlow />
+      </div>
+    )
+  }
 
   const gridTemplateColumns = [
     '1fr',
@@ -41,8 +83,6 @@ export function OrchestrationCanvas() {
         <div className="flex min-h-0 min-w-0 flex-col">
           <PlayHeader />
           <div data-focus-root className="relative min-h-0 flex-1">
-            {/* Three layers, back to front: canvas, then the edit drawer if it
-                is already open, then Preview — Preview is always the top. */}
             <div data-canvas-pane className="relative z-0 h-full min-h-0 min-w-0 overflow-hidden">
               <FlowCanvas />
             </div>
@@ -58,19 +98,11 @@ export function OrchestrationCanvas() {
   )
 }
 
-/** Curves for a pane folding away and coming back. */
 const fade = (shown: boolean) =>
   `opacity ${PANEL_MS}ms ${shown ? EASE_ENTER : EASE_LEAVE}, transform ${PANEL_MS}ms ${
     shown ? EASE_ENTER : EASE_LEAVE
   }`
 
-/**
- * Chargebee Copilot, always a right-hand column.
- *
- * Open, it is a full-height rail that takes width from the play. Folded, the
- * same column shrinks to the launcher icon — the canvas is still pushed, never
- * covered.
- */
 function AssistantColumn() {
   const open = useOrchestration((s) => s.assistantOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)

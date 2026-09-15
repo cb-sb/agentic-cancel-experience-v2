@@ -13,6 +13,7 @@ import {
   PlanBeatCard,
   PlanSummary,
   beatPrompt,
+  nextBeat,
   planIntro,
   type PlanBeat,
 } from './JourneyPlan'
@@ -21,6 +22,12 @@ import { DesignModeIcon } from './DesignModeIcon'
 import { useCopilotThread } from './copilotThread'
 import { useAssistant } from './assistant/useAssistant'
 import { useUpload } from '../upload/useUpload'
+import { UploadTemplate } from '../upload/UploadTemplate'
+import { ConfirmManifest } from '../upload/ConfirmManifest'
+import { LibraryBrowse } from './LibraryBrowse'
+import { StepStrip } from './StepStrip'
+import { SetupTrackerPanel } from './JourneySetupChrome'
+import { useCopilotStage } from './copilotStage'
 
 function OptionBtn({
   label,
@@ -172,7 +179,7 @@ function PromptInput({
  * Prompt fills the file; Code is the file. Chrome matches Chargebee Copilot;
  * the suggestions are cancel-journey workflows, not billing FAQs.
  */
-export function PromptCodeDock() {
+export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const dockMode = useJourney((s) => s.dockMode)
   const setDockMode = useJourney((s) => s.setDockMode)
   const file = useJourney((s) => s.file)
@@ -188,6 +195,9 @@ export function PromptCodeDock() {
   const openTemplates = useOrchestration((s) => s.openTemplates)
   const pendingLibraryTemplate = useOrchestration((s) => s.pendingLibraryTemplate)
   const pendingCopilotGuide = useOrchestration((s) => s.pendingCopilotGuide)
+  const setupDoor = useOrchestration((s) => s.setupDoor)
+  const copilotStage = useCopilotStage()
+  const uploadPhase = useUpload((s) => s.phase)
 
   const lines = useCopilotThread((s) => s.lines)
   const say = useCopilotThread((s) => s.say)
@@ -202,7 +212,12 @@ export function PromptCodeDock() {
   const contextDoc = useMemo(() => renderContext(file), [file])
   const [draftContext, setDraftContext] = useState(contextDoc)
 
-  const emptyHome = dockMode === 'prompt' && turn === 'kind' && lines.length === 0
+  const emptyHome =
+    dockMode === 'prompt' &&
+    turn === 'kind' &&
+    lines.length === 0 &&
+    file.steps.length === 0 &&
+    !setupDoor
 
   useEffect(() => {
     if (annotateMode) setDockMode('prompt')
@@ -225,56 +240,81 @@ export function PromptCodeDock() {
 
   const reset = () => {
     replaceFile({ ...EMPTY_JOURNEY, brand: useJourney.getState().file.brand })
+    useOrchestration.getState().resetSetup()
     setTurn('kind')
-    setBeat('review')
+    setBeat('walk')
     setDraft('')
     resetThread()
   }
 
+  const showStepStrip = () => {
+    useOrchestration.getState().markStepStripShown()
+    say('bot', 'This is the chain a subscriber walks. Drag if the order is wrong.', { widget: 'steps' })
+  }
+
+  const beginPostCanvas = () => {
+    const current = useJourney.getState().file
+    setTurn('plan')
+    setBeat('walk')
+    say('bot', beatPrompt('walk', current))
+  }
+
   const finishBrandGate = () => {
     const current = useJourney.getState().file
-    if (current.steps.length === 0 || current.template === 'none') {
+    if (current.steps.length === 0) {
       setTurn('kind')
       return
     }
-    setTurn('plan')
-    setBeat('review')
-    say('bot', beatPrompt('review', current))
+    if (!useOrchestration.getState().stepStripShown) showStepStrip()
+    beginPostCanvas()
   }
 
-  /** Recap first — except brand, which is required for every authored experience. */
+  /** Recap first — brand is required before the canvas lands. Upload no longer skips it. */
   const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
     say('bot', planIntro(live), { widget: 'plan' })
-    if (live.source !== 'uploaded' && !isBrandMatched(live.brand)) {
+    showStepStrip()
+    if (!isBrandMatched(live.brand)) {
       say('bot', brandGatePrompt(live.kind))
       setTurn('match_site')
       return
     }
-    setTurn('plan')
-    setBeat('review')
-    say('bot', beatPrompt('review', live))
+    beginPostCanvas()
   }
 
   const continuePlan = (said: string) => {
     say('you', said)
+    const orch = useOrchestration.getState()
+    if (beat === 'walk') orch.setWalkedOrSkipped(true)
+    if (beat === 'audience') orch.confirmSetupItem('audience')
+    if (beat === 'holdout') orch.confirmSetupItem('holdout')
+    if (beat === 'offers') orch.confirmSetupItem('offers')
     const current = useJourney.getState().file
-    setBeat('review')
-    say('bot', beatPrompt('review', current))
+    const next = nextBeat(current, beat)
+    if (next) {
+      setBeat(next)
+      say('bot', beatPrompt(next, current))
+    } else {
+      setTurn('done')
+    }
   }
 
   const keepDefaults = () => {
     const current = useJourney.getState().file
-    if (current.source !== 'uploaded' && !isBrandMatched(current.brand)) {
+    if (!isBrandMatched(current.brand) && current.source !== 'uploaded') {
       say('bot', brandGatePrompt(current.kind))
       setTurn('match_site')
       return
     }
+    const orch = useOrchestration.getState()
+    orch.confirmSetupItem('audience')
+    orch.confirmSetupItem('holdout')
+    orch.setWalkedOrSkipped(true)
     say('you', 'Keep defaults and walk it')
     setTurn('plan')
-    setBeat('review')
-    say('bot', beatPrompt('review', current))
+    setBeat('publish')
+    say('bot', beatPrompt('publish', current))
     useExperience.getState().setMode('play')
   }
 
@@ -310,7 +350,29 @@ export function PromptCodeDock() {
       'bot',
       'Drop an HTML file or a zip of static pages. I’ll scan steps and slots; you confirm what binds to offers, the survey, and fields. Chargebee hosts it — targeting, A/B, and reporting stay here.',
     )
+    setTurn('upload')
     useUpload.getState().open()
+  }
+
+  const startLibrary = () => {
+    say('you', 'Browse templates')
+    say('bot', 'Pick a posture. You will see the step chain, then we match brand and targeting here.')
+    setTurn('library')
+  }
+
+  const afterUploadConfirm = () => {
+    const live = useJourney.getState().file
+    say(
+      'bot',
+      'Mapped. Chargebee will host this — this is what a subscriber walks, then we match the look.',
+    )
+    showStepStrip()
+    if (!isBrandMatched(live.brand)) {
+      say('bot', brandGatePrompt(live.kind))
+      setTurn('match_site')
+      return
+    }
+    beginPostCanvas()
   }
 
   const applyMatchedBrand = async (text: string) => {
@@ -364,7 +426,29 @@ export function PromptCodeDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingCopilotGuide])
 
+  useEffect(() => {
+    const orch = useOrchestration.getState()
+    if (!orch.setupDoor || orch.setupDoorConsumed) return
+    orch.consumeSetupDoor()
+    if (orch.setupDoor === 'library') startLibrary()
+    else if (orch.setupDoor === 'upload') startUpload()
+    else if (orch.setupDoor === 'guide') startGuide()
+    else if (orch.setupDoor === 'acquire') startAcquire()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupDoor])
+
   const confirmPlan = () => {
+    if (beat === 'publish') {
+      useOrchestration.getState().setPublishGapsOpen(true)
+      useOrchestration.getState().togglePublish()
+      say('you', 'Publish')
+      say(
+        'bot',
+        'Live in this prototype. Remaining gaps stay on the tracker — you can still fill them.',
+      )
+      setTurn('done')
+      return
+    }
     say('you', 'Looks good — I’m done for now')
     say(
       'bot',
@@ -397,18 +481,27 @@ export function PromptCodeDock() {
     say('bot', read.reply)
     if (read.changed && read.file.steps.length > 0) {
       say('bot', planIntro(read.file), { widget: 'plan' })
-      if (read.file.source !== 'uploaded' && !isBrandMatched(read.file.brand)) {
+      showStepStrip()
+      if (!isBrandMatched(read.file.brand)) {
         say('bot', brandGatePrompt(read.file.kind))
         setTurn('match_site')
       } else {
-        setTurn('plan')
-        setBeat('review')
-        say('bot', beatPrompt('review', read.file))
+        beginPostCanvas()
       }
     }
   }
 
   const options = useMemo(() => {
+    if (turn === 'library') {
+      return <LibraryBrowse compact onApply={(id) => startTemplate(id)} />
+    }
+    if (turn === 'upload') {
+      return uploadPhase === 'confirm' ? (
+        <ConfirmManifest onConfirmed={afterUploadConfirm} />
+      ) : (
+        <UploadTemplate />
+      )
+    }
     if (turn === 'kind') {
       return (
         <div className="space-y-5">
@@ -494,7 +587,7 @@ export function PromptCodeDock() {
           />
           <OptionBtn
             label="Not sure — recommend one"
-            hint="I’ll start you on the 4-step balanced path"
+            hint="I’ll start you on the fair save path"
             onClick={() => recommendTemplate('cancel_4', 'Not sure — recommend one')}
           />
         </div>
@@ -506,7 +599,10 @@ export function PromptCodeDock() {
           beat={beat}
           onContinue={continuePlan}
           onConfirm={confirmPlan}
-          onPreview={() => useExperience.getState().setMode('play')}
+          onPreview={() => {
+            useOrchestration.getState().setWalkedOrSkipped(true)
+            useExperience.getState().setMode('play')
+          }}
           onKeepDefaults={keepDefaults}
         />
       )
@@ -514,15 +610,21 @@ export function PromptCodeDock() {
     if (turn === 'done') {
       return (
         <div className="space-y-2">
-          <OptionBtn label="Tweak the plan" hint="Change only the rows that still matter" onClick={() => jumpPlan('review')} />
-          <OptionBtn label="Walk this as a subscriber" onClick={() => useExperience.getState().setMode('play')} />
+          <OptionBtn label="Tweak the plan" hint="Change only the rows that still matter" onClick={() => jumpPlan('audience')} />
+          <OptionBtn
+            label="Walk this as a subscriber"
+            onClick={() => {
+              useOrchestration.getState().setWalkedOrSkipped(true)
+              useExperience.getState().setMode('play')
+            }}
+          />
           <OptionBtn label="Start over" hint="Clears the file and the canvas" onClick={reset} />
         </div>
       )
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, beat, file])
+  }, [turn, beat, file, uploadPhase])
 
   const subtitle = emptyHome
     ? 'New Conversation'
@@ -590,7 +692,7 @@ export function PromptCodeDock() {
               </button>
             ))}
           </div>
-          {!focusing && (
+          {!focusing && !compact && (
             <button
               type="button"
               onClick={() => setAssistantOpen(false)}
@@ -679,12 +781,29 @@ export function PromptCodeDock() {
                         {m.widget === 'plan' && (
                           <PlanSummary beat={turn === 'plan' ? beat : undefined} onJump={jumpPlan} />
                         )}
+                        {m.widget === 'steps' && (
+                          <StepStrip
+                            onAccept={() => say('you', 'This order is right')}
+                            onReject={reset}
+                          />
+                        )}
                         {m.applyMessageId != null && <AnnotateApply messageId={m.applyMessageId} />}
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4">{options}</div>
+                {compact && copilotStage === 'center' && (
+                  <div className="mt-4">
+                    <SetupTrackerPanel
+                      highlight={
+                        beat === 'audience' || beat === 'holdout' || beat === 'offers' || beat === 'walk'
+                          ? beat
+                          : undefined
+                      }
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>
