@@ -48,6 +48,21 @@ export function jumpSetupItem(id: SetupItemId) {
     case 'chain':
       orch.setAssistantOpen(true)
       return
+    case 'reporting': {
+      orch.setAssistantOpen(true)
+      const thread = useCopilotThread.getState()
+      const already =
+        thread.turn === 'plan' && thread.lines.some((l) => l.from === 'bot' && l.text.includes('Reports → Cancels'))
+      if (!already) {
+        thread.setTurn('plan')
+        thread.say(
+          'bot',
+          'After this is live, Reports → Cancels and Offer Performance are where lift shows up. Holdout is what makes that comparison honest.',
+        )
+      }
+      orch.confirmSetupItem('reporting')
+      return
+    }
   }
 }
 

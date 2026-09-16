@@ -399,7 +399,7 @@ function FlowCanvasInner() {
           // Clears the zoom bar below. SVG size must be style.width/height —
           // CSS on the panel does not resize the svg (defaults 200×150).
           style={{ width: 112, height: 80 }}
-          className="!m-4 !mb-[60px] !overflow-hidden !rounded-lg !border !border-slate-200 !bg-white/95 !shadow-sm"
+          className="!m-4 !ml-[288px] !mb-[60px] !overflow-hidden !rounded-lg !border !border-slate-200 !bg-white/95 !shadow-sm"
           maskColor="rgba(226, 232, 240, 0.7)"
         />
       )}

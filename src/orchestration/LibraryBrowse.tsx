@@ -25,6 +25,8 @@ function LibraryCard({
   compact?: boolean
 }) {
   const brand = useJourney((s) => s.file.brand)
+  const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
+  const stepMeta = `${entry.stepCount} screen${entry.stepCount === 1 ? '' : 's'} · ${kindLabel}`
   return (
     <div
       role="button"
@@ -38,12 +40,14 @@ function LibraryCard({
       }}
       className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.35)]"
     >
-      {!compact && <TemplatePreviewStrip entry={entry} brand={brand} />}
-      <div className={compact ? 'px-st py-st' : 'px-5 pb-5 pt-5'}>
+      <TemplatePreviewStrip entry={entry} brand={brand} compact={compact} />
+      <div className={compact ? 'px-[16px] pb-[16px] pt-[14px]' : 'px-5 pb-5 pt-5'}>
         <div className="text-[14px] font-bold leading-snug text-slate-900">{entry.title}</div>
-        <div className="mt-ti text-[12px] font-medium text-slate-500">{entry.posture}</div>
-        {!compact && <p className="mt-st text-[13px] leading-relaxed text-slate-600">{entry.why}</p>}
-        <span className="mt-st inline-flex items-center gap-ti text-[12.5px] font-semibold text-indigo-600 group-hover:text-indigo-700">
+        <div className="mt-[4px] text-[12px] font-medium text-slate-500">
+          {entry.posture} · {stepMeta}
+        </div>
+        <p className="mt-[10px] text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+        <span className="mt-[10px] inline-flex items-center gap-[4px] text-[12.5px] font-semibold text-indigo-600 group-hover:text-indigo-700">
           Use this template
           <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
             →
@@ -62,7 +66,7 @@ export function LibraryBrowse({
   compact?: boolean
   onApply: (id: LibraryEntry['id']) => void
 }) {
-  const [cat, setCat] = useState<Filter>(compact ? 'cancel' : 'all')
+  const [cat, setCat] = useState<Filter>('cancel')
   const [query, setQuery] = useState('')
 
   const rows = useMemo(() => {
@@ -71,9 +75,9 @@ export function LibraryBrowse({
   }, [cat, query])
 
   return (
-    <div className={compact ? 'flex flex-col gap-st' : 'flex min-h-0 flex-1 flex-col'}>
-      <div className={`flex gap-ti ${compact ? '' : 'border-b border-slate-100 bg-white px-6 py-4'}`}>
-        <div className="flex flex-1 items-center gap-ti rounded-xl border border-slate-200 bg-slate-50/80 px-st py-ti">
+    <div className={compact ? 'flex flex-col gap-[12px]' : 'flex min-h-0 flex-1 flex-col'}>
+      <div className={`flex gap-[8px] ${compact ? '' : 'border-b border-slate-100 bg-white px-6 py-4'}`}>
+        <div className="flex flex-1 items-center gap-[8px] rounded-xl border border-slate-200 bg-slate-50/80 px-[10px] py-[8px]">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -82,13 +86,13 @@ export function LibraryBrowse({
           />
         </div>
       </div>
-      <div className={`flex gap-ti ${compact ? '' : 'px-6 pt-3'}`}>
+      <div className={`flex gap-[6px] ${compact ? '' : 'px-6 pt-3'}`}>
         {(['cancel', 'acquisition'] as const).map((id) => (
           <button
             key={id}
             type="button"
             onClick={() => setCat(id)}
-            className={`rounded-full px-st py-ti text-[12px] font-semibold ${
+            className={`rounded-full px-[10px] py-[4px] text-[12px] font-semibold ${
               cat === id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
@@ -96,9 +100,9 @@ export function LibraryBrowse({
           </button>
         ))}
       </div>
-      <div className={compact ? 'space-y-st' : 'min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5'}>
+      <div className={compact ? 'space-y-[12px]' : 'min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5'}>
         {rows.length === 0 ? (
-          <p className="py-md text-center text-[13px] text-slate-400">No templates match that search.</p>
+          <p className="py-[16px] text-center text-[13px] text-slate-400">No templates match that search.</p>
         ) : (
           rows.map((entry) => (
             <LibraryCard

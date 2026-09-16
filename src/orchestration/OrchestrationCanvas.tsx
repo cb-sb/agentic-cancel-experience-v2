@@ -11,15 +11,81 @@ import { FlowCanvas } from './flow/FlowCanvas'
 import { FocusPresentation } from './focus'
 import { PlayHeader } from './PlayHeader'
 import { PreviewOverlay } from './PreviewHeader'
-import { TemplatesModal } from './TemplatesModal'
+import { LibraryPanel, TemplatesModal } from './TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
 import { BlankJourneyDoors } from './BlankJourneyDoors'
+import { SetupTrackerDock } from './JourneySetupChrome'
 import { useCopilotStage } from './copilotStage'
 
-const CENTER_W = 620
+const COPILOT_MORPH_MS = 380
+
+function Workspace({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative min-h-0 flex-1 overflow-hidden">
+      {children}
+      <div className="pointer-events-none absolute bottom-[32px] left-[24px] z-30">
+        <div className="pointer-events-auto">
+          <SetupTrackerDock />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DoorsBackdrop() {
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-0 bg-slate-100"
+      style={{
+        backgroundImage: 'radial-gradient(#d5dae1 1.4px, transparent 1.4px)',
+        backgroundSize: '22px 22px',
+      }}
+    />
+  )
+}
+
+function CenterOverlay({
+  size,
+  onBackdrop,
+  children,
+}: {
+  size: 'library' | 'copilot'
+  onBackdrop?: () => void
+  children: React.ReactNode
+}) {
+  const library = size === 'library'
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center">
+      <div
+        aria-hidden={!library}
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm motion-reduce:transition-none"
+        style={{
+          opacity: library ? 1 : 0,
+          pointerEvents: library && onBackdrop ? 'auto' : 'none',
+          transition: `opacity ${COPILOT_MORPH_MS}ms ${library ? EASE_ENTER : EASE_LEAVE}`,
+        }}
+        onClick={library ? onBackdrop : undefined}
+      />
+      <div
+        className="relative z-10 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] motion-reduce:transition-none"
+        style={{
+          width: library ? 880 : '50vw',
+          height: library ? 740 : '75vh',
+          maxWidth: library ? 'min(880px, 92vw)' : '50vw',
+          maxHeight: library ? '86vh' : '75vh',
+          transition: `width ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, height ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, max-width ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, max-height ${COPILOT_MORPH_MS}ms ${EASE_ENTER}`,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
 
 export function OrchestrationCanvas() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const previewing = useExperience((s) => s.mode === 'play')
@@ -33,34 +99,21 @@ export function OrchestrationCanvas() {
     setAssistantOpen(!previewing)
   }, [previewing, setAssistantOpen, stage])
 
-  if (stage === 'doors') {
+  if (stage === 'doors' || stage === 'center') {
+    const library = templatesOpen && stage === 'doors'
+    const copilot = stage === 'center'
     return (
       <div className="flex h-full min-h-0 flex-col bg-slate-100">
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          <FlowCanvas />
-          <BlankJourneyDoors />
-        </div>
-        <UploadFlow />
-      </div>
-    )
-  }
-
-  if (stage === 'center') {
-    return (
-      <div className="flex h-full min-h-0 flex-col bg-slate-100">
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 opacity-40">
-            <FlowCanvas />
-          </div>
-          <div className="absolute inset-0 z-20 flex justify-center px-md py-lg">
-            <div
-              className="flex h-full w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)]"
-              style={{ width: CENTER_W }}
-            >
-              <PromptCodeDock compact />
-            </div>
-          </div>
-        </div>
+        <Workspace>
+          <DoorsBackdrop />
+          {stage === 'doors' && !templatesOpen && <BlankJourneyDoors />}
+          {(library || copilot) && (
+            <CenterOverlay size={copilot ? 'copilot' : 'library'} onBackdrop={closeTemplates}>
+              {copilot ? <PromptCodeDock compact /> : <LibraryPanel />}
+            </CenterOverlay>
+          )}
+          {templatesOpen && copilot && <TemplatesModal />}
+        </Workspace>
         <UploadFlow />
       </div>
     )
@@ -73,25 +126,27 @@ export function OrchestrationCanvas() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-100">
-      <div
-        className="grid min-h-0 flex-1 motion-reduce:transition-none"
-        style={{
-          gridTemplateColumns,
-          transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
-        }}
-      >
-        <div className="flex min-h-0 min-w-0 flex-col">
-          <PlayHeader />
-          <div data-focus-root className="relative min-h-0 flex-1">
-            <div data-canvas-pane className="relative z-0 h-full min-h-0 min-w-0 overflow-hidden">
-              <FlowCanvas />
+      <Workspace>
+        <div
+          className="grid h-full min-h-0 motion-reduce:transition-none"
+          style={{
+            gridTemplateColumns,
+            transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
+          }}
+        >
+          <div className="flex min-h-0 min-w-0 flex-col">
+            <PlayHeader />
+            <div data-focus-root className="relative min-h-0 flex-1">
+              <div data-canvas-pane className="relative z-0 h-full min-h-0 min-w-0 overflow-hidden">
+                <FlowCanvas />
+              </div>
+              <FocusPresentation />
+              {previewing && <PreviewOverlay />}
             </div>
-            <FocusPresentation />
-            {previewing && <PreviewOverlay />}
           </div>
+          <AssistantColumn />
         </div>
-        <AssistantColumn />
-      </div>
+      </Workspace>
       {templatesOpen && <TemplatesModal />}
       <UploadFlow />
     </div>

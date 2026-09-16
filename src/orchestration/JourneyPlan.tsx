@@ -52,7 +52,7 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
     case 'review':
       return 'Walk this as a subscriber to see if it’s right. Open any row on the plan to change a default — you don’t have to.'
     case 'publish':
-      return 'Publish when both tracks look right. Gaps stay listed — this prototype will still go live if you choose to.'
+      return 'Publish when play setup, experience, and testing look right. Gaps stay listed — this prototype will still go live if you choose to.'
   }
 }
 

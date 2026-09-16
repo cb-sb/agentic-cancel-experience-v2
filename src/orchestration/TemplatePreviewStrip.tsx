@@ -35,12 +35,9 @@ function stripSteps(steps: Step[], templateId: LibraryEntry['id']): Step[] {
   return live.filter((s) => !isOutcomeStep(s))
 }
 
-function thumbScale(count: number, acquire: boolean) {
-  if (acquire) return 0.4
-  if (count <= 2) return 0.48
-  if (count === 3) return 0.44
-  if (count === 4) return 0.34
-  return 0.3
+function thumbScale(count: number, acquire: boolean, compact?: boolean) {
+  const base = acquire ? 0.4 : count <= 2 ? 0.48 : count === 3 ? 0.44 : count === 4 ? 0.34 : 0.3
+  return compact ? base * 0.84 : base
 }
 
 function FakeBtn({
@@ -232,9 +229,11 @@ function TemplateStepThumb({
 export function TemplatePreviewStrip({
   entry,
   brand,
+  compact,
 }: {
   entry: LibraryEntry
   brand: JourneyBrand
+  compact?: boolean
 }) {
   const acquire = entry.kind === 'acquisition'
   const experience = useMemo(() => {
@@ -246,7 +245,7 @@ export function TemplatePreviewStrip({
   }, [entry.id, brand.merchant, brand.primary, brand.corners, acquire])
 
   const steps = stripSteps(experience.steps, entry.id)
-  const scale = thumbScale(steps.length, acquire)
+  const scale = thumbScale(steps.length, acquire, compact)
   const nativeH = acquire ? 480 : 500
   const tint = `${experience.branding.primaryColor}14`
   const chevronOffset = (nativeH * scale) / 2 - 9
@@ -261,7 +260,11 @@ export function TemplatePreviewStrip({
         backgroundSize: 'auto, 18px 18px',
       }}
     >
-      <div className="flex items-start justify-center overflow-x-auto px-7 py-7">
+      <div
+        className={`flex items-start justify-center overflow-x-auto ${
+          compact ? 'px-[16px] py-[16px]' : 'px-7 py-7'
+        }`}
+      >
         {steps.map((step, i) => (
           <Fragment key={step.id}>
             {i > 0 && <FlowChevron offset={chevronOffset} />}

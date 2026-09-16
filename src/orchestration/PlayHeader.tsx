@@ -6,7 +6,7 @@ import { useJourney } from '../store/useJourney'
 import { StepNavBar } from './StepNavBar'
 import { useUpload } from '../upload/useUpload'
 import { canPublishUploaded, manifestErrors } from '../upload/validate'
-import { SetupTrackerChip, useSetupProgress } from './JourneySetupChrome'
+import { useSetupProgress } from './JourneySetupChrome'
 
 /**
  * The play's mode switch, and nothing else.
@@ -162,8 +162,6 @@ export function PlayIdentity() {
 export function PlayHeader() {
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
   const openRemap = useUpload((s) => s.openRemap)
-  const trackerOpen = useOrchestration((s) => s.trackerOpen)
-  const setTrackerOpen = useOrchestration((s) => s.setTrackerOpen)
 
   return (
     <>
@@ -171,7 +169,6 @@ export function PlayHeader() {
         <PlayIdentity />
         <PlayToolbar />
         <div className="flex flex-none items-center gap-2">
-          <SetupTrackerChip expanded={trackerOpen} onToggle={() => setTrackerOpen(!trackerOpen)} />
           {uploaded && (
             <SButton size="small" variant="neutral-outline" onClick={openRemap}>
               Remap slots

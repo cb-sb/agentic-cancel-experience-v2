@@ -89,12 +89,14 @@ export function CopilotHomeSetup({
   onGuide,
   onRecommend,
   onTemplates,
+  onYours,
   onUpload,
   onAcquire,
 }: {
   onGuide: () => void
   onRecommend: (template: JourneyTemplate, said: string) => void
   onTemplates: () => void
+  onYours: () => void
   onUpload: () => void
   onAcquire: () => void
 }) {
@@ -136,16 +138,25 @@ export function CopilotHomeSetup({
           <ResourceRow
             icon={gridUrl}
             iconBox="bg-[#eef2ff]"
-            label="Template library"
+            label="Ours — Chargebee postures"
             hint="Browse every cancel and acquisition path"
             onClick={onTemplates}
           />
           <div className="border-t border-[#e5e7eb]">
             <ResourceRow
+              icon={gridUrl}
+              iconBox="bg-[#ecfdf3]"
+              label="Yours — My templates"
+              hint="Confirmed scans and saved components"
+              onClick={onYours}
+            />
+          </div>
+          <div className="border-t border-[#e5e7eb]">
+            <ResourceRow
               icon={uploadUrl}
               iconBox="bg-[#f9fafb]"
-              label="Upload my own template"
-              hint="HTML or zip — we host it and overlay workflows"
+              label="New — Upload a template"
+              hint="Starter kit first — unmarked HTML is rejected"
               onClick={onUpload}
             />
           </div>

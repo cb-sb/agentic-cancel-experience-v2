@@ -138,9 +138,11 @@ export const useJourney = create<JourneyState>((set, get) => ({
     const from = steps.findIndex((s) => s.id === fromId)
     const to = steps.findIndex((s) => s.id === toId)
     if (from < 0 || to < 0 || from === to) return
-    if (isTailKind(steps[from].kind) || isTailKind(steps[to].kind)) return
+    if (isTailKind(steps[from].kind)) return
     const [moved] = steps.splice(from, 1)
-    steps.splice(to, 0, moved)
+    const dest = steps.findIndex((s) => s.id === toId)
+    if (dest < 0) return
+    steps.splice(dest, 0, moved)
     const tail = steps.filter((s) => isTailKind(s.kind))
     const rest = steps.filter((s) => !isTailKind(s.kind))
     set(pushFile({ ...file, steps: [...rest, ...tail] }))

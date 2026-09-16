@@ -6,7 +6,8 @@ import { useEmptyJourneyDemo } from './emptyDemoFlag'
 
 export type CopilotStage = 'doors' | 'center' | 'rail'
 
-export type SetupDoor = 'upload' | 'library' | 'guide' | 'acquire'
+export type SetupDoor = 'upload' | 'library' | 'yours' | 'guide' | 'acquire'
+export type LibraryTab = 'ours' | 'yours'
 
 function isBlankJourney(file: JourneyFile): boolean {
   return file.template === 'none' && file.steps.length === 0

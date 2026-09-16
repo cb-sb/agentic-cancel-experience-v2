@@ -1,10 +1,11 @@
 import type { JourneyStepKind } from '../journey/types'
 import { defaultSurveyOptions } from '../lib/factories'
 import { uid } from '../lib/id'
-import { CB, CB_KIND_HINTS, type CbKindHint } from './contract'
+import { CB, isCbSlotName, parseCbKind } from './contract'
 import { hashFiles } from './hash'
 import { readZip } from './pack'
 import type {
+  ContractIssue,
   ManifestField,
   ManifestSlot,
   ManifestSlotType,
@@ -31,39 +32,18 @@ function textOf(el: Element | null): string {
   return (el?.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
-function mapKind(raw: string | null, guessed: JourneyStepKind, warnings: string[], where: string): JourneyStepKind {
-  if (!raw) return guessed
-  if (raw === 'outcome') return 'outcome_cancelled'
-  if (raw === 'outcome_saved' || raw === 'outcome_cancelled') return raw
-  if ((CB_KIND_HINTS as readonly string[]).includes(raw)) {
-    return raw as Exclude<CbKindHint, 'outcome'>
-  }
-  warnings.push(`${where}: unknown data-cb-kind "${raw}", using ${guessed}`)
-  return guessed
+export function lineInSource(html: string, attr: string, value: string): number | undefined {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`${attr}\\s*=\\s*["']${escaped}["']`)
+  const m = html.match(re)
+  if (m?.index == null) return undefined
+  return html.slice(0, m.index).split('\n').length
 }
 
-function guessKind(root: Element): { kind: JourneyStepKind; guessed: boolean } {
-  const kindAttr = root.getAttribute(CB.kind)
-  if (kindAttr) return { kind: mapKind(kindAttr, 'survey', [], ''), guessed: false }
-
-  const actions = [...root.querySelectorAll(`[${CB.action}]`)].map((el) => el.getAttribute(CB.action) ?? '')
-  if (root.querySelector(`[${CB.slot}="survey"]`) || root.querySelector('input[type="radio"]')) {
-    return { kind: 'survey', guessed: true }
-  }
-  if (root.querySelector(`[${CB.slot}="offer"]`) || actions.includes('accept_offer') || actions.includes('decline_offer')) {
-    return { kind: 'offer', guessed: true }
-  }
-  if (actions.includes('cancel') && actions.includes('keep')) return { kind: 'confirmation', guessed: true }
-  if (root.querySelector(`[${CB.field}]`) || root.querySelector(`[${CB.slot}="la_stats"]`)) {
-    return { kind: 'loss_aversion', guessed: true }
-  }
-  const copy = textOf(root).toLowerCase()
-  if (/\bcancel\b/.test(copy) && /\bkeep\b/.test(copy)) return { kind: 'confirmation', guessed: true }
-  if (/\bclaim\b|\baccept\b|\b50%|\bpause\b/.test(copy)) return { kind: 'offer', guessed: true }
-  if (root.querySelectorAll('h1, h2, section').length > 0 && /why|leaving|reason/.test(copy)) {
-    return { kind: 'survey', guessed: true }
-  }
-  return { kind: 'loss_aversion', guessed: true }
+function issue(
+  partial: Omit<ContractIssue, 'level'> & { level?: ContractIssue['level'] },
+): ContractIssue {
+  return { level: 'error', ...partial }
 }
 
 function slotTypeFrom(el: Element): ManifestSlotType | null {
@@ -85,11 +65,7 @@ function collectSlots(root: Element, warnings: string[]): ManifestSlot[] {
     const field = el.getAttribute(CB.field)
     const action = el.getAttribute(CB.action)
     const slotName = el.getAttribute(CB.slot)
-    const id =
-      field ||
-      (action ? `action_${action}` : null) ||
-      slotName ||
-      `slot_${i}`
+    const id = field || (action ? `action_${action}` : null) || slotName || `slot_${i}`
     if (seen.has(`${type}:${id}`)) return
     seen.add(`${type}:${id}`)
     const slot: ManifestSlot = { id, type }
@@ -100,6 +76,9 @@ function collectSlots(root: Element, warnings: string[]): ManifestSlot[] {
     if (type === 'field' && field) slot.bind = field
     if (type === 'offer') slot.bind = 'discount'
     if (type === 'survey') slot.bind = 'default'
+    if (slotName && !isCbSlotName(slotName) && type !== 'field' && type !== 'action') {
+      warnings.push(`Unknown ${CB.slot}="${slotName}" on ${id}`)
+    }
     slots.push(slot)
   })
   return slots
@@ -120,49 +99,72 @@ function collectFields(root: Element): ManifestField[] {
   return fields
 }
 
-function scanRoot(root: Element, file: string, fallbackId: string, warnings: string[]): ManifestStep {
+function scanMarkedStep(
+  root: Element,
+  file: string,
+  source: string,
+  fallbackId: string,
+  warnings: string[],
+  issues: ContractIssue[],
+): ManifestStep | null {
   const attrId = root.getAttribute(CB.step)
-  const heading = textOf(root.querySelector('h1, h2'))
-  const id = slug(attrId || heading || fallbackId, fallbackId)
-  const { kind, guessed } = guessKind(root)
-  const resolved = mapKind(root.getAttribute(CB.kind), kind, warnings, id)
-  if (guessed && !root.getAttribute(CB.kind)) {
-    warnings.push(`Step "${id}" had no data-cb-kind; guessed ${resolved}`)
+  const id = slug(attrId || fallbackId, fallbackId)
+  const line = attrId ? lineInSource(source, CB.step, attrId) : undefined
+  const rawKind = root.getAttribute(CB.kind)
+  const kind = parseCbKind(rawKind)
+
+  if (!rawKind) {
+    issues.push(
+      issue({
+        file,
+        line,
+        stepId: id,
+        message: `Step "${id}" has no ${CB.kind}. Mark the Growth primitive — do not leave it for Copilot to guess.`,
+      }),
+    )
+    return null
   }
+  if (!kind) {
+    issues.push(
+      issue({
+        file,
+        line,
+        stepId: id,
+        message: `Step "${id}" has unknown ${CB.kind}="${rawKind}".`,
+      }),
+    )
+    return null
+  }
+
   return {
     id,
-    kind: resolved,
+    kind: kind as JourneyStepKind,
     file,
+    line,
     slots: collectSlots(root, warnings),
     fields: collectFields(root),
   }
 }
 
-function splitSingleDocument(doc: Document, file: string, warnings: string[]): ManifestStep[] {
+function scanHtmlFile(
+  file: TemplateArtifactFile,
+  warnings: string[],
+  issues: ContractIssue[],
+): ManifestStep[] {
+  const doc = parseHtml(file.html)
   const marked = [...doc.querySelectorAll(`[${CB.step}]`)]
-  if (marked.length > 0) {
-    return marked.map((el, i) => scanRoot(el, file, `step_${i + 1}`, warnings))
+  if (marked.length === 0) {
+    issues.push(
+      issue({
+        file: file.path,
+        message: `${file.path} has no ${CB.step}. Start from the starter kit, or mark each screen.`,
+      }),
+    )
+    return []
   }
-  const sections = [...doc.querySelectorAll('section')]
-  if (sections.length > 1) {
-    warnings.push(`${file}: no data-cb-step; split on <section>`)
-    return sections.map((el, i) => scanRoot(el, file, `step_${i + 1}`, warnings))
-  }
-  const headings = [...doc.querySelectorAll('h1')]
-  if (headings.length > 1) {
-    warnings.push(`${file}: no data-cb-step; split on headings`)
-    return headings.map((h, i) => {
-      const wrap = doc.createElement('section')
-      wrap.append(h.cloneNode(true))
-      let n = h.nextElementSibling
-      while (n && n.tagName !== 'H1') {
-        wrap.append(n.cloneNode(true))
-        n = n.nextElementSibling
-      }
-      return scanRoot(wrap, file, `step_${i + 1}`, warnings)
-    })
-  }
-  return [scanRoot(doc.body, file, slug(file.replace(/\.[^.]+$/, ''), 'step'), warnings)]
+  return marked
+    .map((el, i) => scanMarkedStep(el, file.path, file.html, `step_${i + 1}`, warnings, issues))
+    .filter((s): s is ManifestStep => s != null)
 }
 
 function orderZipSteps(steps: ManifestStep[], files: TemplateArtifactFile[]): ManifestStep[] {
@@ -177,8 +179,7 @@ function orderZipSteps(steps: ManifestStep[], files: TemplateArtifactFile[]): Ma
       nextOf.set(f.path, next.split(/[?#]/)[0] ?? next)
     }
   }
-  const start =
-    files.find((f) => /index|value|start/i.test(f.path))?.path ?? files[0]?.path
+  const start = files.find((f) => /index|value|start/i.test(f.path))?.path ?? files[0]?.path
   if (!start) return steps
   const ordered: ManifestStep[] = []
   const seen = new Set<string>()
@@ -197,28 +198,18 @@ function orderZipSteps(steps: ManifestStep[], files: TemplateArtifactFile[]): Ma
 
 export function scanArtifact(artifact: TemplateArtifact): TemplateManifest {
   const warnings: string[] = []
+  const issues: ContractIssue[] = []
   const htmlFiles = artifact.files.filter((f) => /\.html?$/i.test(f.path) || !f.path.includes('.'))
-  const steps: ManifestStep[] = []
+  let steps: ManifestStep[] = []
 
   if (htmlFiles.length === 1) {
-    const f = htmlFiles[0]
-    const doc = parseHtml(f.html)
-    steps.push(...splitSingleDocument(doc, f.path, warnings))
+    steps = scanHtmlFile(htmlFiles[0], warnings, issues)
   } else {
     const marked: ManifestStep[] = []
-    let anyMarked = false
     for (const f of htmlFiles) {
-      const doc = parseHtml(f.html)
-      const nodes = [...doc.querySelectorAll(`[${CB.step}]`)]
-      if (nodes.length > 0) {
-        anyMarked = true
-        marked.push(...nodes.map((el, i) => scanRoot(el, f.path, `${slug(f.path, 'p')}_${i}`, warnings)))
-      } else {
-        marked.push(scanRoot(doc.body, f.path, slug(f.path.replace(/\.[^.]+$/, ''), 'page'), warnings))
-      }
+      marked.push(...scanHtmlFile(f, warnings, issues))
     }
-    if (!anyMarked) warnings.push('Zip pages had no data-cb-step; each file is one step')
-    steps.push(...orderZipSteps(marked, htmlFiles))
+    steps = orderZipSteps(marked, htmlFiles)
   }
 
   const ids = new Set<string>()
@@ -244,6 +235,7 @@ export function scanArtifact(artifact: TemplateArtifact): TemplateManifest {
   return {
     steps,
     warnings,
+    issues,
     confirmed: false,
     subscriberContext: ctx,
     surveyReasons: reasons,

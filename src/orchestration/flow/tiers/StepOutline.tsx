@@ -18,12 +18,8 @@ const TEXT_H = 4
 const ACTION_H = 9
 const GAP = 4
 
-/** A heading plus one line of copy: the block a step's title renders as. */
-const COPY_H = LEAD_H + GAP + TEXT_H
 /** Below this a component silhouette is a smudge rather than a shape. */
 const MIN_SHAPE_H = 10
-/** Three stacked lines — enough shape to tell a survey from an offer. */
-const READABLE_SHAPE_H = 3 * LEAD_H + 2 * GAP
 /** The card's 1px border, top and bottom. */
 const BORDER_H = 2
 /** The name row: `pt-1.5` + `pb-1` + one line of an 11px font at leading-tight. */
@@ -93,11 +89,14 @@ export function StepOutline({
   w,
   h,
   selected,
+  density = 'canvas',
 }: {
   step: Step
   w: number
   h: number
   selected: boolean
+  /** Copilot strip is read at rest — bump type and bars so the silhouette stays legible. */
+  density?: 'canvas' | 'strip'
 }) {
   const label = stepLabel(step)
   // Padding costs width the name needs, so it is the first thing to give up;
@@ -106,10 +105,17 @@ export function StepOutline({
   // name does not have.
   const lead = leadComponent(step)
   const accent = lead ? ACCENTS[lead.kind] : '#94a3b8'
-  const tight = w < 132
-  const room = w - (tight ? 12 : 20) - (ICON + ICON_GAP)
-  const text = label.length * (tight ? 6.1 : 6.4) <= room ? label : compactStepLabel(step)
-  const avail = h - BORDER_H - TITLE_H - (tight ? 6 : 8)
+  const strip = density === 'strip'
+  const tight = !strip && w < 132
+  const icon = strip ? 14 : ICON
+  const iconGap = strip ? 6 : ICON_GAP
+  const padX = strip ? 12 : tight ? 6 : 10
+  const padB = strip ? 10 : tight ? 6 : 8
+  const titleH = strip ? 8 + 6 + 17 : TITLE_H
+  const charW = strip ? 7.2 : tight ? 6.1 : 6.4
+  const room = w - padX * 2 - (icon + iconGap)
+  const text = label.length * charW <= room ? label : compactStepLabel(step)
+  const avail = h - BORDER_H - titleH - padB
 
   return (
     <div
@@ -118,18 +124,18 @@ export function StepOutline({
       } ${selected ? 'border-indigo-500' : terminalOf(step) ? 'border-slate-300' : 'border-slate-200'}`}
     >
       <div
-        className={`flex flex-none items-center pb-1 pt-1.5 font-semibold leading-tight ${
-          tight ? 'px-1.5 text-[10.5px]' : 'px-2.5 text-[11px]'
+        className={`flex flex-none items-center font-semibold leading-tight ${
+          strip ? 'px-[12px] pb-[6px] pt-[8px] text-[13px]' : tight ? 'px-1.5 pb-1 pt-1.5 text-[10.5px]' : 'px-2.5 pb-1 pt-1.5 text-[11px]'
         } ${selected ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700'}`}
-        style={{ gap: ICON_GAP }}
+        style={{ gap: iconGap }}
         title={label}
       >
         <span style={{ color: accent }}>
-          <StepIcon step={step} size={ICON} />
+          <StepIcon step={step} size={icon} />
         </span>
         <span className="min-w-0 truncate">{text}</span>
       </div>
-      <Body step={step} avail={avail} selected={selected} tight={tight} />
+      <Body step={step} avail={avail} selected={selected} tight={tight} strip={strip} />
     </div>
   )
 }
@@ -146,20 +152,28 @@ function Body({
   avail,
   selected,
   tight,
+  strip,
 }: {
   step: Step
   avail: number
   selected: boolean
   tight: boolean
+  strip: boolean
 }) {
-  const actions = avail >= MIN_SHAPE_H + GAP + ACTION_H
+  const leadH = strip ? 7 : LEAD_H
+  const textH = strip ? 5 : TEXT_H
+  const actionH = strip ? 12 : ACTION_H
+  const gap = strip ? 5 : GAP
+  const copyH = leadH + gap + textH
+  const readableShape = 3 * leadH + 2 * gap
+  const actions = avail >= MIN_SHAPE_H + gap + actionH
   // Copy is generic — every card has some. The silhouette is what tells one card
   // from another, so copy is only worth its height once the shape keeps enough
   // to still read as itself.
   const copy =
     hasTitleBlock(step) &&
-    avail - (COPY_H + GAP) - (actions ? GAP + ACTION_H : 0) >= READABLE_SHAPE_H
-  const shapeH = avail - (copy ? COPY_H + GAP : 0) - (actions ? GAP + ACTION_H : 0)
+    avail - (copyH + gap) - (actions ? gap + actionH : 0) >= readableShape
+  const shapeH = avail - (copy ? copyH + gap : 0) - (actions ? gap + actionH : 0)
 
   /**
    * A step can hold two components, and each silhouette has to be given its
@@ -168,30 +182,30 @@ function Body({
    * When there is not enough for a share each, the lead one takes the room and
    * the outline says one thing well instead of two badly.
    */
-  const fits = (n: number) => (shapeH - GAP * (n - 1)) / n >= MIN_SHAPE_H
-  const count = shapeH < LEAD_H ? 0 : fits(step.components.length) ? step.components.length : 1
+  const fits = (n: number) => (shapeH - gap * (n - 1)) / n >= MIN_SHAPE_H
+  const count = shapeH < leadH ? 0 : fits(step.components.length) ? step.components.length : 1
   const shown = step.components.slice(0, count)
-  const each = count > 1 ? (shapeH - GAP * (count - 1)) / count : shapeH
+  const each = count > 1 ? (shapeH - gap * (count - 1)) / count : shapeH
 
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col gap-1 overflow-hidden ${
-        tight ? 'px-1.5 pb-1.5' : 'px-2.5 pb-2'
+      className={`flex min-h-0 flex-1 flex-col overflow-hidden ${
+        strip ? 'gap-[5px] px-[12px] pb-[10px]' : tight ? 'gap-1 px-1.5 pb-1.5' : 'gap-1 px-2.5 pb-2'
       }`}
     >
       {copy && (
         <>
-          <Bar w={W.half} h={LEAD_H} tone="base" />
-          <Bar w={W.wide} h={TEXT_H} />
+          <Bar w={W.half} h={leadH} tone="base" />
+          <Bar w={W.wide} h={textH} />
         </>
       )}
       {shown.map((c) => (
         <ComponentSkeleton key={c.id} component={c} maxH={each} />
       ))}
       {actions && (
-        <div className="mt-auto flex flex-none gap-1.5">
-          <Bar w={W.narrow} h={ACTION_H} tone={selected ? 'accent' : 'base'} />
-          {twoActions(step) && <Bar w={W.tight} h={ACTION_H} />}
+        <div className={`mt-auto flex flex-none ${strip ? 'gap-[6px]' : 'gap-1.5'}`}>
+          <Bar w={W.narrow} h={actionH} tone={selected ? 'accent' : 'base'} />
+          {twoActions(step) && <Bar w={W.tight} h={actionH} />}
         </div>
       )}
     </div>

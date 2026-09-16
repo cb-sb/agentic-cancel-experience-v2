@@ -1,8 +1,10 @@
-import { SBadge, SButton, SProgressBar } from '@chargebee/sting-react'
+import { SButton, SIcon, SProgressBar } from '@chargebee/sting-react'
+import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { useExperience } from '../store/useExperience'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
+import { useCopilotThread } from './copilotThread'
 import { jumpSetupItem } from './setupActions'
 import { setupProgress, type SetupItem, type SetupTrack } from './setupTracker'
 
@@ -25,6 +27,14 @@ export function useSetupProgress() {
   })
 }
 
+function useTrackerHighlight(): SetupItem['id'] | undefined {
+  const turn = useCopilotThread((s) => s.turn)
+  const beat = useCopilotThread((s) => s.beat)
+  if (turn !== 'plan') return undefined
+  if (beat === 'audience' || beat === 'holdout' || beat === 'offers' || beat === 'walk') return beat
+  return undefined
+}
+
 function TrackColumn({
   title,
   done,
@@ -38,100 +48,182 @@ function TrackColumn({
   items: SetupItem[]
   highlight?: SetupItem['id']
 }) {
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100)
   return (
-    <div className="min-w-0 flex-1">
-      <div className="mb-st flex items-baseline justify-between gap-ti">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{title}</p>
+    <section className="min-w-0">
+      <div className="mb-[8px] flex items-baseline justify-between gap-[8px] px-[12px]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{title}</p>
         <p className="text-[11px] tabular-nums text-slate-400">
           {done}/{total}
         </p>
       </div>
-      <div className="relative h-sm">
+      <div className="relative mx-[12px] h-[4px] overflow-hidden rounded-full">
         <SProgressBar
           infinite={false}
-          value={total === 0 ? 0 : Math.round((done / total) * 100)}
+          value={pct}
           variant={done === total && total > 0 ? 'success' : 'primary'}
         />
       </div>
-      <ul className="mt-st space-y-ti">
+      <ul className="mt-[8px] flex flex-col gap-[2px]">
         {items.map((item) => (
           <li key={item.id}>
             <button
               type="button"
               onClick={() => jumpSetupItem(item.id)}
-              className={`flex w-full items-start gap-st rounded-xl px-st py-ti text-left transition-colors hover:bg-slate-50 ${
+              className={`flex w-full items-start rounded-[12px] px-[12px] py-[10px] text-left transition-colors hover:bg-slate-50 ${
                 highlight === item.id ? 'bg-indigo-50' : ''
               }`}
             >
-              <SBadge variant={item.done ? 'success' : 'warning'} rounded>
-                {item.done ? 'Ready' : 'Needs work'}
-              </SBadge>
               <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] font-semibold text-slate-800">{item.label}</span>
-                <span className="mt-px block text-[11px] leading-snug text-slate-500">{item.hint}</span>
+                <span className="flex items-center justify-between gap-[8px]">
+                  <span className="text-[13px] font-semibold leading-[18px] text-slate-800">
+                    {item.label}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-[6px] px-[6px] py-[2px] text-[10px] font-semibold leading-[14px] ${
+                      item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'
+                    }`}
+                  >
+                    {item.done ? 'Ready' : 'Needs work'}
+                  </span>
+                </span>
+                <span className="mt-[4px] block text-[12px] leading-[16px] text-slate-500">
+                  {item.hint}
+                </span>
               </span>
             </button>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   )
 }
 
-/** Full two-track checklist — center Copilot and the expanded rail chip. */
-export function SetupTrackerPanel({ highlight }: { highlight?: SetupItem['id'] }) {
-  const progress = useSetupProgress()
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-md py-st">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Setup</p>
-        <p className="text-[13px] font-bold text-slate-900">Journey completion</p>
-      </div>
-      <div className="flex gap-md p-md">
-        <TrackColumn
-          title="Play setup"
-          done={progress.playDone}
-          total={progress.playTotal}
-          items={progress.play}
-          highlight={highlight}
-        />
-        <TrackColumn
-          title="Experience"
-          done={progress.experienceDone}
-          total={progress.experienceTotal}
-          items={progress.experience}
-          highlight={highlight}
-        />
-      </div>
-    </div>
-  )
-}
-
-/** Compact chip for the play header while Copilot is on the rail. */
-export function SetupTrackerChip({
-  expanded,
-  onToggle,
+function ProgressDonut({
+  percent,
+  complete,
 }: {
-  expanded: boolean
-  onToggle: () => void
+  percent: number
+  complete: boolean
 }) {
-  const progress = useSetupProgress()
+  const fill = complete ? '#10b981' : '#4f46e5'
   return (
-    <div className="relative">
-      <SButton size="small" variant="neutral-outline" onClick={onToggle}>
-        Play {progress.playDone}/{progress.playTotal} · Experience {progress.experienceDone}/
-        {progress.experienceTotal}
-      </SButton>
-      {expanded && (
-        <div className="absolute right-0 top-full z-40 mt-ti w-[420px]">
-          <SetupTrackerPanel />
+    <span
+      aria-hidden
+      className="relative flex size-9 shrink-0 items-center justify-center rounded-full"
+      style={{ background: `conic-gradient(${fill} ${percent}%, #e2e8f0 0)` }}
+    >
+      <span className="flex size-7 items-center justify-center rounded-full bg-white text-[9px] font-bold tabular-nums leading-none text-slate-800">
+        {percent}%
+      </span>
+    </span>
+  )
+}
+
+/**
+ * Persistent journey-completion dock. One surface: a compact pill when closed,
+ * the same shell growing up into the checklist. Anchored bottom-left.
+ */
+export function SetupTrackerDock() {
+  const progress = useSetupProgress()
+  const open = useOrchestration((s) => s.trackerOpen)
+  const setTrackerOpen = useOrchestration((s) => s.setTrackerOpen)
+  const highlight = useTrackerHighlight()
+  const remaining = progress.remaining
+  const pct = progress.percent
+  const complete = remaining === 0 && progress.total > 0
+  const ease = open ? EASE_ENTER : EASE_LEAVE
+  const nextLine = complete
+    ? 'Ready to publish'
+    : progress.next
+      ? `Next: ${progress.next.label}`
+      : 'Start a cancel path'
+  const statusLine = complete ? 'All steps ready' : `${remaining} of ${progress.total} remaining`
+
+  return (
+    <div
+      className="overflow-hidden border border-slate-200 bg-white motion-reduce:transition-none"
+      style={{
+        width: open ? 304 : 280,
+        borderRadius: open ? 20 : 999,
+        transition: `width ${PANEL_MS}ms ${ease}, border-radius ${PANEL_MS}ms ${ease}, box-shadow ${PANEL_MS}ms ${ease}`,
+        boxShadow: open
+          ? '0 16px 48px rgba(15, 23, 42, 0.16)'
+          : '0 8px 24px rgba(15, 23, 42, 0.10)',
+      }}
+    >
+      <div
+        className="overflow-x-hidden overflow-y-auto motion-reduce:transition-none"
+        style={{
+          maxHeight: open ? 'min(720px, 74vh)' : 0,
+          transition: `max-height ${PANEL_MS}ms ${ease}`,
+        }}
+        aria-hidden={!open}
+        {...(!open ? { inert: '' } : {})}
+      >
+        <div className="flex items-center justify-between gap-[12px] px-[20px] pb-[4px] pt-[16px]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            Journey completion
+          </p>
+          <SButton
+            size="small"
+            variant="neutral-ghost"
+            aria-label="Collapse journey completion"
+            onClick={() => setTrackerOpen(false)}
+            icon={<SIcon name="x" size={14} />}
+          />
         </div>
-      )}
+        <div className="flex flex-col gap-[18px] px-[8px] pb-[16px] pt-[12px]">
+          <TrackColumn
+            title="Play setup"
+            done={progress.playDone}
+            total={progress.playTotal}
+            items={progress.play}
+            highlight={highlight}
+          />
+          <TrackColumn
+            title="Experience"
+            done={progress.experienceDone}
+            total={progress.experienceTotal}
+            items={progress.experience}
+            highlight={highlight}
+          />
+          <TrackColumn
+            title="Testing / reporting"
+            done={progress.testingDone}
+            total={progress.testingTotal}
+            items={progress.testing}
+            highlight={highlight}
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={`${statusLine}. ${nextLine}`}
+        onClick={() => {
+          if (!open) setTrackerOpen(true)
+        }}
+        className={`flex w-full items-center gap-[12px] text-left ${
+          open ? 'border-t border-slate-100 px-[20px] py-[12px]' : 'px-[14px] py-[10px]'
+        }`}
+      >
+        <ProgressDonut percent={pct} complete={complete} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-semibold leading-snug tracking-tight text-slate-900">
+            {statusLine}
+          </span>
+          <span className="mt-px block truncate text-[12px] leading-snug text-slate-500">{nextLine}</span>
+        </span>
+        {!open && <SIcon name="chevron-up" size={16} className="shrink-0 text-slate-400" />}
+      </button>
     </div>
   )
 }
 
 export function trackForItem(id: SetupItem['id']): SetupTrack {
+  if (id === 'walk' || id === 'reporting') return 'testing'
   return id === 'audience' || id === 'targeting' || id === 'offers' || id === 'holdout'
     ? 'play'
     : 'experience'

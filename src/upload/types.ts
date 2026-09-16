@@ -59,6 +59,8 @@ export interface ManifestStep {
   kind: JourneyStepKind
   /** Zip page path, or the single-file document path. */
   file?: string
+  /** 1-based line of data-cb-step in the source HTML, when known. */
+  line?: number
   slots: ManifestSlot[]
   fields: ManifestField[]
 }
@@ -68,14 +70,24 @@ export interface SurveyReasonBind {
   label: string
 }
 
+export interface ContractIssue {
+  level: 'error' | 'warning'
+  message: string
+  file?: string
+  line?: number
+  stepId?: string
+}
+
 /**
  * Logic document for an uploaded template. Copilot still owns workflow;
  * this only maps merchant chrome onto Growth entities.
  */
 export interface TemplateManifest {
   steps: ManifestStep[]
-  /** Scan guesses the merchant must confirm. Cleared after confirm. */
+  /** Non-blocking notes. Contract failures live on `issues`. */
   warnings: string[]
+  /** Fail-closed checklist from scan. Empty when every step is marked. */
+  issues?: ContractIssue[]
   confirmed?: boolean
   subscriberContext?: Record<string, string>
   surveyReasons?: SurveyReasonBind[]

@@ -18,7 +18,7 @@ export function UploadFlow() {
             <h2 className="text-[15px] font-bold text-slate-900">
               {phase === 'confirm' ? 'Confirm template' : 'Upload my own template'}
             </h2>
-            <p className="text-[12px] text-slate-500">Chargebee hosts. You design. Growth owns the workflow.</p>
+            <p className="text-[12px] text-slate-500">Chargebee hosts chrome. Growth owns the slots.</p>
           </div>
           <button
             type="button"

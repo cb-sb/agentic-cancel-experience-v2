@@ -1,0 +1,52 @@
+{
+  "$id": "https://chargebee.growth/slot-contract",
+  "title": "Chargebee Growth slot contract",
+  "description": "Closed vocabulary for merchant HTML chrome. Source of truth is src/upload/contract.ts. Growth primitives bind at slots; unmarked pages fail closed.",
+  "type": "object",
+  "attributes": {
+    "data-cb-step": { "on": "section or page", "required": true },
+    "data-cb-kind": {
+      "on": "step",
+      "required": true,
+      "enum": [
+        "loss_aversion",
+        "survey",
+        "offer",
+        "pricing_table",
+        "checkout",
+        "confirmation",
+        "outcome_saved",
+        "outcome_cancelled"
+      ],
+      "aliases": { "outcome": "outcome_cancelled" }
+    },
+    "data-cb-slot": { "on": "region", "enum": ["offer", "survey", "la_stats", "media"] },
+    "data-cb-field": {
+      "on": "text node",
+      "examples": [
+        "credits_remaining",
+        "plan_name",
+        "days_on_plan",
+        "member_since",
+        "next_renewal",
+        "usage_hours"
+      ]
+    },
+    "data-cb-action": {
+      "on": "button or link",
+      "enum": ["continue", "back", "accept_offer", "decline_offer", "keep", "cancel", "exit"]
+    },
+    "data-cb-bind": { "on": "offer child", "enum": ["title", "cta", "body", "eyebrow"] },
+    "data-cb-next": { "on": "link", "description": "Next zip page path" }
+  },
+  "kinds": {
+    "loss_aversion": { "requires": { "fieldOrLaStats": true } },
+    "survey": { "requires": { "slots": ["survey"] } },
+    "offer": { "requires": { "slots": ["offer"], "actions": ["accept_offer"] } },
+    "confirmation": { "requires": { "actions": ["keep", "cancel"] } },
+    "pricing_table": { "requires": {} },
+    "checkout": { "requires": {} },
+    "outcome_saved": { "requires": {} },
+    "outcome_cancelled": { "requires": {} }
+  }
+}

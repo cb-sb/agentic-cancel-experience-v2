@@ -3,6 +3,8 @@ import { SButton } from '@chargebee/sting-react'
 import { SAMPLE_SINGLE_NAME, SAMPLE_ZIP_NAME, sampleZipBytes } from './samples'
 import { zipToBlob } from './pack'
 import { useUpload } from './useUpload'
+import { formatContractIssue } from './validate'
+import { CONTRACT_VERSION } from './contract'
 import singleHtml from './sample/single.html?raw'
 
 function download(name: string, blob: Blob) {
@@ -18,6 +20,7 @@ export function UploadTemplate() {
   const loadFiles = useUpload((s) => s.loadFiles)
   const loadSample = useUpload((s) => s.loadSample)
   const error = useUpload((s) => s.error)
+  const checklist = useUpload((s) => s.checklist)
   const mappingOnly = useUpload((s) => s.mappingOnly)
   const inputRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
@@ -33,15 +36,57 @@ export function UploadTemplate() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <p className="text-[13px] leading-relaxed text-slate-600">
-        Design the cancel UI elsewhere. Upload one HTML file with multiple{' '}
-        <code className="rounded bg-slate-100 px-1 text-[12px]">[data-cb-step]</code> sections, or a zip of
-        static pages. Chargebee hosts it — we overlay offers, survey, fields, and tracking.
+        Start from the kit — slots for loss aversion, survey, and offers are already marked. Restyle
+        chrome; do not delete <code className="rounded bg-slate-100 px-1 text-[12px]">data-cb-*</code>{' '}
+        attributes. Contract v{CONTRACT_VERSION}: unmarked HTML is rejected. Targeting, holdout, and
+        publish stay in Copilot.
       </p>
 
       {mappingOnly && (
         <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
-          Layout change needs a new file. Mapping-only edits can skip this and stay on confirm.
+          Layout change needs a new file. Catalog binds can skip this and stay on confirm.
         </p>
+      )}
+
+      <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-5 py-4">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">Starter kit</p>
+        <p className="mt-1 text-[13px] font-semibold text-slate-800">Pre-marked Growth slots</p>
+        <p className="mt-1 text-[12.5px] text-slate-600">
+          One HTML file or a zip of pages. Same primitives other experiences use — not cancel-only.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <SButton size="small" variant="primary" onClick={() => loadSample('html')}>
+            Use HTML kit
+          </SButton>
+          <SButton size="small" variant="neutral-outline" onClick={() => loadSample('zip')}>
+            Use zip kit
+          </SButton>
+          <SButton
+            size="small"
+            variant="neutral-outline"
+            onClick={() => download(SAMPLE_SINGLE_NAME, new Blob([singleHtml], { type: 'text/html' }))}
+          >
+            Download HTML
+          </SButton>
+          <SButton
+            size="small"
+            variant="neutral-outline"
+            onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(sampleZipBytes()))}
+          >
+            Download zip
+          </SButton>
+        </div>
+      </div>
+
+      {checklist.length > 0 && (
+        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-800">
+          <p className="font-semibold">Contract checklist — fix the HTML, then drop it again</p>
+          <ul className="mt-1 list-disc pl-4">
+            {checklist.map((item) => (
+              <li key={formatContractIssue(item)}>{formatContractIssue(item)}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div
@@ -55,20 +100,15 @@ export function UploadTemplate() {
           setOver(false)
           onFiles(e.dataTransfer.files)
         }}
-        className={`mt-4 flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-10 text-center ${
+        className={`mt-4 flex flex-none flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center ${
           over ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-slate-50'
         }`}
       >
-        <p className="text-[14px] font-semibold text-slate-800">Drop HTML or zip</p>
+        <p className="text-[14px] font-semibold text-slate-800">Or drop your marked HTML or zip</p>
         <p className="mt-1 max-w-sm text-[12.5px] text-slate-500">
-          React apps are out of this cut. Static markup and CSS only.
+          Static markup and CSS only. React apps are out of this cut.
         </p>
-        <SButton
-          size="small"
-          variant="primary"
-          className="mt-4"
-          onClick={() => inputRef.current?.click()}
-        >
+        <SButton size="small" variant="neutral-outline" className="mt-4" onClick={() => inputRef.current?.click()}>
           Choose file
         </SButton>
         <input
@@ -89,35 +129,6 @@ export function UploadTemplate() {
           {error}
         </div>
       )}
-
-      <div className="mt-5 border-t border-slate-100 pt-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Sample pack</p>
-        <p className="mt-1 text-[12.5px] text-slate-500">
-          Walk the loop without a real export. Generic pages — no merchant name.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <SButton size="small" variant="neutral-outline" onClick={() => loadSample('html')}>
-            Use sample HTML
-          </SButton>
-          <SButton size="small" variant="neutral-outline" onClick={() => loadSample('zip')}>
-            Use sample zip
-          </SButton>
-          <SButton
-            size="small"
-            variant="neutral-outline"
-            onClick={() => download(SAMPLE_SINGLE_NAME, new Blob([singleHtml], { type: 'text/html' }))}
-          >
-            Download HTML
-          </SButton>
-          <SButton
-            size="small"
-            variant="neutral-outline"
-            onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(sampleZipBytes()))}
-          >
-            Download zip
-          </SButton>
-        </div>
-      </div>
     </div>
   )
 }

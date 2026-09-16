@@ -12,6 +12,7 @@ import { FullPageScroll } from './FullPageScroll'
 import { useJourney } from '../store/useJourney'
 import { ArtifactPlayer } from '../upload/ArtifactPlayer'
 import { canPlayUploaded } from '../upload/validate'
+import { ChromeStepPlayer, stepChrome } from '../library/ChromePlayer'
 
 export function PlayerShell() {
   const experience = useExperience((s) => s.experience)
@@ -155,6 +156,14 @@ export function PlayerShell() {
           </StepFrame>
         </BrandRoot>
       </RenderProvider>
+    )
+  }
+
+  if (stepChrome(file, step.id)) {
+    return (
+      <div className="h-full min-h-0 w-full overflow-hidden bg-white">
+        <ChromeStepPlayer file={file} stepId={step.id} interactive />
+      </div>
     )
   }
 

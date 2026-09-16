@@ -45,14 +45,14 @@ export function TemplatePages() {
                 </p>
                 <p className="mt-2 text-[13px] text-slate-600">
                   {file.manifest?.steps.length ?? 0} steps mapped
-                  {publishable ? ' · ready to publish' : ' · confirm mappings before publish'}
+                  {publishable ? ' · ready to publish' : ' · bind the catalog before publish'}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <SButton size="small" variant="primary" onClick={() => start(false)}>
                     Replace file
                   </SButton>
                   <SButton size="small" variant="neutral-outline" onClick={() => start(true)}>
-                    Remap slots
+                    Rebind catalog
                   </SButton>
                 </div>
               </div>

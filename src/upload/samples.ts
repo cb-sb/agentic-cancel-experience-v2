@@ -43,5 +43,5 @@ export function sampleZipBytes(): Uint8Array {
   ])
 }
 
-export const SAMPLE_SINGLE_NAME = 'sample-cancel.html'
-export const SAMPLE_ZIP_NAME = 'sample-cancel.zip'
+export const SAMPLE_SINGLE_NAME = 'growth-starter.html'
+export const SAMPLE_ZIP_NAME = 'growth-starter.zip'

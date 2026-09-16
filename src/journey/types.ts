@@ -1,5 +1,11 @@
 import type { Branding, ShellLayout } from '../types/experience'
-import type { JourneySource, TemplateArtifact, TemplateManifest } from '../upload/types'
+import type {
+  JourneySource,
+  ManifestField,
+  ManifestSlot,
+  TemplateArtifact,
+  TemplateManifest,
+} from '../upload/types'
 
 /** Which product surface this file is. New journeys are new files, not new UIs. */
 export type JourneyKind = 'cancel' | 'acquisition'
@@ -58,6 +64,18 @@ export const DEFAULT_JOURNEY_BRAND: JourneyBrand = {
  * One row in the logic document. `live: false` is the gray skeleton the tree
  * shows after a template is picked and before the prompt has filled it in.
  */
+/**
+ * Merchant-hosted HTML slice for one step. Chargebee postures stay authored;
+ * this swaps only the chrome for that primitive (confirm, offer, survey, …).
+ */
+export interface JourneyStepChrome {
+  libraryComponentId?: string
+  html: string
+  css?: string
+  slots: ManifestSlot[]
+  fields: ManifestField[]
+}
+
 export interface JourneyStepFile {
   id: string
   kind: JourneyStepKind
@@ -65,6 +83,8 @@ export interface JourneyStepFile {
   headline?: string
   body?: string
   offer?: OfferKey
+  /** Saved merchant chrome for this step. Compile still uses factories for the rest. */
+  chrome?: JourneyStepChrome
 }
 
 /**

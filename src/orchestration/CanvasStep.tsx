@@ -10,6 +10,7 @@ import type { PlaySession } from '../store/useExperience'
 import type { Step } from '../types/experience'
 import { useJourney } from '../store/useJourney'
 import { ArtifactPlayer } from '../upload/ArtifactPlayer'
+import { ChromeStepPlayer, stepChrome } from '../library/ChromePlayer'
 
 function previewSession(): PlaySession {
   return {
@@ -78,6 +79,17 @@ export function CanvasStep({
       updateComponent: (componentId, patch) => updateComponent(step.id, componentId, patch),
     },
     mapping,
+  }
+
+  if (stepChrome(journey, step.id)) {
+    return (
+      <div
+        className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm"
+        style={{ width, minHeight: 420, height: 520 }}
+      >
+        <ChromeStepPlayer file={journey} stepId={step.id} />
+      </div>
+    )
   }
 
   if (journey.source === 'uploaded' && journey.artifact && journey.manifest) {

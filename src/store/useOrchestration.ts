@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { uid } from '../lib/id'
 import type { JourneyTemplate } from '../journey/types'
 import { seedPlay } from '../lib/orchestrationSeed'
-import type { SetupDoor } from '../orchestration/copilotStage'
+import type { LibraryTab, SetupDoor } from '../orchestration/copilotStage'
 import type { ConfirmedSetup, SetupItemId } from '../orchestration/setupTracker'
 import { useExperience } from './useExperience'
 import {
@@ -159,8 +159,11 @@ interface OrchestrationState {
   play: Play
   view: WorkspaceView
   templatesOpen: boolean
+  libraryTab: LibraryTab
   /** Copilot consumes this to start the same draft-plan path as a suggestion chip. */
   pendingLibraryTemplate: Exclude<JourneyTemplate, 'none'> | null
+  pendingMerchantTemplate: string | null
+  pendingMerchantComponent: string | null
   /** Canvas demo asked Copilot to open the job guide. */
   pendingCopilotGuide: boolean
   selectedNodeId: string | null
@@ -208,10 +211,14 @@ interface OrchestrationState {
   trackerOpen: boolean
   publishGapsOpen: boolean
 
-  openTemplates: () => void
+  openTemplates: (tab?: LibraryTab) => void
   closeTemplates: () => void
+  setLibraryTab: (tab: LibraryTab) => void
   applyLibraryTemplate: (id: Exclude<JourneyTemplate, 'none'>) => void
   consumeLibraryTemplate: () => void
+  applyMerchantTemplate: (id: string) => void
+  applyMerchantComponent: (id: string) => void
+  consumeMerchantLibrary: () => void
   requestCopilotGuide: () => void
   consumeCopilotGuide: () => void
   selectNode: (id: string | null) => void
@@ -273,7 +280,10 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   play: seedPlay(),
   view: 'canvas',
   templatesOpen: false,
+  libraryTab: 'ours' as LibraryTab,
   pendingLibraryTemplate: null,
+  pendingMerchantTemplate: null,
+  pendingMerchantComponent: null,
   pendingCopilotGuide: false,
   selectedNodeId: null,
   openFlowNodeId: null,
@@ -297,11 +307,35 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   trackerOpen: false,
   publishGapsOpen: false,
 
-  openTemplates: () => set({ templatesOpen: true }),
+  openTemplates: (tab = 'ours') => set({ templatesOpen: true, libraryTab: tab }),
   closeTemplates: () => set({ templatesOpen: false }),
+  setLibraryTab: (libraryTab) => set({ libraryTab }),
   applyLibraryTemplate: (id) =>
-    set({ pendingLibraryTemplate: id, templatesOpen: false, assistantOpen: true }),
+    set({
+      pendingLibraryTemplate: id,
+      templatesOpen: false,
+      setupDoor: 'library',
+      setupDoorConsumed: true,
+      assistantOpen: true,
+    }),
   consumeLibraryTemplate: () => set({ pendingLibraryTemplate: null }),
+  applyMerchantTemplate: (id) =>
+    set({
+      pendingMerchantTemplate: id,
+      templatesOpen: false,
+      setupDoor: 'yours',
+      setupDoorConsumed: true,
+      assistantOpen: true,
+    }),
+  applyMerchantComponent: (id) =>
+    set({
+      pendingMerchantComponent: id,
+      templatesOpen: false,
+      setupDoor: 'yours',
+      setupDoorConsumed: true,
+      assistantOpen: true,
+    }),
+  consumeMerchantLibrary: () => set({ pendingMerchantTemplate: null, pendingMerchantComponent: null }),
   requestCopilotGuide: () => set({ pendingCopilotGuide: true, assistantOpen: true }),
   consumeCopilotGuide: () => set({ pendingCopilotGuide: false }),
 
@@ -347,7 +381,17 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   exitFocus: () => set({ focusTarget: null }),
   setFocusPresentation: (focusPresentation) => set({ focusPresentation }),
 
-  chooseDoor: (door) => set({ setupDoor: door, setupDoorConsumed: false, assistantOpen: true }),
+  chooseDoor: (door) => {
+    if (door === 'library') {
+      set({ templatesOpen: true, libraryTab: 'ours' })
+      return
+    }
+    if (door === 'yours') {
+      set({ templatesOpen: true, libraryTab: 'yours' })
+      return
+    }
+    set({ setupDoor: door, setupDoorConsumed: false, assistantOpen: true })
+  },
   consumeSetupDoor: () => set({ setupDoorConsumed: true }),
   markStepStripShown: () => set({ stepStripShown: true }),
   confirmSetupItem: (id) =>
@@ -370,6 +414,11 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       dismissedStepNeedsWork: false,
       trackerOpen: false,
       publishGapsOpen: false,
+      templatesOpen: false,
+      libraryTab: 'ours',
+      pendingLibraryTemplate: null,
+      pendingMerchantTemplate: null,
+      pendingMerchantComponent: null,
       assistantOpen: true,
     }),
 

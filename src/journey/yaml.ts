@@ -47,6 +47,7 @@ function emitStep(s: JourneyStepFile): string {
   if (s.headline) lines.push(`    headline: ${yamlStr(s.headline)}`)
   if (s.body) lines.push(`    body: ${yamlStr(s.body)}`)
   if (s.offer) lines.push(`    offer: ${s.offer}`)
+  if (s.chrome) lines.push(`    chrome: ${JSON.stringify(s.chrome)}`)
   return lines.join('\n')
 }
 
@@ -77,6 +78,7 @@ export function stringifyJourney(file: JourneyFile): string {
       const compact = {
         steps: file.manifest.steps,
         warnings: file.manifest.warnings,
+        issues: file.manifest.issues,
         confirmed: file.manifest.confirmed,
         subscriberContext: file.manifest.subscriberContext,
         surveyReasons: file.manifest.surveyReasons,
@@ -256,6 +258,12 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
     else if (key === 'offer') {
       if (!OFFERS.has(parsed as OfferKey)) return { error: `Line ${n}: unknown offer` }
       current.offer = parsed as OfferKey
+    } else if (key === 'chrome') {
+      try {
+        current.chrome = JSON.parse(String(field[2].trim() || parsed)) as JourneyStepFile['chrome']
+      } catch {
+        return { error: `Line ${n}: chrome must be JSON` }
+      }
     } else return { error: `Line ${n}: unknown step field ${key}` }
   }
 
