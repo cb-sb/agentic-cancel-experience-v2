@@ -11,9 +11,8 @@ import { BrandTokensEditor } from './BrandTokensEditor'
 import { MEDIA_ACCEPT, isMediaFile } from './sampleMedia'
 
 /**
- * Required brand step for every authored experience — cancel and pricing table.
- * Copilot, the plan, and the branding studio share this so matching isn't a
- * one-off action buried in the prompt list.
+ * Required brand beat for every authored experience — cancel and pricing table.
+ * Copilot asks it as a chat step; the branding studio keeps the same card for later edits.
  */
 export function MatchSiteCard({
   compact,

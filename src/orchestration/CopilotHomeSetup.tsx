@@ -1,5 +1,4 @@
 import type { JourneyTemplate } from '../journey/types'
-import { MatchSiteCard } from '../brand/MatchSiteCard'
 import radioOnUrl from './assets/copilot-radio-on.svg'
 import gridUrl from './assets/copilot-grid.svg'
 import chevronUrl from './assets/copilot-chevron.svg'
@@ -102,11 +101,6 @@ export function CopilotHomeSetup({
 }) {
   return (
     <div className="flex w-full flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <SectionLabel>Match your site</SectionLabel>
-        <MatchSiteCard setup />
-      </section>
-
       <section className="flex flex-col gap-2">
         <SectionLabel>Start a Cancel Flow</SectionLabel>
         <div className="flex flex-col gap-2">

@@ -6,8 +6,7 @@ import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
 import { LIBRARY, startFromTemplate, templateLabel, templatePosture, withLive } from '../journey/templates'
 import { interpret } from '../journey/intake'
 import { compileBrand } from '../brand/theme'
-import { brandGatePrompt, isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
-import { MatchSiteCard } from '../brand/MatchSiteCard'
+import { isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
 import { renderContext } from '../journey/contextDoc'
 import {
   PlanBeatCard,
@@ -277,6 +276,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const pendingMerchantComponent = useOrchestration((s) => s.pendingMerchantComponent)
   const pendingCopilotGuide = useOrchestration((s) => s.pendingCopilotGuide)
   const setupDoor = useOrchestration((s) => s.setupDoor)
+  const copilotDocked = useOrchestration((s) => s.copilotDocked)
   const uploadPhase = useUpload((s) => s.phase)
   const uploadChecklist = useUpload((s) => s.checklist)
   const uploadManifest = useUpload((s) => s.manifest)
@@ -331,6 +331,19 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     resetThread()
   }
 
+  const conversationStarted =
+    file.steps.length > 0 ||
+    draft.trim().length > 0 ||
+    lines.filter((l) => l.from === 'you').length > 1
+
+  const goBack = () => {
+    if (copilotDocked || !conversationStarted) {
+      reset()
+      return
+    }
+    useOrchestration.getState().dockCopilot()
+  }
+
   const showStepStrip = () => {
     useOrchestration.getState().markStepStripShown()
     say('bot', 'This is the chain a subscriber walks. Drag if the order is wrong.', { widget: 'steps' })
@@ -339,35 +352,22 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const beginPostCanvas = () => {
     const current = useJourney.getState().file
     setTurn('plan')
-    setBeat('walk')
-    say('bot', beatPrompt('walk', current))
+    const start: typeof beat = isBrandMatched(current.brand) ? 'walk' : 'brand'
+    setBeat(start)
+    say('bot', beatPrompt(start, current))
   }
 
-  const finishBrandGate = () => {
-    const current = useJourney.getState().file
-    if (current.steps.length === 0) {
-      setTurn('kind')
-      return
-    }
-    if (!useOrchestration.getState().stepStripShown) showStepStrip()
-    beginPostCanvas()
-  }
-
-  /** Recap first — brand is required before the canvas lands. Upload no longer skips it. */
+  /** Recap first — brand is a required chat beat, not a sticky pane. */
   const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
     say('bot', planIntro(live), { widget: 'plan' })
     showStepStrip()
-    if (!isBrandMatched(live.brand)) {
-      say('bot', brandGatePrompt(live.kind))
-      setTurn('match_site')
-      return
-    }
     beginPostCanvas()
   }
 
   const continuePlan = (said: string) => {
+    if (beat === 'brand' && !isBrandMatched(useJourney.getState().file.brand)) return
     say('you', said)
     const orch = useOrchestration.getState()
     if (beat === 'walk') orch.setWalkedOrSkipped(true)
@@ -386,9 +386,10 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
 
   const keepDefaults = () => {
     const current = useJourney.getState().file
-    if (!isBrandMatched(current.brand) && current.source !== 'uploaded') {
-      say('bot', brandGatePrompt(current.kind))
-      setTurn('match_site')
+    if (!isBrandMatched(current.brand)) {
+      setTurn('plan')
+      setBeat('brand')
+      say('bot', beatPrompt('brand', current))
       return
     }
     const orch = useOrchestration.getState()
@@ -404,10 +405,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
 
   const jumpPlan = (next: PlanBeat) => {
     const current = useJourney.getState().file
-    if (current.source !== 'uploaded' && !isBrandMatched(current.brand) && next !== 'brand') {
-      setTurn('match_site')
-      return
-    }
     const alreadyOnBeat = turn === 'plan' && beat === next
     setTurn('plan')
     setBeat(next)
@@ -457,11 +454,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       'Hosted. Catalog binds are Copilot’s. This is the chain a subscriber walks — then we match the look.',
     )
     showStepStrip()
-    if (!isBrandMatched(live.brand)) {
-      say('bot', brandGatePrompt(live.kind))
-      setTurn('match_site')
-      return
-    }
     beginPostCanvas()
   }
 
@@ -605,9 +597,15 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (!text) return
     setDraft('')
     say('you', text)
-    if (turn === 'match_site') {
+    if (turn === 'plan' && beat === 'brand') {
       void applyMatchedBrand(text).then((ok) => {
-        if (ok) finishBrandGate()
+        if (!ok) return
+        const current = useJourney.getState().file
+        const next = nextBeat(current, 'brand')
+        if (next) {
+          setBeat(next)
+          say('bot', beatPrompt(next, current))
+        }
       })
       return
     }
@@ -621,12 +619,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (read.changed && read.file.steps.length > 0) {
       say('bot', planIntro(read.file), { widget: 'plan' })
       showStepStrip()
-      if (!isBrandMatched(read.file.brand)) {
-        say('bot', brandGatePrompt(read.file.kind))
-        setTurn('match_site')
-      } else {
-        beginPostCanvas()
-      }
+      beginPostCanvas()
     }
   }
 
@@ -680,25 +673,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
             Acquiring a subscriber instead?{' '}
             <span className="font-semibold text-slate-700">Pricing table → hosted checkout</span>
           </button>
-        </div>
-      )
-    }
-    if (turn === 'match_site') {
-      return (
-        <div className="space-y-2">
-          <MatchSiteCard
-            onMatched={() => finishBrandGate()}
-            onFailed={(result) => say('bot', result.reply)}
-          />
-          {isBrandMatched(file.brand) && (
-            <button
-              type="button"
-              onClick={finishBrandGate}
-              className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-[13px] font-bold text-white hover:bg-slate-800"
-            >
-              Continue with {file.brand.merchant}
-            </button>
-          )}
         </div>
       )
     }
@@ -867,7 +841,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               {label}
             </button>
           ))}
-          {!focusing && !compact && (
+          {!focusing && !compact && !copilotDocked && (
             <HeaderIconButton label="Collapse Copilot" onClick={() => setAssistantOpen(false)}>
               <SIcon name="panel-right" size={16} />
             </HeaderIconButton>
@@ -910,9 +884,15 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       ) : (
         <div className="flex min-h-0 flex-1">
           <div className="flex w-[44px] flex-none flex-col items-center gap-[8px] pt-[16px]">
-            <HeaderIconButton label="New conversation" onClick={reset}>
-              <SIcon name="pencil" size={16} />
-            </HeaderIconButton>
+            {compact || copilotDocked ? (
+              <HeaderIconButton label="Back" onClick={goBack}>
+                <SIcon name="arrow-left" size={16} />
+              </HeaderIconButton>
+            ) : (
+              <HeaderIconButton label="New conversation" onClick={reset}>
+                <SIcon name="pencil" size={16} />
+              </HeaderIconButton>
+            )}
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[24px] pt-[12px]">
@@ -957,7 +937,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                 onChange={setDraft}
                 onSend={send}
                 placeholder={
-                  turn === 'match_site'
+                  turn === 'plan' && beat === 'brand'
                     ? 'https://account.example.com — or: dark navy, gold buttons, Inter'
                     : emptyHome
                       ? 'Or say it: 4-step cancel, or a pricing table to acquire subscribers.'

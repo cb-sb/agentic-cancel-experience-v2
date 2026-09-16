@@ -107,7 +107,6 @@ export function setupProgress(args: {
     done: Boolean(confirmed.holdout) || file.holdout !== 0,
   })
 
-  const uploadedMapped = file.source === 'uploaded' && Boolean(file.manifest?.confirmed)
   const experienceItems: SetupItem[] = [
     {
       id: 'chain',
@@ -120,8 +119,8 @@ export function setupProgress(args: {
       id: 'brand',
       track: 'experience',
       label: 'Brand',
-      hint: uploadedMapped ? 'Matched or mapped from upload' : 'Look of the subscriber UI',
-      done: isBrandMatched(file.brand) || uploadedMapped,
+      hint: 'Look of the subscriber UI',
+      done: isBrandMatched(file.brand),
     },
     {
       id: 'stepConfig',

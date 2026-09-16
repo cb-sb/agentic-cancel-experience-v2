@@ -11,6 +11,12 @@
 export const ASSISTANT_W = 400
 
 /**
+ * Center Copilot overlay and the doors-docked sidebar share this width so
+ * Back peels the window to the right without resizing the conversation.
+ */
+export const COPILOT_CENTER_W = '50vw'
+
+/**
  * Chargebee Copilot, folded. A narrow right rail that holds the launcher icon
  * so the canvas is pushed rather than covered.
  */

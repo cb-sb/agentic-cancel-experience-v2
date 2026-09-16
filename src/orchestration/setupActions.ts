@@ -70,7 +70,7 @@ function jumpCopilot(beat: PlanBeat) {
   const thread = useCopilotThread.getState()
   const file = useJourney.getState().file
   const already = thread.turn === 'plan' && thread.beat === beat
-  thread.setTurn(beat === 'brand' && !file.brand.matched ? 'match_site' : 'plan')
-  if (beat !== 'brand' || file.brand.matched) thread.setBeat(beat)
+  thread.setTurn('plan')
+  thread.setBeat(beat)
   if (!already) thread.say('bot', beatPrompt(beat, file))
 }

@@ -42,14 +42,26 @@ function DoorShell({
   )
 }
 
-export function BlankJourneyDoors() {
+export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
   const chooseDoor = useOrchestration((s) => s.chooseDoor)
   const openTemplates = useOrchestration((s) => s.openTemplates)
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center overflow-auto px-xl py-xl">
-      <div className="pointer-events-auto flex w-full max-w-[920px] flex-col items-center">
-        <div className="flex w-full flex-wrap items-stretch justify-center gap-lg">
+    <div
+      className={`pointer-events-none absolute inset-0 z-20 flex overflow-auto px-xl py-xl ${
+        packed ? 'items-start justify-start pt-[48px]' : 'items-center justify-center'
+      }`}
+    >
+      <div
+        className={`pointer-events-auto flex w-full flex-col ${
+          packed ? 'items-start' : 'max-w-[920px] items-center'
+        }`}
+      >
+        <div
+          className={`flex flex-wrap items-stretch gap-lg ${
+            packed ? 'justify-start' : 'w-full justify-center'
+          }`}
+        >
           <button
             type="button"
             onClick={() => openTemplates('ours')}
@@ -95,7 +107,11 @@ export function BlankJourneyDoors() {
             />
           </button>
         </div>
-        <p className="mt-[72px] text-center text-[13px] leading-relaxed text-slate-500">
+        <p
+          className={`text-[13px] leading-relaxed text-slate-500 ${
+            packed ? 'mt-xl text-left' : 'mt-[72px] text-center'
+          }`}
+        >
           Acquiring?{' '}
           <button
             type="button"

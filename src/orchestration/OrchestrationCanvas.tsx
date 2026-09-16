@@ -3,7 +3,7 @@ import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { usePresence } from '../lib/usePresence'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
-import { ASSISTANT_FOLDED_W, ASSISTANT_W } from './paneTokens'
+import { ASSISTANT_FOLDED_W, ASSISTANT_W, COPILOT_CENTER_W } from './paneTokens'
 import { useAssistant } from './assistant/useAssistant'
 import { CopilotMark } from './CopilotMark'
 import { PromptCodeDock } from './PromptCodeDock'
@@ -21,7 +21,7 @@ const COPILOT_MORPH_MS = 380
 
 function Workspace({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-0 flex-1 overflow-hidden">
+    <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
       {children}
       <div className="pointer-events-none absolute bottom-[32px] left-[24px] z-30">
         <div className="pointer-events-auto">
@@ -70,9 +70,9 @@ function CenterOverlay({
       <div
         className="relative z-10 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] motion-reduce:transition-none"
         style={{
-          width: library ? 880 : '50vw',
+          width: library ? 880 : COPILOT_CENTER_W,
           height: library ? 740 : '75vh',
-          maxWidth: library ? 'min(880px, 92vw)' : '50vw',
+          maxWidth: library ? 'min(880px, 92vw)' : COPILOT_CENTER_W,
           maxHeight: library ? '86vh' : '75vh',
           transition: `width ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, height ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, max-width ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, max-height ${COPILOT_MORPH_MS}ms ${EASE_ENTER}`,
         }}
@@ -88,6 +88,7 @@ export function OrchestrationCanvas() {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
+  const copilotDocked = useOrchestration((s) => s.copilotDocked)
   const previewing = useExperience((s) => s.mode === 'play')
   const stage = useCopilotStage()
 
@@ -102,6 +103,26 @@ export function OrchestrationCanvas() {
   if (stage === 'doors' || stage === 'center') {
     const library = templatesOpen && stage === 'doors'
     const copilot = stage === 'center'
+    if (copilot && copilotDocked) {
+      return (
+        <div className="flex h-full min-h-0 flex-col bg-slate-100">
+          <div className="flex min-h-0 flex-1">
+            <Workspace>
+              <DoorsBackdrop />
+              <BlankJourneyDoors packed />
+              {templatesOpen && <TemplatesModal />}
+            </Workspace>
+            <div
+              className="relative z-20 flex h-full min-h-0 flex-none flex-col overflow-hidden border-l border-slate-200 bg-white"
+              style={{ width: COPILOT_CENTER_W }}
+            >
+              <PromptCodeDock />
+            </div>
+          </div>
+          <UploadFlow />
+        </div>
+      )
+    }
     return (
       <div className="flex h-full min-h-0 flex-col bg-slate-100">
         <Workspace>

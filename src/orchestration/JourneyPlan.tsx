@@ -1,5 +1,5 @@
 import { patchBrandShortcuts } from '../brand/theme'
-import { isBrandMatched } from '../brand/matchSite'
+import { brandGatePrompt, isBrandMatched } from '../brand/matchSite'
 import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
 import { LIBRARY, setStepOffer, templateLabel } from '../journey/templates'
@@ -21,7 +21,7 @@ const OFFER_KEYS = OFFER_VARIANTS.map((v) => v.category as OfferKey)
 export type PlanBeat = 'walk' | 'offers' | 'audience' | 'shell' | 'holdout' | 'brand' | 'review' | 'publish'
 
 export function planBeats(file: JourneyFile): PlanBeat[] {
-  const beats: PlanBeat[] = ['walk']
+  const beats: PlanBeat[] = ['brand', 'walk']
   if (file.steps.some((s) => s.kind === 'offer')) beats.push('offers')
   beats.push('audience', 'holdout', 'publish')
   return beats
@@ -48,7 +48,7 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
     case 'holdout':
       return 'A holdout is a slice that skips this experience so you can measure lift. Leave it at none until you are ready to experiment.'
     case 'brand':
-      return 'Name, color, and the look of the subscriber UI. Matching the page the snippet will run on is required for every cancel and pricing-table experience — then open the branding studio for type, buttons, and scoped CSS.'
+      return brandGatePrompt(file.kind)
     case 'review':
       return 'Walk this as a subscriber to see if it’s right. Open any row on the plan to change a default — you don’t have to.'
     case 'publish':
@@ -403,7 +403,7 @@ export function PlanBeatCard({
           {keepLabel(beat, file)}
         </button>
       )}
-      {(beat !== 'brand' || isBrandMatched(file.brand)) && (
+      {beat !== 'brand' && (
         <button
           type="button"
           onClick={onKeepDefaults}

@@ -202,6 +202,8 @@ interface OrchestrationState {
   setupDoor: SetupDoor | null
   /** True after Copilot has started the door's journey — survives remount when the rail snaps in. */
   setupDoorConsumed: boolean
+  /** Center Copilot peeled to a 50vw right rail so the three doors stay visible. */
+  copilotDocked: boolean
   /** Copilot has shown the step strip; required to leave center stage. */
   stepStripShown: boolean
   /** Beats the merchant confirmed — defaults do not count until this is set. */
@@ -239,6 +241,8 @@ interface OrchestrationState {
   setFocusPresentation: (presentation: FocusPresentation) => void
   chooseDoor: (door: SetupDoor) => void
   consumeSetupDoor: () => void
+  /** Peel center Copilot to a 50vw right rail over the doors. */
+  dockCopilot: () => void
   markStepStripShown: () => void
   confirmSetupItem: (id: SetupItemId) => void
   setWalkedOrSkipped: (value: boolean) => void
@@ -300,6 +304,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   dirty: false,
   setupDoor: null,
   setupDoorConsumed: false,
+  copilotDocked: false,
   stepStripShown: false,
   confirmedSetup: {},
   walkedOrSkipped: false,
@@ -393,6 +398,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
     set({ setupDoor: door, setupDoorConsumed: false, assistantOpen: true })
   },
   consumeSetupDoor: () => set({ setupDoorConsumed: true }),
+  dockCopilot: () => set({ copilotDocked: true, assistantOpen: true }),
   markStepStripShown: () => set({ stepStripShown: true }),
   confirmSetupItem: (id) =>
     set((s) => ({ confirmedSetup: { ...s.confirmedSetup, [id]: true } })),
@@ -408,6 +414,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
     set({
       setupDoor: null,
       setupDoorConsumed: false,
+      copilotDocked: false,
       stepStripShown: false,
       confirmedSetup: {},
       walkedOrSkipped: false,
