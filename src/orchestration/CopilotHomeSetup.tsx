@@ -138,15 +138,15 @@ export function CopilotHomeSetup({
           <ResourceRow
             icon={gridUrl}
             iconBox="bg-[#eef2ff]"
-            label="Ours — Chargebee postures"
-            hint="Browse every cancel and acquisition path"
+            label="Browse templates"
+            hint="Chargebee postures — Copilot takes it from there"
             onClick={onTemplates}
           />
           <div className="border-t border-[#e5e7eb]">
             <ResourceRow
               icon={gridUrl}
               iconBox="bg-[#ecfdf3]"
-              label="Yours — My templates"
+              label="My existing templates"
               hint="Confirmed scans and saved components"
               onClick={onYours}
             />
@@ -155,8 +155,8 @@ export function CopilotHomeSetup({
             <ResourceRow
               icon={uploadUrl}
               iconBox="bg-[#f9fafb]"
-              label="New — Upload a template"
-              hint="Starter kit first — unmarked HTML is rejected"
+              label="Upload a template"
+              hint="Get the kit, then drop the designed HTML"
               onClick={onUpload}
             />
           </div>

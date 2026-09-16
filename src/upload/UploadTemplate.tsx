@@ -5,7 +5,9 @@ import { zipToBlob } from './pack'
 import { useUpload } from './useUpload'
 import { formatContractIssue } from './validate'
 import { CONTRACT_VERSION } from './contract'
+import { kitClipboardPayload } from './kitForLlm'
 import singleHtml from './sample/single.html?raw'
+import { useOrchestration } from '../store/useOrchestration'
 
 function download(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
@@ -22,8 +24,10 @@ export function UploadTemplate() {
   const error = useUpload((s) => s.error)
   const checklist = useUpload((s) => s.checklist)
   const mappingOnly = useUpload((s) => s.mappingOnly)
+  const openTemplates = useOrchestration((s) => s.openTemplates)
   const inputRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const onFiles = useCallback(
     (list: FileList | File[] | null) => {
@@ -33,13 +37,21 @@ export function UploadTemplate() {
     [loadFiles],
   )
 
+  const copyForLlm = async () => {
+    try {
+      await navigator.clipboard.writeText(kitClipboardPayload())
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <p className="text-[13px] leading-relaxed text-slate-600">
-        Start from the kit — slots for loss aversion, survey, and offers are already marked. Restyle
-        chrome; do not delete <code className="rounded bg-slate-100 px-1 text-[12px]">data-cb-*</code>{' '}
-        attributes. Contract v{CONTRACT_VERSION}: unmarked HTML is rejected. Targeting, holdout, and
-        publish stay in Copilot.
+        Two steps. Get the kit, design the chrome, then drop the still-marked file. Contract v{CONTRACT_VERSION}:
+        unmarked HTML is rejected. Targeting, holdout, and publish stay in Copilot.
       </p>
 
       {mappingOnly && (
@@ -49,21 +61,17 @@ export function UploadTemplate() {
       )}
 
       <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-5 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">Starter kit</p>
-        <p className="mt-1 text-[13px] font-semibold text-slate-800">Pre-marked Growth slots</p>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">1 · Get the starter kit</p>
+        <p className="mt-1 text-[13px] font-semibold text-slate-800">Download, or copy into your own LLM</p>
         <p className="mt-1 text-[12.5px] text-slate-600">
-          One HTML file or a zip of pages. Same primitives other experiences use — not cancel-only.
+          Figma, agencies, and git need the file. ChatGPT, Claude, or Cursor can restyle from the same
+          kit — keep every <code className="rounded bg-white/80 px-1 text-[12px]">data-cb-*</code> mark.
+          Chargebee will not open a third-party chat for you.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <SButton size="small" variant="primary" onClick={() => loadSample('html')}>
-            Use HTML kit
-          </SButton>
-          <SButton size="small" variant="neutral-outline" onClick={() => loadSample('zip')}>
-            Use zip kit
-          </SButton>
           <SButton
             size="small"
-            variant="neutral-outline"
+            variant="primary"
             onClick={() => download(SAMPLE_SINGLE_NAME, new Blob([singleHtml], { type: 'text/html' }))}
           >
             Download HTML
@@ -74,6 +82,9 @@ export function UploadTemplate() {
             onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(sampleZipBytes()))}
           >
             Download zip
+          </SButton>
+          <SButton size="small" variant="neutral-outline" onClick={() => void copyForLlm()}>
+            {copied ? 'Copied for your LLM' : 'Copy for your LLM'}
           </SButton>
         </div>
       </div>
@@ -104,9 +115,10 @@ export function UploadTemplate() {
           over ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-slate-50'
         }`}
       >
-        <p className="text-[14px] font-semibold text-slate-800">Or drop your marked HTML or zip</p>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">2 · Upload what you designed</p>
+        <p className="mt-2 text-[14px] font-semibold text-slate-800">Drop the marked HTML or zip</p>
         <p className="mt-1 max-w-sm text-[12.5px] text-slate-500">
-          Static markup and CSS only. React apps are out of this cut.
+          Already have a marked pack? Skip step 1 and drop it. Static markup and CSS only.
         </p>
         <SButton size="small" variant="neutral-outline" className="mt-4" onClick={() => inputRef.current?.click()}>
           Choose file
@@ -122,6 +134,13 @@ export function UploadTemplate() {
             e.target.value = ''
           }}
         />
+        <button
+          type="button"
+          onClick={() => loadSample('html')}
+          className="mt-3 text-[12px] font-medium text-slate-400 underline decoration-slate-200 underline-offset-2 hover:text-slate-600"
+        >
+          Scan the starter kit as-is (demo)
+        </button>
       </div>
 
       {error && (
@@ -129,6 +148,17 @@ export function UploadTemplate() {
           {error}
         </div>
       )}
+
+      <p className="mt-4 text-center text-[12.5px] text-slate-500">
+        Meant to reopen chrome you already scanned?{' '}
+        <button
+          type="button"
+          onClick={() => openTemplates('yours')}
+          className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-2 hover:text-[#4338ca]"
+        >
+          Open my templates
+        </button>
+      </p>
     </div>
   )
 }

@@ -61,7 +61,7 @@ Contract version: **1.0.0** (see `src/upload/contract.ts` / `src/upload/ingress.
 
 1. Start from `src/upload/sample/single.html` or the zip pages beside it.
 2. Restyle chrome (type, color, layout) only.
-3. Return HTML/CSS. Tell the merchant to upload it in Chargebee Copilot (**New**).
-4. Copilot scans, reviews in chat, saves to **Yours**, then fills Growth-owned details.
+3. Return HTML/CSS. Tell the merchant to upload it in Chargebee Copilot (**Upload a template**).
+4. Copilot scans, reviews in chat, saves to **My templates**, then fills Growth-owned details.
 
 Read [reference.md](reference.md) for a restyle example and a rejection example.

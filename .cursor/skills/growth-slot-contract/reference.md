@@ -31,5 +31,5 @@ This fails `validateContract` — no `data-cb-kind`, no keep/cancel:
 1. Scan `data-cb-*` (fail closed).
 2. Copilot narrates the review in chat.
 3. Merchant binds offer catalog / survey reasons.
-4. Pack is saved to **My templates** (Yours) and each marked step becomes a reusable component.
+4. Pack is saved to **My templates** and each marked step becomes a reusable component.
 5. Copilot fills brand, audience, holdout, and walk. Those never come from this file.

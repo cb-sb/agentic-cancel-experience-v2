@@ -33,7 +33,7 @@ export function LibraryPanel() {
           <h2 className="text-[15px] font-bold text-slate-900">Template library</h2>
           <p className="text-[12px] text-slate-500">
             {libraryTab === 'yours'
-              ? 'Your confirmed scans. Copilot still fills brand and targeting.'
+              ? 'Confirmed scans. Copilot still fills brand and targeting.'
               : 'Chargebee postures. Copilot takes it from there.'}
           </p>
         </div>
@@ -84,7 +84,7 @@ function Tab({ id, active, onClick }: { id: LibraryTab; active: boolean; onClick
         active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
       }`}
     >
-      {id === 'ours' ? 'Ours' : 'Yours'}
+      {id === 'ours' ? 'Chargebee' : 'My templates'}
     </button>
   )
 }

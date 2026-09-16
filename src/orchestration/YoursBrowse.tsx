@@ -22,15 +22,14 @@ export function YoursBrowse({
       <div className={compact ? 'px-[4px] py-[16px]' : 'px-6 py-10'}>
         <p className="text-[14px] font-semibold text-slate-800">No saved templates yet</p>
         <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">
-          Scan a starter-kit upload. After Copilot reviews the contract, confirm — it lands here as
-          yours, with each marked step saved as a reusable component.
+          Scan a marked HTML pack. After Copilot reviews the contract, it lands here.
         </p>
         <button
           type="button"
           onClick={onUpload}
           className="mt-[14px] rounded-xl bg-slate-900 px-[14px] py-[8px] text-[13px] font-semibold text-white hover:bg-slate-800"
         >
-          Upload a new template
+          Upload a template
         </button>
       </div>
     )

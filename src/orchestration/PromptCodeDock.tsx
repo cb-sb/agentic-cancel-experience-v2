@@ -85,8 +85,8 @@ function LibraryCta({ onClick }: { onClick: () => void }) {
         </svg>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold">Template library</span>
-        <span className="mt-0.5 block text-[11.5px] text-white/70">Browse every cancel and acquisition path</span>
+        <span className="block text-[13px] font-semibold">Browse templates</span>
+        <span className="mt-0.5 block text-[11.5px] text-white/70">Chargebee postures, or switch to My templates</span>
       </span>
       <span className="text-[16px] text-white/50" aria-hidden>
         →
@@ -271,6 +271,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const closeAnnotation = useOrchestration((s) => s.closeAnnotation)
   const focusing = useOrchestration((s) => s.focusTarget !== null)
   const openTemplates = useOrchestration((s) => s.openTemplates)
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const pendingLibraryTemplate = useOrchestration((s) => s.pendingLibraryTemplate)
   const pendingMerchantTemplate = useOrchestration((s) => s.pendingMerchantTemplate)
   const pendingMerchantComponent = useOrchestration((s) => s.pendingMerchantComponent)
@@ -431,7 +432,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     say('you', 'Upload my own template')
     say(
       'bot',
-      'Start from the starter kit — slots for loss aversion, survey, and offers are already marked. I’ll reject unmarked HTML with a checklist, then you bind the catalog. Chargebee hosts it; targeting, A/B, and reporting stay here.',
+      'Two steps. Get the starter kit first — download it, or copy it into your own LLM. Design the chrome without stripping data-cb-* marks, then drop the file here. I’ll reject unmarked HTML with a checklist, then you bind the catalog. Chargebee hosts it; targeting, A/B, and reporting stay here.',
     )
     setTurn('upload')
     useUpload.getState().open()
@@ -662,13 +663,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           </OptionGroup>
           <LibraryCta onClick={() => openTemplates('ours')} />
           <OptionBtn
-            label="My templates"
+            label="My existing templates"
             hint="Journeys and components you already scanned"
             onClick={startYours}
           />
           <OptionBtn
-            label="Upload a new template"
-            hint="Starter kit first — unmarked HTML is rejected"
+            label="Upload a template"
+            hint="Get the kit, then drop the designed HTML"
             onClick={startUpload}
           />
           <button
@@ -824,6 +825,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           </div>
         </div>
         <div className="flex items-center gap-[2px]">
+          <HeaderIconButton
+            label="Templates"
+            pressed={templatesOpen}
+            onClick={() => openTemplates()}
+          >
+            <SIcon name="layout-template" size={16} />
+          </HeaderIconButton>
           <HeaderIconButton
             label={annotateMode ? 'Exit design mode' : 'Annotate'}
             pressed={annotateMode}
