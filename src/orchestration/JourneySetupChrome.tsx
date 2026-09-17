@@ -6,6 +6,8 @@ import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { useCopilotThread } from './copilotThread'
 import { jumpSetupItem } from './setupActions'
+import { trackerItemForSpotlight } from './spotlight'
+import { useLookTarget } from './useLookTarget'
 import { setupProgress, type SetupItem, type SetupTrack } from './setupTracker'
 
 export function useSetupProgress() {
@@ -27,12 +29,17 @@ export function useSetupProgress() {
   })
 }
 
-function useTrackerHighlight(): SetupItem['id'] | undefined {
+function useTrackerHighlight(): { item?: SetupItem['id']; pulsed: boolean } {
+  const look = useLookTarget()
+  const fromLook = look ? trackerItemForSpotlight(look) : undefined
   const turn = useCopilotThread((s) => s.turn)
   const beat = useCopilotThread((s) => s.beat)
-  if (turn !== 'plan') return undefined
-  if (beat === 'audience' || beat === 'holdout' || beat === 'offers' || beat === 'walk') return beat
-  return undefined
+  if (fromLook) return { item: fromLook, pulsed: true }
+  if (turn !== 'plan') return { item: undefined, pulsed: false }
+  if (beat === 'audience' || beat === 'holdout' || beat === 'offers' || beat === 'walk') {
+    return { item: beat, pulsed: false }
+  }
+  return { item: undefined, pulsed: false }
 }
 
 function TrackColumn({
@@ -41,12 +48,14 @@ function TrackColumn({
   total,
   items,
   highlight,
+  pulsed,
 }: {
   title: string
   done: number
   total: number
   items: SetupItem[]
   highlight?: SetupItem['id']
+  pulsed?: boolean
 }) {
   const pct = total === 0 ? 0 : Math.round((done / total) * 100)
   return (
@@ -72,7 +81,7 @@ function TrackColumn({
               onClick={() => jumpSetupItem(item.id)}
               className={`flex w-full items-start rounded-[12px] px-[12px] py-[10px] text-left transition-colors hover:bg-slate-50 ${
                 highlight === item.id ? 'bg-indigo-50' : ''
-              }`}
+              } ${highlight === item.id && pulsed ? 'cb-spotlight-ring' : ''}`}
             >
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-[8px]">
@@ -179,21 +188,24 @@ export function SetupTrackerDock() {
             done={progress.playDone}
             total={progress.playTotal}
             items={progress.play}
-            highlight={highlight}
+            highlight={highlight.item}
+            pulsed={highlight.pulsed}
           />
           <TrackColumn
             title="Experience"
             done={progress.experienceDone}
             total={progress.experienceTotal}
             items={progress.experience}
-            highlight={highlight}
+            highlight={highlight.item}
+            pulsed={highlight.pulsed}
           />
           <TrackColumn
             title="Testing / reporting"
             done={progress.testingDone}
             total={progress.testingTotal}
             items={progress.testing}
-            highlight={highlight}
+            highlight={highlight.item}
+            pulsed={highlight.pulsed}
           />
         </div>
       </div>

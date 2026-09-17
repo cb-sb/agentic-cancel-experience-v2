@@ -4,6 +4,10 @@ import type { JourneyTemplate } from '../journey/types'
 import { seedPlay } from '../lib/orchestrationSeed'
 import type { LibraryTab, SetupDoor } from '../orchestration/copilotStage'
 import type { ConfirmedSetup, SetupItemId } from '../orchestration/setupTracker'
+import {
+  TRACKER_SPOTLIGHTS,
+  type SpotlightId,
+} from '../orchestration/spotlight'
 import { useExperience } from './useExperience'
 import {
   CONTROL,
@@ -212,6 +216,10 @@ interface OrchestrationState {
   dismissedStepNeedsWork: boolean
   trackerOpen: boolean
   publishGapsOpen: boolean
+  /** Surface Copilot is pointing at, or null after the pulse expires. */
+  spotlight: SpotlightId | null
+  /** Bumps when the same target is pointed at again so the frame re-scrolls. */
+  spotlightNonce: number
 
   openTemplates: (tab?: LibraryTab) => void
   closeTemplates: () => void
@@ -249,6 +257,7 @@ interface OrchestrationState {
   dismissStepNeedsWork: () => void
   setTrackerOpen: (open: boolean) => void
   setPublishGapsOpen: (open: boolean) => void
+  setSpotlight: (id: SpotlightId | null, ms?: number) => void
   resetSetup: () => void
 
   updatePlay: (patch: Partial<Play>) => void
@@ -279,6 +288,8 @@ interface OrchestrationState {
   /** Edit a segment branch's sub-audience rules. */
   updateBranchAudience: (splitId: string, branchId: string, patch: Partial<Audience>) => void
 }
+
+let spotlightTimer: number | undefined
 
 export const useOrchestration = create<OrchestrationState>((set, get) => ({
   play: seedPlay(),
@@ -311,6 +322,8 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   dismissedStepNeedsWork: false,
   trackerOpen: false,
   publishGapsOpen: false,
+  spotlight: null,
+  spotlightNonce: 0,
 
   openTemplates: (tab = 'ours') => set({ templatesOpen: true, libraryTab: tab }),
   closeTemplates: () => set({ templatesOpen: false }),
@@ -410,7 +423,27 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   dismissStepNeedsWork: () => set({ dismissedStepNeedsWork: true }),
   setTrackerOpen: (trackerOpen) => set({ trackerOpen }),
   setPublishGapsOpen: (publishGapsOpen) => set({ publishGapsOpen }),
-  resetSetup: () =>
+  setSpotlight: (id, ms = 12000) => {
+    if (spotlightTimer != null) window.clearTimeout(spotlightTimer)
+    spotlightTimer = undefined
+    if (!id) {
+      set({ spotlight: null })
+      return
+    }
+    set((s) => ({
+      spotlight: id,
+      spotlightNonce: s.spotlightNonce + 1,
+      ...(TRACKER_SPOTLIGHTS.includes(id) && id !== 'journey' ? { trackerOpen: true } : {}),
+    }))
+    if (ms > 0) {
+      spotlightTimer = window.setTimeout(() => {
+        if (get().spotlight === id) set({ spotlight: null })
+      }, ms)
+    }
+  },
+  resetSetup: () => {
+    if (spotlightTimer != null) window.clearTimeout(spotlightTimer)
+    spotlightTimer = undefined
     set({
       setupDoor: null,
       setupDoorConsumed: false,
@@ -421,13 +454,15 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       dismissedStepNeedsWork: false,
       trackerOpen: false,
       publishGapsOpen: false,
+      spotlight: null,
       templatesOpen: false,
       libraryTab: 'ours',
       pendingLibraryTemplate: null,
       pendingMerchantTemplate: null,
       pendingMerchantComponent: null,
       assistantOpen: true,
-    }),
+    })
+  },
 
   toggleFlowCollapsed: (flowId) =>
     set((s) => ({ collapsedFlows: { ...s.collapsedFlows, [flowId]: !s.collapsedFlows[flowId] } })),

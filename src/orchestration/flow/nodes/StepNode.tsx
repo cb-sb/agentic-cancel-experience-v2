@@ -12,6 +12,7 @@ import { ScreenBox } from '../screen'
 import { useSetHoveredStep } from '../StepChrome'
 import { StepBody } from '../tiers'
 import type { StepNodeData } from '../types'
+import { useLookTarget } from '../../useLookTarget'
 
 /** Invisible, and mounted at every tier: a port that unmounts orphans its edge. */
 const PORT_CLASS = '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !border-0 !bg-transparent !opacity-0'
@@ -27,6 +28,7 @@ export function StepNode({ id, data }: NodeProps) {
   const focusStep = useOrchestration((s) => s.focusStep)
   const focusTarget = useOrchestration((s) => s.focusTarget)
   const file = useJourney((s) => s.file)
+  const look = useLookTarget()
   const needsWork = stepNeedsWork(step, file)
   const setHovered = useSetHoveredStep()
   const annTarget = {
@@ -44,6 +46,8 @@ export function StepNode({ id, data }: NodeProps) {
   // The drawer pans this card into view beside itself, and the focus audit
   // checks it got there; both need to find it in the DOM.
   const focused = focusTarget?.experienceId === experienceId && focusTarget.stepId === step.id
+  const lit =
+    look === 'journey' || (look === 'offers' && step.components.some((c) => c.kind === 'offer'))
   const reasons = reasonPorts(step)
   const offerPort = offerPortOf(step)
 
@@ -51,7 +55,7 @@ export function StepNode({ id, data }: NodeProps) {
     <div
       data-audit-kind="step"
       data-step-focused={focused || undefined}
-      className={`group relative ${ring}`}
+      className={`group relative ${ring} ${lit ? 'cb-spotlight-ring rounded-[14px]' : ''}`}
       style={{ width: STEP_W, height: STEP_H }}
       onPointerDownCapture={(e) => {
         if (annotateMode) {

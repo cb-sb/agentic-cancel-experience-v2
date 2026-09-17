@@ -16,6 +16,8 @@ import {
   planIntro,
   type PlanBeat,
 } from './JourneyPlan'
+import { spotlightForBeat } from './spotlight'
+import { SpotlightFrame } from './SpotlightFrame'
 import { SIcon } from '@chargebee/sting-react'
 import { CopilotHomeSetup } from './CopilotHomeSetup'
 import { DesignModeIcon } from './DesignModeIcon'
@@ -31,6 +33,15 @@ import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { applyMerchantJourney, attachComponent, matchingComponents, startFromComponent } from '../library/apply'
 import { attachedChromeCopy, savedToLibraryCopy, scanReviewCopy, startedFromComponentCopy } from '../library/review'
 import { CB_KIND_LABELS, type CbKind } from '../upload/contract'
+
+function scrollSpotlightInto(container: HTMLElement): boolean {
+  const marked = container.querySelector<HTMLElement>('[data-spotlight-on]')
+  if (!marked) return false
+  const cRect = container.getBoundingClientRect()
+  const mRect = marked.getBoundingClientRect()
+  container.scrollTop += mRect.top - cRect.top - (cRect.height - mRect.height) / 2
+  return true
+}
 
 function OptionBtn({
   label,
@@ -317,10 +328,22 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (!next.contextError) setDraftContext(renderContext(next.file))
   }
 
+  const spotlight = useOrchestration((s) => s.spotlight)
+  const spotlightNonce = useOrchestration((s) => s.spotlightNonce)
+
   useEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    if (spotlight && scrollSpotlightInto(el)) return
+    el.scrollTop = el.scrollHeight
   }, [lines, turn, beat])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !spotlight) return
+    const id = window.requestAnimationFrame(() => scrollSpotlightInto(el))
+    return () => window.cancelAnimationFrame(id)
+  }, [spotlight, spotlightNonce])
 
   const reset = () => {
     replaceFile({ ...EMPTY_JOURNEY, brand: useJourney.getState().file.brand })
@@ -378,7 +401,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const next = nextBeat(current, beat)
     if (next) {
       setBeat(next)
-      say('bot', beatPrompt(next, current))
+      const look = spotlightForBeat(next)
+      say('bot', beatPrompt(next, current), look ? { look } : undefined)
     } else {
       setTurn('done')
     }
@@ -389,7 +413,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (!isBrandMatched(current.brand)) {
       setTurn('plan')
       setBeat('brand')
-      say('bot', beatPrompt('brand', current))
+      say('bot', beatPrompt('brand', current), { look: 'brand' })
       return
     }
     const orch = useOrchestration.getState()
@@ -399,7 +423,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     say('you', 'Keep defaults and walk it')
     setTurn('plan')
     setBeat('publish')
-    say('bot', beatPrompt('publish', current))
+    say('bot', beatPrompt('publish', current), { look: 'walk' })
     useExperience.getState().setMode('play')
   }
 
@@ -408,8 +432,10 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const alreadyOnBeat = turn === 'plan' && beat === next
     setTurn('plan')
     setBeat(next)
+    const look = spotlightForBeat(next)
+    if (look) useOrchestration.getState().setSpotlight(look)
     if (alreadyOnBeat) return
-    say('bot', beatPrompt(next, current))
+    say('bot', beatPrompt(next, current), look ? { look } : undefined)
   }
 
   const applyTemplate = (template: JourneyTemplate) => {
@@ -430,6 +456,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     say(
       'bot',
       'I’ll scan whatever you drop, reject unmarked chrome with a checklist, then you bind the catalog. Targeting, holdout, and publish stay here.',
+      { look: 'upload' },
     )
     setTurn('upload')
     useUpload.getState().open()
@@ -613,7 +640,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
         const next = nextBeat(current, 'brand')
         if (next) {
           setBeat(next)
-          say('bot', beatPrompt(next, current))
+          const look = spotlightForBeat(next)
+          say('bot', beatPrompt(next, current), look ? { look } : undefined)
         }
       })
       return
@@ -744,16 +772,18 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               ))}
             </div>
           )}
-          <PlanBeatCard
-            beat={beat}
-            onContinue={continuePlan}
-            onConfirm={confirmPlan}
-            onPreview={() => {
-              useOrchestration.getState().setWalkedOrSkipped(true)
-              useExperience.getState().setMode('play')
-            }}
-            onKeepDefaults={keepDefaults}
-          />
+          <SpotlightFrame id={spotlightForBeat(beat) ?? 'plan'}>
+            <PlanBeatCard
+              beat={beat}
+              onContinue={continuePlan}
+              onConfirm={confirmPlan}
+              onPreview={() => {
+                useOrchestration.getState().setWalkedOrSkipped(true)
+                useExperience.getState().setMode('play')
+              }}
+              onKeepDefaults={keepDefaults}
+            />
+          </SpotlightFrame>
         </div>
       )
     }
@@ -919,17 +949,17 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                     {lines.map((m) => (
                       <ChatLine key={m.id} line={m}>
                         {m.widget === 'plan' && (
-                          <div className="mt-[12px]">
+                          <SpotlightFrame id="plan" className="mt-[12px]">
                             <PlanSummary beat={turn === 'plan' ? beat : undefined} onJump={jumpPlan} />
-                          </div>
+                          </SpotlightFrame>
                         )}
                         {m.widget === 'steps' && (
-                          <div className="mt-[12px]">
+                          <SpotlightFrame id="journey" className="mt-[12px]">
                             <StepStrip
                               onAccept={() => say('you', 'This order is right')}
                               onReject={reset}
                             />
-                          </div>
+                          </SpotlightFrame>
                         )}
                         {m.applyMessageId != null && <AnnotateApply messageId={m.applyMessageId} />}
                       </ChatLine>

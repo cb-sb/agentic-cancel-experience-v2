@@ -6,6 +6,7 @@ import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { useCopilotThread } from './copilotThread'
 import type { SetupItemId } from './setupTracker'
 import { beatPrompt, type PlanBeat } from './JourneyPlan'
+import { spotlightForBeat } from './spotlight'
 
 /** Open the surface that already owns this setup item. */
 export function jumpSetupItem(id: SetupItemId) {
@@ -44,10 +45,22 @@ export function jumpSetupItem(id: SetupItemId) {
       useExperience.getState().setMode('play')
       orch.confirmSetupItem('walk')
       orch.setWalkedOrSkipped(true)
+      orch.setSpotlight('walk')
       return
-    case 'chain':
+    case 'chain': {
       orch.setAssistantOpen(true)
+      const thread = useCopilotThread.getState()
+      const hasSteps = thread.lines.some((l) => l.widget === 'steps')
+      if (hasSteps) {
+        orch.setSpotlight('journey')
+      } else {
+        orch.markStepStripShown()
+        thread.say('bot', 'This is the chain a subscriber walks. Drag if the order is wrong.', {
+          widget: 'steps',
+        })
+      }
       return
+    }
     case 'reporting': {
       orch.setAssistantOpen(true)
       const thread = useCopilotThread.getState()
@@ -72,5 +85,7 @@ function jumpCopilot(beat: PlanBeat) {
   const already = thread.turn === 'plan' && thread.beat === beat
   thread.setTurn('plan')
   thread.setBeat(beat)
-  if (!already) thread.say('bot', beatPrompt(beat, file))
+  const look = spotlightForBeat(beat)
+  if (look) useOrchestration.getState().setSpotlight(look)
+  if (!already) thread.say('bot', beatPrompt(beat, file), look ? { look } : undefined)
 }

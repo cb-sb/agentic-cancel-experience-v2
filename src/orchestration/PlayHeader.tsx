@@ -7,6 +7,7 @@ import { StepNavBar } from './StepNavBar'
 import { useUpload } from '../upload/useUpload'
 import { canPublishUploaded, manifestErrors } from '../upload/validate'
 import { useSetupProgress } from './JourneySetupChrome'
+import { SpotlightFrame } from './SpotlightFrame'
 
 /**
  * The play's mode switch, and nothing else.
@@ -27,25 +28,33 @@ function PlayToolbar() {
       aria-label="Mode"
       className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1"
     >
-      {(['compose', 'play'] as const).map((m) => (
-        <button
-          key={m}
-          type="button"
-          role="radio"
-          onClick={() => {
-            if (m === 'play') useOrchestration.getState().setWalkedOrSkipped(true)
-            setMode(m)
-          }}
-          aria-checked={previewing === (m === 'play')}
-          className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
-            previewing === (m === 'play')
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          {m === 'compose' ? 'Build' : 'Preview'}
-        </button>
-      ))}
+      {(['compose', 'play'] as const).map((m) => {
+        const button = (
+          <button
+            type="button"
+            role="radio"
+            onClick={() => {
+              if (m === 'play') useOrchestration.getState().setWalkedOrSkipped(true)
+              setMode(m)
+            }}
+            aria-checked={previewing === (m === 'play')}
+            className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              previewing === (m === 'play')
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {m === 'compose' ? 'Build' : 'Preview'}
+          </button>
+        )
+        return m === 'play' ? (
+          <SpotlightFrame key={m} id="walk" label="">
+            {button}
+          </SpotlightFrame>
+        ) : (
+          <span key={m}>{button}</span>
+        )
+      })}
     </div>
   )
 }

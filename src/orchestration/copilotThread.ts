@@ -1,5 +1,7 @@
 import { create } from 'zustand'
+import { useOrchestration } from '../store/useOrchestration'
 import type { PlanBeat } from './JourneyPlan'
+import { spotlightForWidget, type SpotlightId } from './spotlight'
 
 export type PromptTurn = 'kind' | 'guide' | 'plan' | 'done' | 'library' | 'upload'
 
@@ -16,7 +18,14 @@ export interface CopilotLine {
   applyMessageId?: number
 }
 
-type SayExtra = string | { ref?: string; widget?: CopilotLine['widget']; applyMessageId?: number }
+type SayExtra =
+  | string
+  | {
+      ref?: string
+      widget?: CopilotLine['widget']
+      applyMessageId?: number
+      look?: SpotlightId
+    }
 
 interface CopilotThread {
   lines: CopilotLine[]
@@ -49,8 +58,15 @@ export const useCopilotThread = create<CopilotThread>((set) => ({
         },
       ],
     }))
+    if (from === 'bot') {
+      const look = opts.look ?? spotlightForWidget(opts.widget)
+      if (look) useOrchestration.getState().setSpotlight(look)
+    }
   },
   setTurn: (turn) => set({ turn }),
   setBeat: (beat) => set({ beat }),
-  reset: () => set({ lines: [], turn: 'kind', beat: 'walk' }),
+  reset: () => {
+    useOrchestration.getState().setSpotlight(null)
+    set({ lines: [], turn: 'kind', beat: 'walk' })
+  },
 }))

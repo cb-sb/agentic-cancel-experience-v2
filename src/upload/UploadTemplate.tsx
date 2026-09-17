@@ -6,6 +6,7 @@ import { formatContractIssue } from './validate'
 import { CONTRACT_VERSION } from './contract'
 import { SAMPLE_ZIP_NAME, kitClipboardPayload, kitZipBytes } from './kit'
 import { useOrchestration } from '../store/useOrchestration'
+import { SpotlightFrame } from '../orchestration/SpotlightFrame'
 
 function download(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
@@ -83,6 +84,7 @@ export function UploadTemplate() {
         </div>
       )}
 
+      <SpotlightFrame id="upload">
       <div
         onDragOver={(e) => {
           e.preventDefault()
@@ -125,6 +127,7 @@ export function UploadTemplate() {
           Scan a composed demo as-is
         </button>
       </div>
+      </SpotlightFrame>
 
       {error && (
         <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-700">

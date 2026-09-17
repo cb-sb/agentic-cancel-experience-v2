@@ -13,6 +13,7 @@ import { useEmptyJourneyDemo } from './emptyDemoFlag'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useJourney } from '../store/useJourney'
 import { logicalStepCount } from '../lib/stepColumns'
+import { useLookTarget } from './useLookTarget'
 
 const TARGET_FLOW: TargetType[] = ['CANCEL_PAGE', 'HOSTED_PAGE']
 
@@ -104,6 +105,8 @@ export function ExperienceEnclosure({
   const emptyDemo = useEmptyJourneyDemo()
   const go = useGrowthShell((s) => s.go)
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
+  const look = useLookTarget()
+  const journeyLook = look === 'journey'
 
   const split = play.targeting.kind === 'split' ? play.targeting : null
   const treatmentCount = split?.branches.filter((b) => b.node.kind === 'flow').length ?? 0
@@ -356,6 +359,8 @@ export function ExperienceEnclosure({
         // to look like one surface whether you are reading the whole play or a
         // single card, so nothing here keys off the tier.
         className={`cursor-default transition-all ${
+          journeyLook ? 'cb-spotlight-ring' : ''
+        } ${
           emptyDemo
             ? 'overflow-visible bg-transparent'
             : selected
