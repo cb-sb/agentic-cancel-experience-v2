@@ -1,7 +1,7 @@
 import type { JourneyKind, JourneyStepKind } from '../journey/types'
 import type { ManifestField, ManifestSlot, TemplateArtifact, TemplateManifest } from '../upload/types'
 
-/** One reusable primitive extracted from a confirmed upload. */
+/** One reusable primitive in the shared catalog. Upserted by chrome hash. */
 export interface MerchantComponent {
   id: string
   kind: JourneyStepKind
@@ -11,9 +11,10 @@ export interface MerchantComponent {
   slots: ManifestSlot[]
   fields: ManifestField[]
   sourceStepId: string
+  contentHash: string
 }
 
-/** Confirmed upload saved for this merchant — a whole journey plus its components. */
+/** Confirmed composed experience. Points at shared catalog ids. */
 export interface MerchantTemplate {
   id: string
   name: string
@@ -24,5 +25,7 @@ export interface MerchantTemplate {
   artifact: TemplateArtifact
   manifest: TemplateManifest
   stepLabels: string[]
-  components: MerchantComponent[]
+  componentIds: string[]
+  /** @deprecated Nested copy from library v1. Prefer componentIds + catalog. */
+  components?: MerchantComponent[]
 }

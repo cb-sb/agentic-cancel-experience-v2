@@ -14,15 +14,15 @@ export function YoursBrowse({
   compact?: boolean
 }) {
   const templates = useMerchantLibrary((s) => s.templates)
+  const components = useMerchantLibrary((s) => s.components)
   const removeTemplate = useMerchantLibrary((s) => s.removeTemplate)
-  const components = templates.flatMap((t) => t.components.map((c) => ({ ...c, templateName: t.name })))
 
-  if (templates.length === 0) {
+  if (templates.length === 0 && components.length === 0) {
     return (
       <div className={compact ? 'px-[4px] py-[16px]' : 'px-6 py-10'}>
         <p className="text-[14px] font-semibold text-slate-800">No saved templates yet</p>
         <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">
-          Scan a marked HTML pack. After Copilot reviews the contract, it lands here.
+          Scan a marked HTML pack. After Copilot reviews the contract, the journey and each primitive land here.
         </p>
         <button
           type="button"
@@ -37,38 +37,34 @@ export function YoursBrowse({
 
   return (
     <div className={compact ? 'flex flex-col gap-[16px]' : 'min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5'}>
-      <section>
-        <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-          Journeys
-        </p>
-        <div className="space-y-[10px]">
-          {templates.map((t) => (
-            <JourneyCard
-              key={t.id}
-              template={t}
-              onApply={() => onApplyJourney(t.id)}
-              onRemove={() => removeTemplate(t.id)}
-            />
-          ))}
-        </div>
-      </section>
+      {templates.length > 0 && (
+        <section>
+          <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            Journeys
+          </p>
+          <div className="space-y-[10px]">
+            {templates.map((t) => (
+              <JourneyCard
+                key={t.id}
+                template={t}
+                onApply={() => onApplyJourney(t.id)}
+                onRemove={() => removeTemplate(t.id)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       {components.length > 0 && (
         <section>
           <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
             Components
           </p>
           <p className="mb-[10px] text-[12.5px] text-slate-500">
-            Attach onto a Chargebee posture. Copilot fills brand and targeting — the file never becomes
-            a play on its own.
+            Shared library objects. Attach onto an existing chain, or open one as a single step.
           </p>
           <div className="grid grid-cols-1 gap-[8px] sm:grid-cols-2">
             {components.map((c) => (
-              <ComponentCard
-                key={c.id}
-                component={c}
-                templateName={c.templateName}
-                onApply={() => onApplyComponent(c.id)}
-              />
+              <ComponentCard key={c.id} component={c} onApply={() => onApplyComponent(c.id)} />
             ))}
           </div>
         </section>
@@ -120,11 +116,9 @@ function JourneyCard({
 
 function ComponentCard({
   component,
-  templateName,
   onApply,
 }: {
   component: MerchantComponent
-  templateName: string
   onApply: () => void
 }) {
   return (
@@ -136,8 +130,8 @@ function ComponentCard({
       <div className="text-[13px] font-bold text-slate-900">
         {CB_KIND_LABELS[component.kind as CbKind] ?? component.label}
       </div>
-      <div className="mt-[4px] text-[12px] text-slate-500">From {templateName}</div>
-      <div className="mt-[8px] text-[12px] font-semibold text-indigo-600">Use on a Chargebee posture →</div>
+      <div className="mt-[4px] text-[12px] text-slate-500">Reusable on other experiences</div>
+      <div className="mt-[8px] text-[12px] font-semibold text-indigo-600">Use this component →</div>
     </button>
   )
 }

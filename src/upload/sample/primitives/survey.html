@@ -1,17 +1,16 @@
 <!doctype html>
-<html lang="en" data-cb-contract="1.0.0">
+<html lang="en" data-cb-contract="1.0.0" data-cb-kit="catalog">
   <head>
     <meta charset="utf-8" />
-    <title>Why leave</title>
-    <link rel="stylesheet" href="shared.css" />
+    <title>Survey</title>
+    <link rel="stylesheet" href="../shared.css" />
   </head>
   <body>
-    <!-- Chargebee Growth slot contract v1.0.0. Restyle chrome (classes, layout, type). Do not change data-cb-* names or values. Do not encode targeting, holdout, catalog offers, or publish. class="slot" regions are Growth-owned at confirm. -->
+    <!-- Chargebee Growth slot contract v1.0.0. Catalog primitive — not an experience. Restyle chrome. Do not change data-cb-* names or values. Strip data-cb-kit when composing an experience. -->
     <main class="page" data-cb-step="survey" data-cb-kind="survey">
-      <div class="eyebrow">One question</div>
+      <div class="eyebrow">Survey</div>
       <h1>What’s pulling you away?</h1>
-      <p class="lede">This routes the next screen. It is not a brick wall.</p>
-      <!-- GROWTH BINDS this list at confirm. Keep five radios; labels are dummy. -->
+      <p class="lede">Keep five radios. Labels are dummy — Growth binds reasons at confirm.</p>
       <div class="reasons slot" data-cb-slot="survey">
         <p class="slot-label">Growth slot — survey reasons</p>
         <label class="reason"><input type="radio" name="reason" value="reason_1" /> [reason]</label>
@@ -21,8 +20,8 @@
         <label class="reason"><input type="radio" name="reason" value="reason_5" /> [reason]</label>
       </div>
       <div class="cta-row">
-        <a class="btn btn-ghost" href="value.html" data-cb-action="back">Back</a>
-        <a class="btn btn-primary" href="offer.html" data-cb-action="continue" data-cb-next="offer.html">Continue</a>
+        <button type="button" class="btn btn-ghost" data-cb-action="back">Back</button>
+        <button type="button" class="btn btn-primary" data-cb-action="continue">Continue</button>
       </div>
     </main>
   </body>

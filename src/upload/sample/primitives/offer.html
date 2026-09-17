@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-cb-contract="1.0.0" data-cb-kit="catalog">
+  <head>
+    <meta charset="utf-8" />
+    <title>Offer</title>
+    <link rel="stylesheet" href="../shared.css" />
+  </head>
+  <body>
+    <!-- Chargebee Growth slot contract v1.0.0. Catalog primitive — not an experience. Restyle chrome. Do not change data-cb-* names or values. Strip data-cb-kit when composing an experience. -->
+    <main class="page" data-cb-step="offer" data-cb-kind="offer">
+      <div class="eyebrow">Offer</div>
+      <h1>Stay, on different terms.</h1>
+      <p class="lede">The dashed region is the offer catalog. Do not invent a discount here.</p>
+      <div class="offer slot" data-cb-slot="offer">
+        <p class="slot-label">Growth slot — offer catalog</p>
+        <div class="eyebrow" data-cb-bind="eyebrow">[eyebrow]</div>
+        <h1 data-cb-bind="title">[offer title]</h1>
+        <p class="lede" data-cb-bind="body">[offer body]</p>
+        <div class="cta-row">
+          <button type="button" class="btn btn-primary" data-cb-bind="cta" data-cb-action="accept_offer">[accept]</button>
+          <button type="button" class="btn btn-ghost" data-cb-action="decline_offer">No thanks, continue</button>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

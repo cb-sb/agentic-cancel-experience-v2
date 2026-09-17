@@ -3,7 +3,7 @@ name: growth-slot-contract
 description: >-
   Generates marked static HTML/CSS for Chargebee Growth using the versioned
   data-cb-* slot contract (v1.0.0). Use when an agency or merchant LLM is asked
-  to restyle cancel/acquire chrome, emit a starter-kit page, or add
+  to compose chrome from the Growth kit primitives, restyle a marked page, or add
   data-cb-step / data-cb-kind / data-cb-slot marks. Never authors targeting,
   holdout, offer catalog selection, publish, A/B, or subscriber walk — those
   stay in Chargebee Copilot after upload.
@@ -12,8 +12,9 @@ description: >-
 # Chargebee Growth slot contract (chrome only)
 
 This skill emits **marked static HTML/CSS** that Chargebee Growth can scan.
-It is **not** a cancel-experience builder. Upload the file to Growth; Copilot
-reviews the contract, binds the catalog, and fills brand, audience, holdout,
+It is **not** a cancel-experience builder. Download the Growth kit, compose a
+subset of primitives, and upload that HTML; Copilot reviews the contract, binds
+the catalog, stores shared library components, and fills brand, audience, holdout,
 and walk.
 
 Contract version: **1.0.0** (see `src/upload/contract.ts` / `src/upload/ingress.ts`).
@@ -49,6 +50,7 @@ Contract version: **1.0.0** (see `src/upload/contract.ts` / `src/upload/ingress.
 | `data-cb-action` | button/link | `continue` · `back` · `accept_offer` · `decline_offer` · `keep` · `cancel` · `exit` |
 | `data-cb-bind` | offer child | `title` · `cta` · `body` · `eyebrow` |
 | `data-cb-next` | link | Next zip page path |
+| `data-cb-kit` | html | `catalog` on the primitive pack only — strip it when composing |
 
 ## Kind requirements
 
@@ -59,9 +61,11 @@ Contract version: **1.0.0** (see `src/upload/contract.ts` / `src/upload/ingress.
 
 ## Workflow
 
-1. Start from `src/upload/sample/single.html` or the zip pages beside it.
-2. Restyle chrome (type, color, layout) only.
+1. Start from the Growth kit (`primitives/` — one sample per kind). Ask the merchant the job, then export only the pages they chose, in order, with `data-cb-action` and `data-cb-next`. Strip `data-cb-kit="catalog"`. Do not upload the catalog zip back.
+2. Restyle chrome (type, color, layout) only. Keep `data-cb-*` names and values. Leave `class="slot"` regions as Growth-owned dummies.
 3. Return HTML/CSS. Tell the merchant to upload it in Chargebee Copilot (**Upload a template**).
-4. Copilot scans, reviews in chat, saves to **My templates**, then fills Growth-owned details.
+4. Copilot scans, reviews in chat, saves the journey to **My templates** and each marked step as a reusable library component, then fills Growth-owned details.
+
+Optional assembly recipes (examples, not separate downloads): confirm-only; loss aversion → survey → offer → confirm; pricing table → checkout.
 
 Read [reference.md](reference.md) for a restyle example and a rejection example.

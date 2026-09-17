@@ -29,7 +29,7 @@ import { StepStrip } from './StepStrip'
 import { CopilotMark } from './CopilotMark'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { applyMerchantJourney, attachComponent, matchingComponents, startFromComponent } from '../library/apply'
-import { attachedChromeCopy, savedToLibraryCopy, scanReviewCopy } from '../library/review'
+import { attachedChromeCopy, savedToLibraryCopy, scanReviewCopy, startedFromComponentCopy } from '../library/review'
 import { CB_KIND_LABELS, type CbKind } from '../upload/contract'
 
 function OptionBtn({
@@ -281,7 +281,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const uploadChecklist = useUpload((s) => s.checklist)
   const uploadManifest = useUpload((s) => s.manifest)
   const uploadArtifact = useUpload((s) => s.artifact)
-  const libraryTemplates = useMerchantLibrary((s) => s.templates)
+  const libraryComponents = useMerchantLibrary((s) => s.components)
 
   const lines = useCopilotThread((s) => s.lines)
   const say = useCopilotThread((s) => s.say)
@@ -429,7 +429,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     say('you', 'Upload my own template')
     say(
       'bot',
-      'Two steps. Get the starter kit first — download it, or copy it into your own LLM. Design the chrome without stripping data-cb-* marks, then drop the file here. I’ll reject unmarked HTML with a checklist, then you bind the catalog. Chargebee hosts it; targeting, A/B, and reporting stay here.',
+      'I’ll scan whatever you drop, reject unmarked chrome with a checklist, then you bind the catalog. Targeting, holdout, and publish stay here.',
     )
     setTurn('upload')
     useUpload.getState().open()
@@ -448,7 +448,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const saved = live.artifact
       ? useMerchantLibrary.getState().templates.find((t) => t.checksum === live.artifact?.checksum)
       : undefined
-    say('bot', savedToLibraryCopy(saved?.name ?? live.name))
+    say('bot', savedToLibraryCopy(saved?.name ?? live.name, saved?.stepLabels ?? []))
     say(
       'bot',
       'Hosted. Catalog binds are Copilot’s. This is the chain a subscriber walks — then we match the look.',
@@ -508,7 +508,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (!saved) return
     say('you', saved.name)
     say('bot', `Opened “${saved.name}” from My templates. Copilot still fills brand, audience, holdout, and walk.`)
-    landPlan(applyMerchantJourney(useJourney.getState().file, saved))
+    landPlan(
+      applyMerchantJourney(
+        useJourney.getState().file,
+        saved,
+        useMerchantLibrary.getState().components,
+      ),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingMerchantTemplate])
 
@@ -519,12 +525,15 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const found = useMerchantLibrary.getState().getComponent(id)
     if (!found) return
     const current = useJourney.getState().file
-    const next =
-      current.steps.length === 0
-        ? startFromComponent(current, found.component)
-        : attachComponent(current, found.component)
-    say('you', `Use ${found.component.label} chrome`)
-    say('bot', attachedChromeCopy(found.component.label, templatePosture(next.template) || next.name))
+    const blank = current.steps.length === 0
+    const next = blank ? startFromComponent(current, found) : attachComponent(current, found)
+    say('you', `Use ${found.label} chrome`)
+    say(
+      'bot',
+      blank
+        ? startedFromComponentCopy(found.label)
+        : attachedChromeCopy(found.label, templatePosture(next.template) || next.name),
+    )
     landPlan(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingMerchantComponent])
@@ -662,7 +671,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           />
           <OptionBtn
             label="Upload a template"
-            hint="Get the kit, then drop the designed HTML"
+            hint="Download the Growth kit, then drop the composed HTML"
             onClick={startUpload}
           />
           <button
@@ -710,10 +719,9 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       )
     }
     if (turn === 'plan') {
-      const attachable = matchingComponents(
-        file,
-        libraryTemplates.flatMap((t) => t.components),
-      ).filter((c) => !file.steps.some((s) => s.kind === c.kind && s.chrome?.libraryComponentId === c.id))
+      const attachable = matchingComponents(file, libraryComponents).filter(
+        (c) => !file.steps.some((s) => s.kind === c.kind && s.chrome?.libraryComponentId === c.id),
+      )
       return (
         <div className="space-y-4">
           {attachable.length > 0 && file.source !== 'uploaded' && (
@@ -725,7 +733,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                 <OptionBtn
                   key={c.id}
                   label={`Use saved ${CB_KIND_LABELS[c.kind as CbKind] ?? c.label}`}
-                  hint="Attaches onto this Chargebee posture — Copilot keeps brand and targeting"
+                  hint="Reuses the same library object — Copilot keeps brand and targeting"
                   onClick={() => {
                     const next = attachComponent(useJourney.getState().file, c)
                     say('you', `Use ${c.label} chrome`)
@@ -766,7 +774,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, beat, file, uploadPhase, pendingLibraryTemplate, libraryTemplates])
+  }, [turn, beat, file, uploadPhase, pendingLibraryTemplate, libraryComponents])
 
   const subtitle = emptyHome
     ? 'New Conversation'

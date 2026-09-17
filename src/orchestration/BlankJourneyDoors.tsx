@@ -84,8 +84,8 @@ export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
           >
             <DoorShell
               title="Upload a template"
-              body="Get the starter kit, design the HTML, then drop the marked file here."
-              detail="Download or copy for your LLM first. Unmarked HTML is rejected, not guessed."
+              body="Download the Growth kit, compose an experience with your LLM, then drop the marked HTML."
+              detail="One catalog of primitives — not a prescribed journey. Unmarked HTML is rejected, not guessed."
               icon="cloud-upload"
               well="bg-[#eef2ff]"
               glyph="text-[#4f46e5]"

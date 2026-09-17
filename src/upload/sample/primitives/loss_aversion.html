@@ -1,21 +1,20 @@
 <!doctype html>
-<html lang="en" data-cb-contract="1.0.0">
+<html lang="en" data-cb-contract="1.0.0" data-cb-kit="catalog">
   <head>
     <meta charset="utf-8" />
-    <title>Before you go</title>
-    <link rel="stylesheet" href="shared.css" />
+    <title>Loss aversion</title>
+    <link rel="stylesheet" href="../shared.css" />
   </head>
   <body>
-    <!-- Chargebee Growth slot contract v1.0.0. Restyle chrome (classes, layout, type). Do not change data-cb-* names or values. Do not encode targeting, holdout, catalog offers, or publish. class="slot" regions are Growth-owned at confirm. -->
+    <!-- Chargebee Growth slot contract v1.0.0. Catalog primitive — not an experience. Restyle chrome. Do not change data-cb-* names or values. Strip data-cb-kit when composing an experience. -->
     <main class="page" data-cb-step="value" data-cb-kind="loss_aversion">
-      <div class="eyebrow">Before you go</div>
+      <div class="eyebrow">Loss aversion</div>
       <h1>You’ve built a lot on this plan.</h1>
       <p class="lede">
         Cancelling ends access to
         <span data-cb-field="plan_name">[plan name]</span>
-        at the next renewal. Your work stays until then.
+        at the next renewal.
       </p>
-      <!-- GROWTH BINDS subscriber fields here. Keep the marks; sample numbers are dummy. -->
       <div class="stats slot" data-cb-slot="la_stats">
         <p class="slot-label">Growth slot — subscriber fields</p>
         <div class="stat">
@@ -32,7 +31,7 @@
         </div>
       </div>
       <div class="cta-row">
-        <a class="btn btn-primary" href="survey.html" data-cb-action="continue" data-cb-next="survey.html">Continue</a>
+        <button type="button" class="btn btn-primary" data-cb-action="continue">Continue</button>
         <button type="button" class="btn btn-ghost" data-cb-action="keep">Keep my plan</button>
       </div>
     </main>

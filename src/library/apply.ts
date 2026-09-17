@@ -1,18 +1,29 @@
-import { EMPTY_JOURNEY, type JourneyFile } from '../journey/types'
-import { startFromTemplate, withLive } from '../journey/templates'
+import { EMPTY_JOURNEY, type JourneyFile, type JourneyStepFile } from '../journey/types'
 import { journeyFromUpload } from '../upload/apply'
 import type { MerchantComponent, MerchantTemplate } from './types'
-import { toStepChrome } from './extract'
+import { packFromChrome, toStepChrome } from './extract'
+
+function componentsFor(saved: MerchantTemplate, catalog?: MerchantComponent[]): MerchantComponent[] {
+  if (catalog?.length && saved.componentIds?.length) {
+    return saved.componentIds
+      .map((id) => catalog.find((c) => c.id === id))
+      .filter((c): c is MerchantComponent => c != null)
+  }
+  return saved.components ?? []
+}
 
 /** Whole saved pack → hosted uploaded journey. Copilot still fills brand/targeting. */
-export function applyMerchantJourney(base: JourneyFile, saved: MerchantTemplate): JourneyFile {
-  const next = journeyFromUpload(base, saved.artifact, saved.manifest)
+export function applyMerchantJourney(
+  base: JourneyFile,
+  saved: MerchantTemplate,
+  catalog?: MerchantComponent[],
+): JourneyFile {
+  const next = journeyFromUpload(base, saved.artifact, saved.manifest, componentsFor(saved, catalog))
   return { ...next, name: saved.name }
 }
 
 /**
- * Attach saved chrome onto a matching Chargebee posture step.
- * Components never become a play on their own — they compile into a template.
+ * Attach saved chrome onto a matching step. Reuses the same libraryComponentId.
  */
 export function attachComponent(file: JourneyFile, component: MerchantComponent): JourneyFile {
   const idx = file.steps.findIndex((s) => s.kind === component.kind && !s.chrome)
@@ -26,14 +37,28 @@ export function attachComponent(file: JourneyFile, component: MerchantComponent)
   }
 }
 
-/** No chain yet: land Fair save (or acquire if the primitive is checkout/pricing), then attach. */
+/** Blank canvas: a single live step of that kind — not a prescribed Fair save wrap. */
 export function startFromComponent(base: JourneyFile, component: MerchantComponent): JourneyFile {
   const acquire = component.kind === 'pricing_table' || component.kind === 'checkout'
-  const next = startFromTemplate(
-    { ...EMPTY_JOURNEY, brand: base.brand },
-    acquire ? 'acquire_2' : 'cancel_4',
-  )
-  return attachComponent({ ...next, steps: withLive(next.steps, true) }, component)
+  const step: JourneyStepFile = {
+    id: component.sourceStepId || component.kind,
+    kind: component.kind,
+    live: true,
+    headline: component.label,
+    chrome: toStepChrome(component),
+  }
+  const pack = packFromChrome(step)
+  return {
+    ...EMPTY_JOURNEY,
+    brand: base.brand,
+    kind: acquire ? 'acquisition' : 'cancel',
+    source: 'uploaded',
+    name: component.label,
+    template: 'none',
+    artifact: pack?.artifact,
+    manifest: pack?.manifest,
+    steps: [step],
+  }
 }
 
 export function matchingComponents(file: JourneyFile, components: MerchantComponent[]): MerchantComponent[] {

@@ -10,3 +10,8 @@ export function hashFiles(files: TemplateArtifactFile[]): string {
   }
   return (h >>> 0).toString(16).padStart(8, '0')
 }
+
+/** Same chrome uploaded twice is one library object. Restyle → new hash. */
+export function hashChrome(kind: string, html: string, css?: string): string {
+  return hashFiles([{ path: kind, html, css }])
+}

@@ -16,6 +16,7 @@
  * | `data-cb-action` | button/link  | Known action |
  * | `data-cb-bind`   | offer child  | `title` \| `cta` \| `body` \| `eyebrow` |
  * | `data-cb-next`   | link         | Next zip page path |
+ * | `data-cb-kit`    | html         | `catalog` marks the primitive pack — not an experience |
  */
 
 /** Bump when attributes, kinds, or KIND_REQUIREMENTS change. */
@@ -27,7 +28,7 @@ export const INGRESS_SCOPE = {
     'marked static HTML/CSS',
     'data-cb-* attributes',
     'JourneyStepKind / data-cb-kind',
-    'starter-kit samples',
+    'Growth kit primitives',
   ],
   out: [
     'audience / targeting',
@@ -48,6 +49,7 @@ export const CB = {
   action: 'data-cb-action',
   bind: 'data-cb-bind',
   next: 'data-cb-next',
+  kit: 'data-cb-kit',
 } as const
 
 /** Growth primitives — not cancel-only. */
@@ -160,6 +162,7 @@ export const GROWTH_SLOT_SCHEMA = {
     [CB.action]: { on: 'button or link', enum: [...CB_ACTIONS_CONTRACT] },
     [CB.bind]: { on: 'offer child', enum: [...CB_BINDS] },
     [CB.next]: { on: 'link', description: 'Next zip page path' },
+    [CB.kit]: { on: 'html', enum: ['catalog'], description: 'Marks the generic primitive catalog — not an experience' },
   },
   kinds: Object.fromEntries(
     CB_KINDS.map((kind) => [

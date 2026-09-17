@@ -2,6 +2,7 @@ import type { JourneyStepKind } from '../journey/types'
 import { defaultSurveyOptions } from '../lib/factories'
 import { uid } from '../lib/id'
 import { CB, isCbSlotName, parseCbKind } from './contract'
+import { catalogRejectIssue, isCatalogPack } from './catalog'
 import { hashFiles } from './hash'
 import { readZip } from './pack'
 import type {
@@ -157,7 +158,7 @@ function scanHtmlFile(
     issues.push(
       issue({
         file: file.path,
-        message: `${file.path} has no ${CB.step}. Start from the starter kit, or mark each screen.`,
+        message: `${file.path} has no ${CB.step}. Start from the Growth kit, or mark each screen.`,
       }),
     )
     return []
@@ -179,7 +180,7 @@ function orderZipSteps(steps: ManifestStep[], files: TemplateArtifactFile[]): Ma
       nextOf.set(f.path, next.split(/[?#]/)[0] ?? next)
     }
   }
-  const start = files.find((f) => /index|value|start/i.test(f.path))?.path ?? files[0]?.path
+  const start = files.find((f) => /index|value|start|pricing/i.test(f.path))?.path ?? files[0]?.path
   if (!start) return steps
   const ordered: ManifestStep[] = []
   const seen = new Set<string>()
@@ -199,6 +200,16 @@ function orderZipSteps(steps: ManifestStep[], files: TemplateArtifactFile[]): Ma
 export function scanArtifact(artifact: TemplateArtifact): TemplateManifest {
   const warnings: string[] = []
   const issues: ContractIssue[] = []
+  if (isCatalogPack(artifact)) {
+    return {
+      steps: [],
+      warnings,
+      issues: [catalogRejectIssue()],
+      confirmed: false,
+      subscriberContext: { ...DEFAULT_SUBSCRIBER_CONTEXT },
+      surveyReasons: defaultSurveyOptions().map((o) => ({ id: o.code ?? o.id, label: o.label })),
+    }
+  }
   const htmlFiles = artifact.files.filter((f) => /\.html?$/i.test(f.path) || !f.path.includes('.'))
   let steps: ManifestStep[] = []
 
@@ -259,6 +270,10 @@ function skipPath(path: string): boolean {
   return !base || base.startsWith('.') || path.includes('__MACOSX')
 }
 
+function zipRelPath(path: string): string {
+  return path.replace(/^\/+/, '')
+}
+
 async function entriesToFiles(entries: { path: string; text: string }[]): Promise<TemplateArtifactFile[]> {
   const css = entries.filter((e) => /\.css$/i.test(e.path)).map((e) => e.text).join('\n')
   const htmls = entries.filter((e) => /\.html?$/i.test(e.path))
@@ -266,7 +281,7 @@ async function entriesToFiles(entries: { path: string; text: string }[]): Promis
     return [{ path: 'untitled.html', html: `<!doctype html><html><body></body></html>`, css }]
   }
   return htmls.map((h) => ({
-    path: h.path.split('/').pop() ?? h.path,
+    path: zipRelPath(h.path),
     html: h.text,
     css: css || undefined,
   }))

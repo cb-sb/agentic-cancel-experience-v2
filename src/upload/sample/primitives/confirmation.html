@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="en" data-cb-contract="1.0.0">
+<html lang="en" data-cb-contract="1.0.0" data-cb-kit="catalog">
   <head>
     <meta charset="utf-8" />
-    <title>Confirm cancel</title>
-    <link rel="stylesheet" href="shared.css" />
+    <title>Confirmation</title>
+    <link rel="stylesheet" href="../shared.css" />
   </head>
   <body>
-    <!-- Chargebee Growth slot contract v1.0.0. Restyle chrome (classes, layout, type). Do not change data-cb-* names or values. Do not encode targeting, holdout, catalog offers, or publish. class="slot" regions are Growth-owned at confirm. -->
+    <!-- Chargebee Growth slot contract v1.0.0. Catalog primitive — not an experience. Restyle chrome. Do not change data-cb-* names or values. Strip data-cb-kit when composing an experience. -->
     <main class="page" data-cb-step="confirm" data-cb-kind="confirmation">
-      <div class="eyebrow">Last step</div>
+      <div class="eyebrow">Confirmation</div>
       <h1>Cancel <span data-cb-field="plan_name">[plan name]</span>?</h1>
       <p class="lede">
         Access runs through
         <span data-cb-field="next_renewal">[date]</span>.
-        You can come back later — this just stops renewal.
+        Both Keep and Cancel marks are required.
       </p>
       <div class="cta-row">
         <button type="button" class="btn btn-ghost" data-cb-action="keep">Keep my plan</button>

@@ -150,7 +150,7 @@ export function CopilotHomeSetup({
               icon={uploadUrl}
               iconBox="bg-[#f9fafb]"
               label="Upload a template"
-              hint="Get the kit, then drop the designed HTML"
+              hint="Download the Growth kit, then drop the composed HTML"
               onClick={onUpload}
             />
           </div>

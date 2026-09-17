@@ -82,7 +82,7 @@ export function validateContract(manifest: TemplateManifest | undefined): Contra
     return [
       {
         level: 'error',
-        message: `No ${CB.step} regions found. Start from the starter kit — do not invent unmarked HTML.`,
+        message: `No ${CB.step} regions found. Start from the Growth kit — do not invent unmarked HTML.`,
       },
     ]
   }
@@ -93,7 +93,7 @@ export function validateContract(manifest: TemplateManifest | undefined): Contra
     if (!already) {
       issues.push({
         level: 'error',
-        message: `Scan found no ${CB.step} regions. Start from the starter kit.`,
+        message: `Scan found no ${CB.step} regions. Start from the Growth kit.`,
       })
     }
     return dedupe(issues)

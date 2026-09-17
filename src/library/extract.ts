@@ -2,6 +2,7 @@ import type { JourneyStepChrome, JourneyStepFile } from '../journey/types'
 import { CB_KIND_LABELS, type CbKind } from '../upload/contract'
 import { htmlForStep } from '../upload/ArtifactPlayer'
 import { uid } from '../lib/id'
+import { hashChrome } from '../upload/hash'
 import type { TemplateArtifact, TemplateManifest } from '../upload/types'
 import type { MerchantComponent, MerchantTemplate } from './types'
 import { CONTRACT_VERSION } from '../upload/contract'
@@ -12,6 +13,7 @@ export function extractComponents(
 ): MerchantComponent[] {
   return manifest.steps.map((step) => {
     const pack = htmlForStep(artifact, step)
+    const contentHash = hashChrome(step.kind, pack.html, pack.css)
     return {
       id: uid('cmp'),
       kind: step.kind,
@@ -21,6 +23,7 @@ export function extractComponents(
       slots: step.slots,
       fields: step.fields,
       sourceStepId: step.id,
+      contentHash,
     }
   })
 }
@@ -73,6 +76,7 @@ export function recordFromUpload(
   artifact: TemplateArtifact,
   manifest: TemplateManifest,
   name?: string,
+  componentIds: string[] = [],
 ): MerchantTemplate {
   const confirmed: TemplateManifest = { ...manifest, confirmed: true }
   return {
@@ -87,6 +91,18 @@ export function recordFromUpload(
     artifact,
     manifest: confirmed,
     stepLabels: confirmed.steps.map((s) => CB_KIND_LABELS[s.kind as CbKind] ?? s.kind),
-    components: extractComponents(artifact, confirmed),
+    componentIds,
   }
+}
+
+export function componentsForTemplate(
+  template: MerchantTemplate,
+  catalog: MerchantComponent[],
+): MerchantComponent[] {
+  if (template.componentIds?.length) {
+    return template.componentIds
+      .map((id) => catalog.find((c) => c.id === id))
+      .filter((c): c is MerchantComponent => c != null)
+  }
+  return template.components ?? []
 }

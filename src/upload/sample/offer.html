@@ -1,23 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-cb-contract="1.0.0">
   <head>
     <meta charset="utf-8" />
     <title>Stay on different terms</title>
     <link rel="stylesheet" href="shared.css" />
   </head>
   <body>
-    <!-- Chargebee Growth slot contract v1.0.0. Restyle chrome. Do not remove data-cb-* marks. Do not encode targeting, holdout, or publish. -->
+    <!-- Chargebee Growth slot contract v1.0.0. Restyle chrome (classes, layout, type). Do not change data-cb-* names or values. Do not encode targeting, holdout, catalog offers, or publish. class="slot" regions are Growth-owned at confirm. -->
     <main class="page" data-cb-step="offer" data-cb-kind="offer">
       <div class="eyebrow">A different path</div>
       <h1>Stay, on different terms.</h1>
-      <p class="lede">This block is filled from the offer catalog when you bind it.</p>
-      <div class="offer" data-cb-slot="offer">
-        <div class="eyebrow" data-cb-bind="eyebrow">Exclusive discount</div>
-        <h1 data-cb-bind="title" style="font-size: 32px">50% off for 3 months</h1>
-        <p class="lede" data-cb-bind="body">Same plan, half the price for your next three cycles.</p>
+      <p class="lede">The dashed region is filled from the offer catalog when you bind it in Copilot. Do not invent a discount here.</p>
+      <!-- GROWTH BINDS this region at confirm. Bracketed text is dummy. -->
+      <div class="offer slot" data-cb-slot="offer">
+        <p class="slot-label">Growth slot — offer catalog</p>
+        <div class="eyebrow" data-cb-bind="eyebrow">[eyebrow]</div>
+        <h1 data-cb-bind="title">[offer title]</h1>
+        <p class="lede" data-cb-bind="body">[offer body]</p>
         <div class="cta-row">
           <button type="button" class="btn btn-primary" data-cb-bind="cta" data-cb-action="accept_offer">
-            Claim 50% discount
+            [accept]
           </button>
           <a class="btn btn-ghost" href="confirm.html" data-cb-action="decline_offer" data-cb-next="confirm.html">
             No thanks, continue

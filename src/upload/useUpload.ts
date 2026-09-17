@@ -3,7 +3,8 @@ import { useJourney } from '../store/useJourney'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { journeyFromUpload } from './apply'
 import { bumpArtifactVersion, filesToArtifact, scanArtifact } from './scan'
-import { sampleSingleArtifact, sampleZipArtifact } from './samples'
+import { EMPTY_JOURNEY } from '../journey/types'
+import { composedDemoArtifact } from './kit'
 import type { ContractIssue, TemplateArtifact, TemplateManifest } from './types'
 import { contractErrors } from './validate'
 
@@ -21,7 +22,7 @@ interface UploadState {
   close: () => void
   backToPick: () => void
   loadFiles: (files: FileList | File[]) => Promise<void>
-  loadSample: (kind: 'html' | 'zip') => void
+  loadSample: () => void
   setManifest: (manifest: TemplateManifest) => void
   confirm: () => void
 }
@@ -101,9 +102,9 @@ export const useUpload = create<UploadState>((set, get) => ({
     }
   },
 
-  loadSample: (kind) => {
+  loadSample: () => {
     const prev = useJourney.getState().file.artifact
-    const artifact = bumpArtifactVersion(prev, kind === 'zip' ? sampleZipArtifact() : sampleSingleArtifact())
+    const artifact = bumpArtifactVersion(prev, composedDemoArtifact())
     set(acceptScan(artifact, scanArtifact(artifact)))
   },
 
@@ -114,9 +115,14 @@ export const useUpload = create<UploadState>((set, get) => ({
     if (!artifact || !manifest) return
     if (contractErrors(manifest).length > 0) return
     const base = useJourney.getState().file
-    const next = journeyFromUpload(base, artifact, manifest)
-    useJourney.getState().replaceFile(next)
-    useMerchantLibrary.getState().saveFromUpload(artifact, next.manifest ?? manifest, next.name)
+    const givenName = !base.name || base.name === EMPTY_JOURNEY.name ? undefined : base.name
+    const saved = useMerchantLibrary.getState().saveFromUpload(artifact, manifest, givenName)
+    const catalog = useMerchantLibrary.getState().components
+    const components = saved.componentIds
+      .map((id) => catalog.find((c) => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => c != null)
+    const next = journeyFromUpload(base, artifact, saved.manifest, components)
+    useJourney.getState().replaceFile({ ...next, name: saved.name })
     set({
       phase: 'closed',
       mappingOnly: false,

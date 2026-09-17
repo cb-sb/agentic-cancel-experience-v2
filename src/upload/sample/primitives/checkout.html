@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-cb-contract="1.0.0" data-cb-kit="catalog">
+  <head>
+    <meta charset="utf-8" />
+    <title>Checkout</title>
+    <link rel="stylesheet" href="../shared.css" />
+  </head>
+  <body>
+    <!-- Chargebee Growth slot contract v1.0.0. Catalog primitive — not an experience. Restyle chrome. Do not change data-cb-* names or values. Strip data-cb-kit when composing an experience. -->
+    <main class="page" data-cb-step="checkout" data-cb-kind="checkout">
+      <div class="eyebrow">Checkout</div>
+      <h1>Complete checkout</h1>
+      <p class="lede">Chrome only. In production Growth opens hosted checkout here.</p>
+      <div class="checkout">
+        <div class="checkout-row">
+          <span>[plan name]</span>
+          <span>[price]</span>
+        </div>
+        <div class="checkout-row checkout-due">
+          <span>Due today</span>
+          <span>[price]</span>
+        </div>
+        <div class="checkout-pay">
+          <span class="pay-mark">VISA</span>
+          <span>•••• 4242</span>
+        </div>
+      </div>
+      <div class="cta-row">
+        <button type="button" class="btn btn-ghost" data-cb-action="back">Back</button>
+        <button type="button" class="btn btn-primary" data-cb-action="continue">Complete checkout</button>
+      </div>
+    </main>
+  </body>
+</html>

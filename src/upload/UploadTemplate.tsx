@@ -1,12 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { SButton } from '@chargebee/sting-react'
-import { SAMPLE_SINGLE_NAME, SAMPLE_ZIP_NAME, sampleZipBytes } from './samples'
 import { zipToBlob } from './pack'
 import { useUpload } from './useUpload'
 import { formatContractIssue } from './validate'
 import { CONTRACT_VERSION } from './contract'
-import { kitClipboardPayload } from './kitForLlm'
-import singleHtml from './sample/single.html?raw'
+import { SAMPLE_ZIP_NAME, kitClipboardPayload, kitZipBytes } from './kit'
 import { useOrchestration } from '../store/useOrchestration'
 
 function download(name: string, blob: Blob) {
@@ -49,39 +47,24 @@ export function UploadTemplate() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <p className="text-[13px] leading-relaxed text-slate-600">
-        Two steps. Get the kit, design the chrome, then drop the still-marked file. Contract v{CONTRACT_VERSION}:
-        unmarked HTML is rejected. Targeting, holdout, and publish stay in Copilot.
-      </p>
-
       {mappingOnly && (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
+        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
           Layout change needs a new file. Catalog binds can skip this and stay on confirm.
         </p>
       )}
 
-      <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-5 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">1 · Get the starter kit</p>
-        <p className="mt-1 text-[13px] font-semibold text-slate-800">Download, or copy into your own LLM</p>
+      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-5 py-4">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">1 · Get the Growth kit</p>
+        <p className="mt-1 text-[13px] font-semibold text-slate-800">Primitives, not a journey</p>
         <p className="mt-1 text-[12.5px] text-slate-600">
-          Figma, agencies, and git need the file. ChatGPT, Claude, or Cursor can restyle from the same
-          kit — keep every <code className="rounded bg-white/80 px-1 text-[12px]">data-cb-*</code> mark.
-          Chargebee will not open a third-party chat for you.
+          Tell your LLM the job, then export only those pages. Keep every{' '}
+          <code className="rounded bg-white/80 px-1 text-[12px]">data-cb-*</code> mark. Don’t upload this zip back —
+          Chargebee won’t open a chat for you.
         </p>
+
         <div className="mt-3 flex flex-wrap gap-2">
-          <SButton
-            size="small"
-            variant="primary"
-            onClick={() => download(SAMPLE_SINGLE_NAME, new Blob([singleHtml], { type: 'text/html' }))}
-          >
-            Download HTML
-          </SButton>
-          <SButton
-            size="small"
-            variant="neutral-outline"
-            onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(sampleZipBytes()))}
-          >
-            Download zip
+          <SButton size="small" variant="primary" onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(kitZipBytes()))}>
+            Download kit
           </SButton>
           <SButton size="small" variant="neutral-outline" onClick={() => void copyForLlm()}>
             {copied ? 'Copied for your LLM' : 'Copy for your LLM'}
@@ -115,10 +98,10 @@ export function UploadTemplate() {
           over ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-slate-50'
         }`}
       >
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">2 · Upload what you designed</p>
-        <p className="mt-2 text-[14px] font-semibold text-slate-800">Drop the marked HTML or zip</p>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">2 · Upload what you composed</p>
+        <p className="mt-2 text-[14px] font-semibold text-slate-800">Drop the composed HTML or zip</p>
         <p className="mt-1 max-w-sm text-[12.5px] text-slate-500">
-          Already have a marked pack? Skip step 1 and drop it. Static markup and CSS only.
+          Confirm-only, fair save, or pricing + checkout — contract v{CONTRACT_VERSION} rejects unmarked files.
         </p>
         <SButton size="small" variant="neutral-outline" className="mt-4" onClick={() => inputRef.current?.click()}>
           Choose file
@@ -136,10 +119,10 @@ export function UploadTemplate() {
         />
         <button
           type="button"
-          onClick={() => loadSample('html')}
+          onClick={() => loadSample()}
           className="mt-3 text-[12px] font-medium text-slate-400 underline decoration-slate-200 underline-offset-2 hover:text-slate-600"
         >
-          Scan the starter kit as-is (demo)
+          Scan a composed demo as-is
         </button>
       </div>
 
