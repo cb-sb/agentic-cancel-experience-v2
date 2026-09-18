@@ -134,20 +134,24 @@ function ProgressDonut({
  * the same shell growing up into the checklist. Anchored bottom-left.
  */
 export function SetupTrackerDock() {
+  const hasSteps = useJourney((s) => s.file.steps.length > 0)
   const progress = useSetupProgress()
   const open = useOrchestration((s) => s.trackerOpen)
   const setTrackerOpen = useOrchestration((s) => s.setTrackerOpen)
   const highlight = useTrackerHighlight()
-  const remaining = progress.remaining
   const pct = progress.percent
-  const complete = remaining === 0 && progress.total > 0
+  const complete = progress.done === progress.total && progress.total > 0
   const ease = open ? EASE_ENTER : EASE_LEAVE
   const nextLine = complete
     ? 'Ready to publish'
     : progress.next
       ? `Next: ${progress.next.label}`
       : 'Start a cancel path'
-  const statusLine = complete ? 'All steps ready' : `${remaining} of ${progress.total} remaining`
+  const statusLine = complete
+    ? 'All steps ready'
+    : `${progress.done} of ${progress.total} complete`
+
+  if (!hasSteps) return null
 
   return (
     <div

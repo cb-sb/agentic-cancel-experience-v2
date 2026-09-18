@@ -386,6 +386,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     replaceFile(live)
     say('bot', planIntro(live), { widget: 'plan' })
     showStepStrip()
+    if (live.source === 'authored') useOrchestration.getState().setSpotlight('journey')
     beginPostCanvas()
   }
 
@@ -702,14 +703,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
             hint="Download the Growth kit, then drop the composed HTML"
             onClick={startUpload}
           />
-          <button
-            type="button"
-            onClick={startAcquire}
-            className="w-full px-1 text-left text-[12.5px] text-slate-500 hover:text-slate-800"
-          >
-            Acquiring a subscriber instead?{' '}
-            <span className="font-semibold text-slate-700">Pricing table → hosted checkout</span>
-          </button>
         </div>
       )
     }
@@ -941,7 +934,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                   onTemplates={() => openTemplates('ours')}
                   onYours={startYours}
                   onUpload={startUpload}
-                  onAcquire={startAcquire}
                 />
               ) : (
                 <>

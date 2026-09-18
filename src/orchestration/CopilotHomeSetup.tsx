@@ -4,7 +4,7 @@ import gridUrl from './assets/copilot-grid.svg'
 import chevronUrl from './assets/copilot-chevron.svg'
 import uploadUrl from './assets/copilot-upload.svg'
 
-function SectionLabel({ children }: { children: string }) {
+export function SectionLabel({ children }: { children: string }) {
   return (
     <p className="text-[11px] font-bold uppercase leading-normal text-[#4b5563]">{children}</p>
   )
@@ -90,14 +90,12 @@ export function CopilotHomeSetup({
   onTemplates,
   onYours,
   onUpload,
-  onAcquire,
 }: {
   onGuide: () => void
   onRecommend: (template: JourneyTemplate, said: string) => void
   onTemplates: () => void
   onYours: () => void
   onUpload: () => void
-  onAcquire: () => void
 }) {
   return (
     <div className="flex w-full flex-col gap-6">
@@ -156,18 +154,6 @@ export function CopilotHomeSetup({
           </div>
         </div>
       </section>
-
-      <p className="pt-2 text-center text-[12px] leading-[1.3] text-[#4b5563]">
-        Acquiring a subscriber instead?
-        <br />
-        <button
-          type="button"
-          onClick={onAcquire}
-          className="font-semibold text-[#4f46e5] underline decoration-solid underline-offset-2"
-        >
-          Pricing table → hosted checkout
-        </button>
-      </p>
     </div>
   )
 }

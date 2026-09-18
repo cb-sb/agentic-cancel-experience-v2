@@ -104,6 +104,7 @@ export function templatePosture(template: JourneyTemplate): string {
 }
 
 export type LibraryKind = 'cancel' | 'acquisition'
+export type LibraryShape = 'single' | 'multi' | 'in_app'
 
 /** Consultative catalog for the Copilot template library — one card per journey Copilot already knows. */
 export interface LibraryEntry {
@@ -115,6 +116,8 @@ export interface LibraryEntry {
   stepLabels: string[]
   kind: LibraryKind
   stepCount: number
+  /** Cancel catalog grouping — omitted on acquire. */
+  shape?: LibraryShape
 }
 
 export const LIBRARY: LibraryEntry[] = [
@@ -126,6 +129,7 @@ export const LIBRARY: LibraryEntry[] = [
     stepLabels: ['Confirm', 'Saved', 'Cancelled'],
     kind: 'cancel',
     stepCount: 1,
+    shape: 'single',
   },
   {
     id: 'cancel_2',
@@ -135,6 +139,7 @@ export const LIBRARY: LibraryEntry[] = [
     stepLabels: ['What you keep', 'Confirm'],
     kind: 'cancel',
     stepCount: 2,
+    shape: 'multi',
   },
   {
     id: 'cancel_3',
@@ -144,6 +149,7 @@ export const LIBRARY: LibraryEntry[] = [
     stepLabels: ['What you keep', 'Why they’re leaving', 'Confirm'],
     kind: 'cancel',
     stepCount: 3,
+    shape: 'multi',
   },
   {
     id: 'cancel_4',
@@ -153,6 +159,7 @@ export const LIBRARY: LibraryEntry[] = [
     stepLabels: ['What you keep', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 4,
+    shape: 'multi',
   },
   {
     id: 'cancel_5',
@@ -162,6 +169,7 @@ export const LIBRARY: LibraryEntry[] = [
     stepLabels: ['What you keep', 'Entry offer', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
+    shape: 'multi',
   },
   {
     id: 'cancel_plan_change',
@@ -171,6 +179,7 @@ export const LIBRARY: LibraryEntry[] = [
     stepLabels: ['What you keep', 'Why they’re leaving', 'Choose a plan', 'Checkout', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
+    shape: 'in_app',
   },
   {
     id: 'acquire_2',

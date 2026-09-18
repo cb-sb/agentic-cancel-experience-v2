@@ -107,20 +107,6 @@ export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
             />
           </button>
         </div>
-        <p
-          className={`text-[13px] leading-relaxed text-slate-500 ${
-            packed ? 'mt-xl text-left' : 'mt-[72px] text-center'
-          }`}
-        >
-          Acquiring?{' '}
-          <button
-            type="button"
-            onClick={() => chooseDoor('acquire')}
-            className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-4 transition-colors hover:text-[#4338ca] hover:decoration-[#4f46e5]"
-          >
-            Pricing table → hosted checkout
-          </button>
-        </p>
       </div>
     </div>
   )

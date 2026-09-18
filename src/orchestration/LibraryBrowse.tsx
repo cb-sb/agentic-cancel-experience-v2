@@ -1,9 +1,36 @@
 import { useMemo, useState } from 'react'
-import { LIBRARY, type LibraryEntry, type LibraryKind } from '../journey/templates'
+import {
+  LIBRARY,
+  type LibraryEntry,
+  type LibraryKind,
+  type LibraryShape,
+} from '../journey/templates'
 import { useJourney } from '../store/useJourney'
+import { SectionLabel } from './CopilotHomeSetup'
 import { TemplatePreviewStrip } from './TemplatePreviewStrip'
 
 type Filter = 'all' | LibraryKind
+type ShapeFilter = 'all' | LibraryShape
+
+const SHAPE_PILLS: { id: ShapeFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'single', label: 'Single step' },
+  { id: 'multi', label: 'Multi-step' },
+  { id: 'in_app', label: 'In-app' },
+]
+
+const SHAPE_GROUPS: { id: LibraryShape; label: string }[] = [
+  { id: 'single', label: 'Single step' },
+  { id: 'multi', label: 'Multi-step' },
+  { id: 'in_app', label: 'In-app' },
+]
+
+function shapeLabel(shape: LibraryShape | undefined): string | null {
+  if (shape === 'single') return 'Single step'
+  if (shape === 'multi') return 'Multi-step'
+  if (shape === 'in_app') return 'In-app'
+  return null
+}
 
 function matchesQuery(entry: LibraryEntry, q: string) {
   if (!q) return true
@@ -18,15 +45,14 @@ function matchesQuery(entry: LibraryEntry, q: string) {
 function LibraryCard({
   entry,
   onApply,
-  compact,
 }: {
   entry: LibraryEntry
   onApply: () => void
-  compact?: boolean
 }) {
   const brand = useJourney((s) => s.file.brand)
   const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
   const stepMeta = `${entry.stepCount} screen${entry.stepCount === 1 ? '' : 's'} · ${kindLabel}`
+  const badge = shapeLabel(entry.shape)
   return (
     <div
       role="button"
@@ -40,13 +66,20 @@ function LibraryCard({
       }}
       className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.35)]"
     >
-      <TemplatePreviewStrip entry={entry} brand={brand} compact={compact} />
-      <div className={compact ? 'px-[16px] pb-[16px] pt-[14px]' : 'px-5 pb-5 pt-5'}>
-        <div className="text-[14px] font-bold leading-snug text-slate-900">{entry.title}</div>
+      <TemplatePreviewStrip entry={entry} brand={brand} compact />
+      <div className="px-[16px] pb-[16px] pt-[14px]">
+        <div className="flex items-start justify-between gap-[8px]">
+          <div className="text-[14px] font-bold leading-snug text-slate-900">{entry.title}</div>
+          {badge && (
+            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-normal text-[#4f46e5] bg-[#eef2ff]">
+              {badge}
+            </span>
+          )}
+        </div>
         <div className="mt-[4px] text-[12px] font-medium text-slate-500">
           {entry.posture} · {stepMeta}
         </div>
-        <p className="mt-[10px] text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+        <p className="mt-[8px] line-clamp-1 text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
         <span className="mt-[10px] inline-flex items-center gap-[4px] text-[12.5px] font-semibold text-indigo-600 group-hover:text-indigo-700">
           Use this template
           <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
@@ -67,12 +100,34 @@ export function LibraryBrowse({
   onApply: (id: LibraryEntry['id']) => void
 }) {
   const [cat, setCat] = useState<Filter>('cancel')
+  const [shape, setShape] = useState<ShapeFilter>('all')
   const [query, setQuery] = useState('')
+
+  const cancelCatalog = useMemo(() => LIBRARY.filter((e) => e.kind === 'cancel'), [])
+  const shapeCounts = useMemo(() => {
+    const counts: Record<LibraryShape, number> = { single: 0, multi: 0, in_app: 0 }
+    cancelCatalog.forEach((e) => {
+      if (e.shape) counts[e.shape] += 1
+    })
+    return counts
+  }, [cancelCatalog])
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return LIBRARY.filter((e) => (cat === 'all' || e.kind === cat) && matchesQuery(e, q))
-  }, [cat, query])
+    return LIBRARY.filter((e) => {
+      if (cat !== 'all' && e.kind !== cat) return false
+      if (cat === 'cancel' && shape !== 'all' && e.shape !== shape) return false
+      return matchesQuery(e, q)
+    })
+  }, [cat, query, shape])
+
+  const grouped =
+    cat === 'cancel' && shape === 'all'
+      ? SHAPE_GROUPS.map((g) => ({
+          ...g,
+          entries: rows.filter((e) => e.shape === g.id),
+        })).filter((g) => g.entries.length > 0)
+      : null
 
   return (
     <div className={compact ? 'flex flex-col gap-[12px]' : 'flex min-h-0 flex-1 flex-col'}>
@@ -86,12 +141,15 @@ export function LibraryBrowse({
           />
         </div>
       </div>
-      <div className={`flex gap-[6px] ${compact ? '' : 'px-6 pt-3'}`}>
+      <div className={`flex flex-wrap gap-[6px] ${compact ? '' : 'px-6 pt-3'}`}>
         {(['cancel', 'acquisition'] as const).map((id) => (
           <button
             key={id}
             type="button"
-            onClick={() => setCat(id)}
+            onClick={() => {
+              setCat(id)
+              setShape('all')
+            }}
             className={`rounded-full px-[10px] py-[4px] text-[12px] font-semibold ${
               cat === id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
             }`}
@@ -100,17 +158,43 @@ export function LibraryBrowse({
           </button>
         ))}
       </div>
+      {cat === 'cancel' && (
+        <div className={`flex flex-wrap gap-[6px] ${compact ? '' : 'sticky top-0 z-10 bg-white px-6 pt-2'}`}>
+          {SHAPE_PILLS.map((pill) => {
+            const count =
+              pill.id === 'all'
+                ? cancelCatalog.length
+                : shapeCounts[pill.id]
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setShape(pill.id)}
+                className={`rounded-full px-[10px] py-[4px] text-[12px] font-semibold ${
+                  shape === pill.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {pill.label} ({count})
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div className={compact ? 'space-y-[12px]' : 'min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5'}>
         {rows.length === 0 ? (
           <p className="py-[16px] text-center text-[13px] text-slate-400">No templates match that search.</p>
+        ) : grouped ? (
+          grouped.map((group) => (
+            <section key={group.id} className="space-y-3">
+              <SectionLabel>{group.label}</SectionLabel>
+              {group.entries.map((entry) => (
+                <LibraryCard key={entry.id} entry={entry} onApply={() => onApply(entry.id)} />
+              ))}
+            </section>
+          ))
         ) : (
           rows.map((entry) => (
-            <LibraryCard
-              key={entry.id}
-              entry={entry}
-              compact={compact}
-              onApply={() => onApply(entry.id)}
-            />
+            <LibraryCard key={entry.id} entry={entry} onApply={() => onApply(entry.id)} />
           ))
         )}
       </div>
