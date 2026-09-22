@@ -84,6 +84,50 @@ function ResourceRow({
   )
 }
 
+/** Browse / yours / upload — one family, not three loose cards. */
+export function TemplateResources({
+  onTemplates,
+  onYours,
+  onUpload,
+}: {
+  onTemplates: () => void
+  onYours: () => void
+  onUpload: () => void
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionLabel>Templates & resources</SectionLabel>
+      <div className="overflow-hidden rounded-[12px] border border-[#e5e7eb] bg-white">
+        <ResourceRow
+          icon={gridUrl}
+          iconBox="bg-[#eef2ff]"
+          label="Browse templates"
+          hint="Chargebee postures, or switch to My templates"
+          onClick={onTemplates}
+        />
+        <div className="border-t border-[#e5e7eb]">
+          <ResourceRow
+            icon={gridUrl}
+            iconBox="bg-[#ecfdf3]"
+            label="My existing templates"
+            hint="Journeys and components you already scanned"
+            onClick={onYours}
+          />
+        </div>
+        <div className="border-t border-[#e5e7eb]">
+          <ResourceRow
+            icon={uploadUrl}
+            iconBox="bg-[#f9fafb]"
+            label="Upload a template"
+            hint="Download the Growth kit, then drop the composed HTML"
+            onClick={onUpload}
+          />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function CopilotHomeSetup({
   onGuide,
   onRecommend,
@@ -124,36 +168,7 @@ export function CopilotHomeSetup({
         </div>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <SectionLabel>Templates & Resources</SectionLabel>
-        <div className="overflow-hidden rounded-[12px] border border-[#e5e7eb] bg-white">
-          <ResourceRow
-            icon={gridUrl}
-            iconBox="bg-[#eef2ff]"
-            label="Browse templates"
-            hint="Chargebee postures — Copilot takes it from there"
-            onClick={onTemplates}
-          />
-          <div className="border-t border-[#e5e7eb]">
-            <ResourceRow
-              icon={gridUrl}
-              iconBox="bg-[#ecfdf3]"
-              label="My existing templates"
-              hint="Confirmed scans and saved components"
-              onClick={onYours}
-            />
-          </div>
-          <div className="border-t border-[#e5e7eb]">
-            <ResourceRow
-              icon={uploadUrl}
-              iconBox="bg-[#f9fafb]"
-              label="Upload a template"
-              hint="Download the Growth kit, then drop the composed HTML"
-              onClick={onUpload}
-            />
-          </div>
-        </div>
-      </section>
+      <TemplateResources onTemplates={onTemplates} onYours={onYours} onUpload={onUpload} />
     </div>
   )
 }

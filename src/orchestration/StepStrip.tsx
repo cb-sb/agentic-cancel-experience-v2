@@ -24,7 +24,8 @@ const GAP_IDLE = 22
 const GAP_DRAG = 32
 const DRAG_THRESHOLD = 6
 
-function visibleSteps(steps: JourneyStepFile[]) {
+function visibleSteps(steps: JourneyStepFile[], includeOutcomes: boolean) {
+  if (includeOutcomes) return steps
   return steps.filter((s) => s.kind !== 'outcome_saved' && s.kind !== 'outcome_cancelled')
 }
 
@@ -171,14 +172,22 @@ function insertIndexFromX(
 export function StepStrip({
   onAccept,
   onReject,
+  acceptLabel = 'Looks right — open the canvas',
+  rejectLabel = 'Pick a different job',
+  includeOutcomes = false,
+  footerHint,
 }: {
-  onAccept: () => void
-  onReject: () => void
+  onAccept?: () => void
+  onReject?: () => void
+  acceptLabel?: string
+  rejectLabel?: string
+  includeOutcomes?: boolean
+  footerHint?: string
 }) {
   const file = useJourney((s) => s.file)
   const reorderSteps = useJourney((s) => s.reorderSteps)
   const compiledSteps = useExperience((s) => s.experience.steps)
-  const steps = visibleSteps(file.steps)
+  const steps = visibleSteps(file.steps, includeOutcomes)
   const listRef = useRef<HTMLOListElement>(null)
   const originRef = useRef<{ id: string; x: number; y: number; pointerId: number } | null>(null)
   const dragRef = useRef<string | null>(null)
@@ -187,7 +196,10 @@ export function StepStrip({
   const [insertIndex, setInsertIndex] = useState<number | null>(null)
 
   const fromIndex = dragging ? steps.findIndex((s) => s.id === dragging) : -1
-  const lastLocked = steps.length > 0 && isTailKind(steps[steps.length - 1].kind)
+  const firstTail = steps.findIndex((s) => isTailKind(s.kind))
+  const lastLocked = firstTail >= 0
+  const tailInsertCap = firstTail >= 0 ? firstTail : steps.length
+  const canReorder = steps.some((s) => !isTailKind(s.kind))
   const noop =
     insertIndex != null && (insertIndex === fromIndex || insertIndex === fromIndex + 1)
   const lineAt = dragging && insertIndex != null && !noop ? insertIndex : null
@@ -237,8 +249,9 @@ export function StepStrip({
     }
     if (!listRef.current) return
     const next = insertIndexFromX(e.clientX, listRef.current, steps.length, lastLocked)
-    insertRef.current = next
-    setInsertIndex(next)
+    const capped = lastLocked ? Math.min(next, tailInsertCap) : next
+    insertRef.current = capped
+    setInsertIndex(capped)
   }
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -257,7 +270,7 @@ export function StepStrip({
             {steps.length} screen{steps.length === 1 ? '' : 's'} a subscriber walks
           </p>
         </div>
-        <p className="pb-[2px] text-[12px] text-slate-400">Drag to reorder</p>
+        {canReorder && <p className="pb-[2px] text-[12px] text-slate-400">Drag to reorder</p>}
       </div>
       <ol
         ref={listRef}
@@ -294,14 +307,23 @@ export function StepStrip({
           )
         })}
       </ol>
-      <div className="flex items-center justify-end gap-[8px] border-t border-slate-100 px-[16px] py-[12px]">
-        <SButton size="small" variant="neutral-ghost" className="w-auto shrink-0" onClick={onReject}>
-          Start over
-        </SButton>
-        <SButton size="small" variant="primary" className="w-auto shrink-0" onClick={onAccept}>
-          This order is right
-        </SButton>
-      </div>
+      {(onAccept || onReject || footerHint) && (
+        <div className="flex flex-wrap items-center justify-end gap-[8px] border-t border-slate-100 px-[16px] py-[12px]">
+          {footerHint && (
+            <p className="mr-auto max-w-[280px] text-[12px] leading-relaxed text-slate-500">{footerHint}</p>
+          )}
+          {onReject && (
+            <SButton size="small" variant="neutral-ghost" className="w-auto shrink-0" onClick={onReject}>
+              {rejectLabel}
+            </SButton>
+          )}
+          {onAccept && (
+            <SButton size="small" variant="primary" className="w-auto shrink-0" onClick={onAccept}>
+              {acceptLabel}
+            </SButton>
+          )}
+        </div>
+      )}
     </div>
   )
 }

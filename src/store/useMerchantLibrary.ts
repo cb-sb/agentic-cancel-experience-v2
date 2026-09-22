@@ -105,7 +105,12 @@ function upsertComponents(
       ids.push(existing.id)
       continue
     }
-    const saved: MerchantComponent = { ...row, id: row.id || uid('cmp'), contentHash: hash }
+    const saved: MerchantComponent = {
+      ...row,
+      id: row.id || uid('cmp'),
+      contentHash: hash,
+      savedAt: row.savedAt ?? Date.now(),
+    }
     next.unshift(saved)
     ids.push(saved.id)
   }

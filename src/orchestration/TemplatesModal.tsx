@@ -8,7 +8,8 @@ export function LibraryPanel() {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
   const applyMerchantTemplate = useOrchestration((s) => s.applyMerchantTemplate)
-  const applyMerchantComponent = useOrchestration((s) => s.applyMerchantComponent)
+  const applyMerchantComponents = useOrchestration((s) => s.applyMerchantComponents)
+  const finishMerchantComponents = useOrchestration((s) => s.finishMerchantComponents)
   const libraryTab = useOrchestration((s) => s.libraryTab)
   const setLibraryTab = useOrchestration((s) => s.setLibraryTab)
   const chooseDoor = useOrchestration((s) => s.chooseDoor)
@@ -56,11 +57,14 @@ export function LibraryPanel() {
       {libraryTab === 'yours' ? (
         <YoursBrowse
           onApplyJourney={(id) => applyMerchantTemplate(id)}
-          onApplyComponent={(id) => applyMerchantComponent(id)}
+          onApplyComponents={(ids) => applyMerchantComponents(ids)}
+          onDone={() => finishMerchantComponents()}
           onUpload={startNew}
         />
       ) : (
-        <LibraryBrowse onApply={(id) => applyLibraryTemplate(id)} />
+        <div className="min-h-0 flex-1">
+          <LibraryBrowse onApply={(id) => applyLibraryTemplate(id)} />
+        </div>
       )}
     </div>
   )

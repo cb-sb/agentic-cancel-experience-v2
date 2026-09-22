@@ -13,13 +13,15 @@ import {
   PlanSummary,
   beatPrompt,
   nextBeat,
+  planCanvasIntro,
   planIntro,
+  planProposeIntro,
   type PlanBeat,
 } from './JourneyPlan'
 import { spotlightForBeat } from './spotlight'
 import { SpotlightFrame } from './SpotlightFrame'
 import { SIcon } from '@chargebee/sting-react'
-import { CopilotHomeSetup } from './CopilotHomeSetup'
+import { CopilotHomeSetup, TemplateResources } from './CopilotHomeSetup'
 import { DesignModeIcon } from './DesignModeIcon'
 import { landUploadedPlan, useCopilotThread, type CopilotLine } from './copilotThread'
 import { COPILOT_UI } from './copilotUi'
@@ -30,8 +32,9 @@ import { ConfirmManifest } from '../upload/ConfirmManifest'
 import { StepStrip } from './StepStrip'
 import { CopilotMark } from './CopilotMark'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
-import { applyMerchantJourney, attachComponent, startFromComponent } from '../library/apply'
+import { applyMerchantJourney } from '../library/apply'
 import { scanReviewCopy } from '../library/review'
+import { clearDraft } from '../store/draft'
 
 function scrollSpotlightInto(container: HTMLElement): boolean {
   const marked = container.querySelector<HTMLElement>('[data-spotlight-on]')
@@ -75,32 +78,6 @@ function OptionGroup({
       <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#677488]">{label}</p>
       {children}
     </div>
-  )
-}
-
-function LibraryCta({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-2xl border border-slate-900 bg-slate-900 px-4 py-3.5 text-left text-white transition-colors hover:bg-slate-800"
-    >
-      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-white/10" aria-hidden>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1.5" />
-          <rect x="14" y="3" width="7" height="7" rx="1.5" />
-          <rect x="3" y="14" width="7" height="7" rx="1.5" />
-          <rect x="14" y="14" width="7" height="7" rx="1.5" />
-        </svg>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold">Browse templates</span>
-        <span className="mt-0.5 block text-[11.5px] text-white/70">Chargebee postures, or switch to My templates</span>
-      </span>
-      <span className="text-[16px] text-white/50" aria-hidden>
-        →
-      </span>
-    </button>
   )
 }
 
@@ -283,7 +260,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const pendingLibraryTemplate = useOrchestration((s) => s.pendingLibraryTemplate)
   const pendingMerchantTemplate = useOrchestration((s) => s.pendingMerchantTemplate)
-  const pendingMerchantComponent = useOrchestration((s) => s.pendingMerchantComponent)
+  const pendingMerchantComponents = useOrchestration((s) => s.pendingMerchantComponents)
+  const pendingMerchantFinish = useOrchestration((s) => s.pendingMerchantFinish)
   const pendingCopilotGuide = useOrchestration((s) => s.pendingCopilotGuide)
   const setupDoor = useOrchestration((s) => s.setupDoor)
   const copilotDocked = useOrchestration((s) => s.copilotDocked)
@@ -349,6 +327,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     useUpload.getState().close()
     replaceFile({ ...EMPTY_JOURNEY, brand: useJourney.getState().file.brand })
     useOrchestration.getState().resetSetup()
+    clearDraft()
     setTurn('kind')
     setBeat('walk')
     setDraft('')
@@ -364,6 +343,12 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     setBeat('walk')
   }
 
+  const keepCopilotCentered = () => {
+    const orch = useOrchestration.getState()
+    if (orch.setupDoor) return
+    useOrchestration.setState({ setupDoor: 'guide', setupDoorConsumed: true, assistantOpen: true })
+  }
+
   /** Recap first. Brand waits until the other plan beats are done. */
   const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
@@ -371,6 +356,30 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     say('bot', planIntro(live), { widget: 'plan' })
     useOrchestration.getState().markStepStripShown()
     beginPostCanvas()
+  }
+
+  /** Chat first. Canvas waits until they approve the path. */
+  const proposePlan = (next: typeof file) => {
+    const live = { ...next, steps: withLive(next.steps, true) }
+    keepCopilotCentered()
+    replaceFile(live)
+    say('bot', planProposeIntro(live), { widget: 'steps' })
+    setTurn('propose')
+  }
+
+  const approveProposedPlan = () => {
+    say('you', 'Looks right — open the canvas')
+    say('bot', planCanvasIntro())
+    useOrchestration.getState().markStepStripShown()
+    beginPostCanvas()
+  }
+
+  const rejectProposedPlan = () => {
+    say('you', 'Pick a different job')
+    useCopilotThread.getState().clearWidgets('steps')
+    replaceFile({ ...EMPTY_JOURNEY, brand: useJourney.getState().file.brand })
+    say('bot', 'What job is this cancel for? I’ll pick a path and put defaults in so you can walk it.')
+    setTurn('guide')
   }
 
   const continuePlan = (said: string) => {
@@ -423,7 +432,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const applyTemplate = (template: JourneyTemplate) => {
     if (template === 'none') return
     const next = startFromTemplate(useJourney.getState().file, template)
-    landPlan(next)
+    proposePlan(next)
   }
 
   const recommendTemplate = (template: JourneyTemplate, said: string) => {
@@ -468,6 +477,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const startGuide = () => {
     say('you', 'Help me choose a cancel flow')
     say('bot', 'What job is this cancel for? I’ll pick a path and put defaults in so you can walk it.')
+    keepCopilotCentered()
     setTurn('guide')
   }
 
@@ -477,14 +487,15 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       { ...EMPTY_JOURNEY, kind: 'acquisition', brand: useJourney.getState().file.brand },
       'acquire_2',
     )
-    landPlan(next)
+    proposePlan(next)
   }
 
   /** Same path for suggestion chips and the template library. Brand from the current file is kept. */
   const startTemplate = (template: JourneyTemplate) => {
     if (template === 'none') return
     say('you', templateLabel(template))
-    applyTemplate(template)
+    const next = startFromTemplate(useJourney.getState().file, template)
+    landPlan(next)
   }
 
   useEffect(() => {
@@ -513,18 +524,30 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }, [pendingMerchantTemplate])
 
   useEffect(() => {
-    const id = useOrchestration.getState().pendingMerchantComponent
-    if (!id) return
-    useOrchestration.getState().consumeMerchantLibrary()
-    const found = useMerchantLibrary.getState().getComponent(id)
-    if (!found) return
-    const current = useJourney.getState().file
-    const blank = current.steps.length === 0
-    const next = blank ? startFromComponent(current, found) : attachComponent(current, found)
-    say('you', `Use ${found.label} chrome`)
-    landPlan(next)
+    const ids = useOrchestration.getState().pendingMerchantComponents
+    if (!ids?.length) return
+    useOrchestration.getState().consumeMerchantComponents()
+    const lib = useMerchantLibrary.getState()
+    const picked = ids
+      .map((id) => lib.getComponent(id))
+      .filter((c): c is NonNullable<typeof c> => c != null)
+    if (picked.length === 0) return
+    if (!useOrchestration.getState().templatesOpen) return
+    const n = picked.length
+    say('you', `Add ${n} screen${n === 1 ? '' : 's'}`)
+    say('bot', 'They’re on this experience. The library is still open if you want another.')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingMerchantComponent])
+  }, [pendingMerchantComponents])
+
+  useEffect(() => {
+    if (!pendingMerchantFinish) return
+    useOrchestration.getState().consumeMerchantFinish()
+    const current = useJourney.getState().file
+    const shown = useOrchestration.getState().stepStripShown
+    const already = useCopilotThread.getState().turn === 'propose'
+    if (current.steps.length > 0 && !shown && !already) proposePlan(current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingMerchantFinish])
 
   const reviewKey = useRef('')
   useEffect(() => {
@@ -653,16 +676,10 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               }
             />
           </OptionGroup>
-          <LibraryCta onClick={() => openTemplates('ours')} />
-          <OptionBtn
-            label="My existing templates"
-            hint="Journeys and components you already scanned"
-            onClick={startYours}
-          />
-          <OptionBtn
-            label="Upload a template"
-            hint="Download the Growth kit, then drop the composed HTML"
-            onClick={startUpload}
+          <TemplateResources
+            onTemplates={() => openTemplates('ours')}
+            onYours={startYours}
+            onUpload={startUpload}
           />
         </div>
       )
@@ -699,6 +716,9 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           />
         </div>
       )
+    }
+    if (turn === 'propose') {
+      return null
     }
     if (turn === 'plan') {
       return (
@@ -894,14 +914,26 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                       <ChatLine key={m.id} line={m}>
                         {m.widget === 'plan' && (
                           <SpotlightFrame id="plan" className="mt-[12px]">
-                            <PlanSummary beat={turn === 'plan' ? beat : undefined} onJump={jumpPlan} />
+                            <PlanSummary
+                              beat={turn === 'plan' ? beat : undefined}
+                              onJump={jumpPlan}
+                              readonly={turn === 'propose'}
+                            />
                           </SpotlightFrame>
                         )}
-                        {m.widget === 'steps' && (
+                        {m.widget === 'steps' && file.steps.length > 0 && (
                           <SpotlightFrame id="journey" className="mt-[12px]">
                             <StepStrip
-                              onAccept={() => say('you', 'This order is right')}
-                              onReject={reset}
+                              onAccept={turn === 'propose' ? approveProposedPlan : undefined}
+                              onReject={turn === 'propose' ? rejectProposedPlan : undefined}
+                              acceptLabel="Looks right — open the canvas"
+                              rejectLabel="Pick a different job"
+                              includeOutcomes
+                              footerHint={
+                                turn === 'propose'
+                                  ? 'Next you’ll walk these screens. Nothing is live.'
+                                  : undefined
+                              }
                             />
                           </SpotlightFrame>
                         )}

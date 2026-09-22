@@ -12,6 +12,8 @@ export interface MerchantComponent {
   fields: ManifestField[]
   sourceStepId: string
   contentHash: string
+  /** When this chrome first landed in the catalog. Older rows may omit it. */
+  savedAt?: number
 }
 
 /** Confirmed composed experience. Points at shared catalog ids. */

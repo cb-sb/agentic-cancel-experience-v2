@@ -167,7 +167,10 @@ interface OrchestrationState {
   /** Copilot consumes this to start the same draft-plan path as a suggestion chip. */
   pendingLibraryTemplate: Exclude<JourneyTemplate, 'none'> | null
   pendingMerchantTemplate: string | null
-  pendingMerchantComponent: string | null
+  pendingMerchantComponents: string[] | null
+  pendingMerchantFinish: boolean
+  /** True after My templates added chrome this visit — Done / close should propose if canvas isn’t open. */
+  merchantComponentApplied: boolean
   /** Canvas demo asked Copilot to open the job guide. */
   pendingCopilotGuide: boolean
   selectedNodeId: string | null
@@ -232,8 +235,11 @@ interface OrchestrationState {
   applyLibraryTemplate: (id: Exclude<JourneyTemplate, 'none'>) => void
   consumeLibraryTemplate: () => void
   applyMerchantTemplate: (id: string) => void
-  applyMerchantComponent: (id: string) => void
+  applyMerchantComponents: (ids: string[]) => void
+  finishMerchantComponents: () => void
   consumeMerchantLibrary: () => void
+  consumeMerchantComponents: () => void
+  consumeMerchantFinish: () => void
   requestCopilotGuide: () => void
   consumeCopilotGuide: () => void
   selectNode: (id: string | null) => void
@@ -304,7 +310,9 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   libraryTab: 'ours' as LibraryTab,
   pendingLibraryTemplate: null,
   pendingMerchantTemplate: null,
-  pendingMerchantComponent: null,
+  pendingMerchantComponents: null,
+  pendingMerchantFinish: false,
+  merchantComponentApplied: false,
   pendingCopilotGuide: false,
   selectedNodeId: null,
   openFlowNodeId: null,
@@ -332,8 +340,21 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   spotlight: null,
   spotlightNonce: 0,
 
-  openTemplates: (tab = 'ours') => set({ templatesOpen: true, libraryTab: tab }),
-  closeTemplates: () => set({ templatesOpen: false }),
+  openTemplates: (tab) =>
+    set(tab ? { templatesOpen: true, libraryTab: tab } : { templatesOpen: true }),
+  closeTemplates: () => {
+    const applied = get().merchantComponentApplied
+    const finish = applied && !get().stepStripShown
+    set({
+      templatesOpen: false,
+      merchantComponentApplied: false,
+      pendingMerchantComponents: null,
+      pendingMerchantFinish: finish,
+      ...(finish
+        ? { setupDoor: get().setupDoor ?? 'yours', setupDoorConsumed: true, assistantOpen: true }
+        : {}),
+    })
+  },
   setLibraryTab: (libraryTab) => set({ libraryTab }),
   applyLibraryTemplate: (id) =>
     set({
@@ -352,15 +373,23 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       setupDoorConsumed: true,
       assistantOpen: true,
     }),
-  applyMerchantComponent: (id) =>
+  applyMerchantComponents: (ids) => set({ pendingMerchantComponents: ids, merchantComponentApplied: true }),
+  finishMerchantComponents: () => {
+    const applied = get().merchantComponentApplied
+    const finish = applied && !get().stepStripShown
     set({
-      pendingMerchantComponent: id,
       templatesOpen: false,
-      setupDoor: 'yours',
-      setupDoorConsumed: true,
-      assistantOpen: true,
-    }),
-  consumeMerchantLibrary: () => set({ pendingMerchantTemplate: null, pendingMerchantComponent: null }),
+      merchantComponentApplied: false,
+      pendingMerchantComponents: null,
+      pendingMerchantFinish: finish,
+      ...(finish
+        ? { setupDoor: get().setupDoor ?? 'yours', setupDoorConsumed: true, assistantOpen: true }
+        : {}),
+    })
+  },
+  consumeMerchantLibrary: () => set({ pendingMerchantTemplate: null, pendingMerchantComponents: null }),
+  consumeMerchantComponents: () => set({ pendingMerchantComponents: null }),
+  consumeMerchantFinish: () => set({ pendingMerchantFinish: false }),
   requestCopilotGuide: () => set({ pendingCopilotGuide: true, assistantOpen: true }),
   consumeCopilotGuide: () => set({ pendingCopilotGuide: false }),
 
@@ -467,7 +496,9 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       libraryTab: 'ours',
       pendingLibraryTemplate: null,
       pendingMerchantTemplate: null,
-      pendingMerchantComponent: null,
+      pendingMerchantComponents: null,
+      pendingMerchantFinish: false,
+      merchantComponentApplied: false,
       assistantOpen: true,
       copilotRailExpanded: true,
     })

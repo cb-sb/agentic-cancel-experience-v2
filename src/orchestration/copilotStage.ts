@@ -25,10 +25,16 @@ export function deriveCopilotStage(args: {
   setupDoor: SetupDoor | null
   stepStripShown: boolean
   emptyDemo: boolean
+  templatesOpen?: boolean
 }): CopilotStage {
   if (args.emptyDemo) return 'rail'
   const blank = isBlankJourney(args.file)
-  if (!args.setupDoor) return blank ? 'doors' : 'rail'
+  if (!args.setupDoor) {
+    // Keep My templates over the doors while chrome is being picked, so writing
+    // the file for badges does not dump the merchant onto the canvas.
+    if (args.templatesOpen && !args.stepStripShown) return 'doors'
+    return blank ? 'doors' : 'rail'
+  }
   if (experienceContextReady(args.file, args.stepStripShown)) return 'rail'
   return 'center'
 }
@@ -37,6 +43,7 @@ export function useCopilotStage(): CopilotStage {
   const file = useJourney((s) => s.file)
   const setupDoor = useOrchestration((s) => s.setupDoor)
   const stepStripShown = useOrchestration((s) => s.stepStripShown)
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const emptyDemo = useEmptyJourneyDemo()
-  return deriveCopilotStage({ file, setupDoor, stepStripShown, emptyDemo })
+  return deriveCopilotStage({ file, setupDoor, stepStripShown, emptyDemo, templatesOpen })
 }

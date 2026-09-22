@@ -24,6 +24,7 @@ export function extractComponents(
       fields: step.fields,
       sourceStepId: step.id,
       contentHash,
+      savedAt: Date.now(),
     }
   })
 }

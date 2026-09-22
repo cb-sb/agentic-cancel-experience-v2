@@ -6,7 +6,7 @@ import { savedToLibraryCopy } from '../library/review'
 import { planIntro, type PlanBeat } from './JourneyPlan'
 import { spotlightForWidget, type SpotlightId } from './spotlight'
 
-export type PromptTurn = 'kind' | 'guide' | 'plan' | 'done' | 'library' | 'upload'
+export type PromptTurn = 'kind' | 'guide' | 'propose' | 'plan' | 'done' | 'library' | 'upload'
 
 /** One bubble in Chargebee Copilot, including questions asked from the canvas. */
 export interface CopilotLine {
@@ -37,6 +37,8 @@ interface CopilotThread {
   say: (from: CopilotLine['from'], text: string, extra?: SayExtra) => void
   setTurn: (turn: PromptTurn) => void
   setBeat: (beat: PlanBeat) => void
+  /** Drop inline widgets so a rejected path doesn’t leave an empty strip in chat. */
+  clearWidgets: (widget: NonNullable<CopilotLine['widget']>) => void
   reset: () => void
 }
 
@@ -85,6 +87,10 @@ export const useCopilotThread = create<CopilotThread>((set) => ({
   },
   setTurn: (turn) => set({ turn }),
   setBeat: (beat) => set({ beat }),
+  clearWidgets: (widget) =>
+    set((s) => ({
+      lines: s.lines.map((l) => (l.widget === widget ? { ...l, widget: undefined } : l)),
+    })),
   reset: () => {
     useOrchestration.getState().setSpotlight(null)
     set({ lines: [], turn: 'kind', beat: 'walk' })
