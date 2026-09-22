@@ -7,6 +7,7 @@ import { CONTRACT_VERSION } from './contract'
 import { SAMPLE_ZIP_NAME, kitClipboardPayload, kitZipBytes } from './kit'
 import { useOrchestration } from '../store/useOrchestration'
 import { SpotlightFrame } from '../orchestration/SpotlightFrame'
+import { useCopilotStage } from '../orchestration/copilotStage'
 
 function download(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
@@ -24,6 +25,8 @@ export function UploadTemplate() {
   const checklist = useUpload((s) => s.checklist)
   const mappingOnly = useUpload((s) => s.mappingOnly)
   const openTemplates = useOrchestration((s) => s.openTemplates)
+  const requestCopilotLibrary = useOrchestration((s) => s.requestCopilotLibrary)
+  const stage = useCopilotStage()
   const inputRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -139,7 +142,10 @@ export function UploadTemplate() {
         Meant to reopen chrome you already scanned?{' '}
         <button
           type="button"
-          onClick={() => openTemplates('yours')}
+          onClick={() => {
+            if (stage === 'center') requestCopilotLibrary('yours')
+            else openTemplates('yours')
+          }}
           className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-2 hover:text-[#4338ca]"
         >
           Open my templates

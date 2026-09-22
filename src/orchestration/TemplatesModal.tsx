@@ -70,6 +70,38 @@ export function LibraryPanel() {
   )
 }
 
+export function CopilotLibrary({ onUpload }: { onUpload: () => void }) {
+  const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
+  const applyMerchantTemplate = useOrchestration((s) => s.applyMerchantTemplate)
+  const applyMerchantComponents = useOrchestration((s) => s.applyMerchantComponents)
+  const finishMerchantComponents = useOrchestration((s) => s.finishMerchantComponents)
+  const libraryTab = useOrchestration((s) => s.libraryTab)
+  const setLibraryTab = useOrchestration((s) => s.setLibraryTab)
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[16px] py-[10px]">
+        {(['ours', 'yours'] as const).map((id) => (
+          <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
+        ))}
+      </div>
+      {libraryTab === 'yours' ? (
+        <YoursBrowse
+          compact
+          onApplyJourney={(id) => applyMerchantTemplate(id)}
+          onApplyComponents={(ids) => applyMerchantComponents(ids)}
+          onDone={() => finishMerchantComponents()}
+          onUpload={onUpload}
+        />
+      ) : (
+        <div className="px-[16px] py-[12px]">
+          <LibraryBrowse compact onApply={(id) => applyLibraryTemplate(id)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Tab({ id, active, onClick }: { id: LibraryTab; active: boolean; onClick: () => void }) {
   return (
     <button

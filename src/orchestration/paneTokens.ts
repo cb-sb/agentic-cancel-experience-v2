@@ -11,17 +11,17 @@
 export const ASSISTANT_W = 400
 
 /**
- * Center Copilot overlay and the doors-docked sidebar share this width so
- * Back peels the window to the right without resizing the conversation.
+ * Center Copilot on a blank start. 75% of the near-full overlay width and 80%
+ * of the guttered height, so more dotted canvas stays visible around it.
  */
-export const COPILOT_CENTER_W = '50vw'
+export const COPILOT_CENTER_W = 'calc((100% - 48px) * 0.75)'
+export const COPILOT_CENTER_H = 'calc((100% - 48px) * 0.8)'
 
 /**
- * Expanded rail after a journey lands. Same 50vw as center Copilot so the
- * conversation does not shrink when the canvas snaps in; the merchant can
- * switch back to `ASSISTANT_W`.
+ * Expanded rail after a journey lands. Narrower than center Copilot so the
+ * workflow canvas has room; the merchant can switch back to `ASSISTANT_W`.
  */
-export const ASSISTANT_EXPANDED_W = COPILOT_CENTER_W
+export const ASSISTANT_EXPANDED_W = '50vw'
 
 /**
  * Chargebee Copilot, folded. A narrow right rail that holds the launcher icon

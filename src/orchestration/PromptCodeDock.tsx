@@ -21,7 +21,7 @@ import {
 import { spotlightForBeat } from './spotlight'
 import { SpotlightFrame } from './SpotlightFrame'
 import { SIcon } from '@chargebee/sting-react'
-import { CopilotHomeSetup, TemplateResources } from './CopilotHomeSetup'
+import { OptionBtn, StartPaths } from './CopilotHomeSetup'
 import { DesignModeIcon } from './DesignModeIcon'
 import { landUploadedPlan, useCopilotThread, type CopilotLine } from './copilotThread'
 import { COPILOT_UI } from './copilotUi'
@@ -35,6 +35,8 @@ import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { applyMerchantJourney } from '../library/apply'
 import { scanReviewCopy } from '../library/review'
 import { clearDraft } from '../store/draft'
+import { CopilotLibrary } from './TemplatesModal'
+import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
 
 function scrollSpotlightInto(container: HTMLElement): boolean {
   const marked = container.querySelector<HTMLElement>('[data-spotlight-on]')
@@ -43,42 +45,6 @@ function scrollSpotlightInto(container: HTMLElement): boolean {
   const mRect = marked.getBoundingClientRect()
   container.scrollTop += mRect.top - cRect.top - (cRect.height - mRect.height) / 2
   return true
-}
-
-function OptionBtn({
-  label,
-  hint,
-  onClick,
-}: {
-  label: string
-  hint?: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full rounded-[16px] border border-[#e5e7eb] bg-white px-[16px] py-[12px] text-left transition-colors hover:bg-[#fbfcfd]"
-    >
-      <div className="text-[14px] font-medium text-[#19191f]">{label}</div>
-      {hint && <div className="mt-[2px] text-[12.5px] text-[#677488]">{hint}</div>}
-    </button>
-  )
-}
-
-function OptionGroup({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#677488]">{label}</p>
-      {children}
-    </div>
-  )
 }
 
 function AnnotateApply({ messageId }: { messageId: number }) {
@@ -263,10 +229,12 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const pendingMerchantComponents = useOrchestration((s) => s.pendingMerchantComponents)
   const pendingMerchantFinish = useOrchestration((s) => s.pendingMerchantFinish)
   const pendingCopilotGuide = useOrchestration((s) => s.pendingCopilotGuide)
+  const pendingCopilotLibrary = useOrchestration((s) => s.pendingCopilotLibrary)
   const setupDoor = useOrchestration((s) => s.setupDoor)
   const copilotDocked = useOrchestration((s) => s.copilotDocked)
   const copilotRailExpanded = useOrchestration((s) => s.copilotRailExpanded)
   const setCopilotRailExpanded = useOrchestration((s) => s.setCopilotRailExpanded)
+  const stage = useCopilotStage()
   const uploadPhase = useUpload((s) => s.phase)
   const uploadChecklist = useUpload((s) => s.checklist)
   const uploadManifest = useUpload((s) => s.manifest)
@@ -343,10 +311,10 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     setBeat('walk')
   }
 
-  const keepCopilotCentered = () => {
+  const keepCopilotCentered = (door: SetupDoor = 'guide') => {
     const orch = useOrchestration.getState()
     if (orch.setupDoor) return
-    useOrchestration.setState({ setupDoor: 'guide', setupDoorConsumed: true, assistantOpen: true })
+    useOrchestration.setState({ setupDoor: door, setupDoorConsumed: true, assistantOpen: true })
   }
 
   /** Recap first. Brand waits until the other plan beats are done. */
@@ -441,22 +409,33 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }
 
   const startUpload = () => {
-    say('you', 'Upload my own template')
+    say('you', 'Upload a template')
     say(
       'bot',
       'I’ll scan whatever you drop, reject unmarked chrome with a checklist, then you bind the catalog. Targeting, holdout, and publish stay here.',
       { look: 'upload' },
     )
+    keepCopilotCentered('upload')
     setTurn('upload')
     useUpload.getState().open()
   }
 
-  const startLibrary = () => {
-    useOrchestration.getState().openTemplates('ours')
+  const startLibrary = (tab?: LibraryTab) => {
+    const next = tab ?? useOrchestration.getState().libraryTab
+    keepCopilotCentered(next === 'yours' ? 'yours' : 'library')
+    useOrchestration.getState().setLibraryTab(next)
+    if (turn !== 'library') {
+      say('you', next === 'yours' ? 'My existing templates' : 'Start with a template')
+      say(
+        'bot',
+        'Chargebee postures, or chrome you already scanned. Pick one — I’ll put the chain here before the canvas opens.',
+      )
+    }
+    setTurn('library')
   }
 
   const startYours = () => {
-    useOrchestration.getState().openTemplates('yours')
+    startLibrary('yours')
   }
 
   const afterUploadConfirm = () => {
@@ -475,9 +454,9 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }
 
   const startGuide = () => {
-    say('you', 'Help me choose a cancel flow')
+    say('you', 'Help me start')
     say('bot', 'What job is this cancel for? I’ll pick a path and put defaults in so you can walk it.')
-    keepCopilotCentered()
+    keepCopilotCentered('guide')
     setTurn('guide')
   }
 
@@ -495,7 +474,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (template === 'none') return
     say('you', templateLabel(template))
     const next = startFromTemplate(useJourney.getState().file, template)
-    landPlan(next)
+    if (useOrchestration.getState().stepStripShown) landPlan(next)
+    else proposePlan(next)
   }
 
   useEffect(() => {
@@ -513,13 +493,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const saved = useMerchantLibrary.getState().getTemplate(id)
     if (!saved) return
     say('you', saved.name)
-    landPlan(
-      applyMerchantJourney(
-        useJourney.getState().file,
-        saved,
-        useMerchantLibrary.getState().components,
-      ),
+    const next = applyMerchantJourney(
+      useJourney.getState().file,
+      saved,
+      useMerchantLibrary.getState().components,
     )
+    if (useOrchestration.getState().stepStripShown) landPlan(next)
+    else proposePlan(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingMerchantTemplate])
 
@@ -532,7 +512,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       .map((id) => lib.getComponent(id))
       .filter((c): c is NonNullable<typeof c> => c != null)
     if (picked.length === 0) return
-    if (!useOrchestration.getState().templatesOpen) return
+    const inline = useCopilotThread.getState().turn === 'library'
+    if (!useOrchestration.getState().templatesOpen && !inline) return
     const n = picked.length
     say('you', `Add ${n} screen${n === 1 ? '' : 's'}`)
     say('bot', 'They’re on this experience. The library is still open if you want another.')
@@ -577,10 +558,18 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }, [pendingCopilotGuide])
 
   useEffect(() => {
+    if (!pendingCopilotLibrary) return
+    const tab = useOrchestration.getState().pendingCopilotLibrary ?? 'ours'
+    useOrchestration.getState().consumeCopilotLibrary()
+    startLibrary(tab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCopilotLibrary])
+
+  useEffect(() => {
     const orch = useOrchestration.getState()
     if (!orch.setupDoor || orch.setupDoorConsumed) return
     orch.consumeSetupDoor()
-    if (orch.setupDoor === 'library') startLibrary()
+    if (orch.setupDoor === 'library') startLibrary('ours')
     else if (orch.setupDoor === 'yours') startYours()
     else if (orch.setupDoor === 'upload') startUpload()
     else if (orch.setupDoor === 'guide') startGuide()
@@ -655,34 +644,10 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       )
     }
     if (turn === 'kind') {
-      return (
-        <div className="space-y-5">
-          <OptionGroup label="Start a cancel">
-            <OptionBtn
-              label="Help me choose a cancel flow"
-              hint="I’ll ask the job, then recommend a path"
-              onClick={startGuide}
-            />
-            <OptionBtn
-              label="Use the recommended 4-step default"
-              hint="Value, survey, one save offer, confirm"
-              onClick={() => recommendTemplate('cancel_4', 'Use the recommended 4-step default')}
-            />
-            <OptionBtn
-              label="Offer a cheaper plan before they leave"
-              hint="Pricing table and checkout, then they can still cancel"
-              onClick={() =>
-                recommendTemplate('cancel_plan_change', 'Offer a cheaper plan before they leave')
-              }
-            />
-          </OptionGroup>
-          <TemplateResources
-            onTemplates={() => openTemplates('ours')}
-            onYours={startYours}
-            onUpload={startUpload}
-          />
-        </div>
-      )
+      return <StartPaths onTemplate={() => startLibrary('ours')} onUpload={startUpload} onGuide={startGuide} />
+    }
+    if (turn === 'library') {
+      return <CopilotLibrary onUpload={startUpload} />
     }
     if (turn === 'guide') {
       return (
@@ -788,8 +753,11 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
         <div className="flex items-center gap-[2px]">
           <HeaderIconButton
             label="Templates"
-            pressed={templatesOpen}
-            onClick={() => openTemplates()}
+            pressed={templatesOpen || turn === 'library'}
+            onClick={() => {
+              if (stage === 'center') startLibrary()
+              else openTemplates()
+            }}
           >
             <SIcon name="layout-template" size={16} />
           </HeaderIconButton>
@@ -899,51 +867,39 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[24px] pt-[12px]">
-              {emptyHome ? (
-                <CopilotHomeSetup
-                  onGuide={startGuide}
-                  onRecommend={recommendTemplate}
-                  onTemplates={() => openTemplates('ours')}
-                  onYours={startYours}
-                  onUpload={startUpload}
-                />
-              ) : (
-                <>
-                  <div className="space-y-[16px]">
-                    {lines.map((m) => (
-                      <ChatLine key={m.id} line={m}>
-                        {m.widget === 'plan' && (
-                          <SpotlightFrame id="plan" className="mt-[12px]">
-                            <PlanSummary
-                              beat={turn === 'plan' ? beat : undefined}
-                              onJump={jumpPlan}
-                              readonly={turn === 'propose'}
-                            />
-                          </SpotlightFrame>
-                        )}
-                        {m.widget === 'steps' && file.steps.length > 0 && (
-                          <SpotlightFrame id="journey" className="mt-[12px]">
-                            <StepStrip
-                              onAccept={turn === 'propose' ? approveProposedPlan : undefined}
-                              onReject={turn === 'propose' ? rejectProposedPlan : undefined}
-                              acceptLabel="Looks right — open the canvas"
-                              rejectLabel="Pick a different job"
-                              includeOutcomes
-                              footerHint={
-                                turn === 'propose'
-                                  ? 'Next you’ll walk these screens. Nothing is live.'
-                                  : undefined
-                              }
-                            />
-                          </SpotlightFrame>
-                        )}
-                        {m.applyMessageId != null && <AnnotateApply messageId={m.applyMessageId} />}
-                      </ChatLine>
-                    ))}
-                  </div>
-                  <div className="mt-[16px]">{options}</div>
-                </>
-              )}
+              <div className="space-y-[16px]">
+                {lines.map((m) => (
+                  <ChatLine key={m.id} line={m}>
+                    {m.widget === 'plan' && (
+                      <SpotlightFrame id="plan" className="mt-[12px]">
+                        <PlanSummary
+                          beat={turn === 'plan' ? beat : undefined}
+                          onJump={jumpPlan}
+                          readonly={turn === 'propose'}
+                        />
+                      </SpotlightFrame>
+                    )}
+                    {m.widget === 'steps' && file.steps.length > 0 && (
+                      <SpotlightFrame id="journey" className="mt-[12px]">
+                        <StepStrip
+                          onAccept={turn === 'propose' ? approveProposedPlan : undefined}
+                          onReject={turn === 'propose' ? rejectProposedPlan : undefined}
+                          acceptLabel="Looks right — open the canvas"
+                          rejectLabel="Pick a different job"
+                          includeOutcomes
+                          footerHint={
+                            turn === 'propose'
+                              ? 'Next you’ll walk these screens. Nothing is live.'
+                              : undefined
+                          }
+                        />
+                      </SpotlightFrame>
+                    )}
+                    {m.applyMessageId != null && <AnnotateApply messageId={m.applyMessageId} />}
+                  </ChatLine>
+                ))}
+              </div>
+              <div className="mt-[16px]">{options}</div>
             </div>
             <div className="flex-none px-[16px] pb-[12px] pt-[4px]">
               <PromptInput

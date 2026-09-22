@@ -173,6 +173,8 @@ interface OrchestrationState {
   merchantComponentApplied: boolean
   /** Canvas demo asked Copilot to open the job guide. */
   pendingCopilotGuide: boolean
+  /** Open Chargebee / My templates inside Copilot instead of the modal. */
+  pendingCopilotLibrary: LibraryTab | null
   selectedNodeId: string | null
   openFlowNodeId: string | null
   /** Flow-node ids whose experience enclosure is collapsed to a summary card. */
@@ -210,11 +212,11 @@ interface OrchestrationState {
   savedAt: number | null
   /** Whether the play or its experiences have changed since that write. */
   dirty: boolean
-  /** Blank-state door the merchant chose this session, or null on the doors screen. */
+  /** Path the merchant chose this session, or null on a blank Copilot home. */
   setupDoor: SetupDoor | null
-  /** True after Copilot has started the door's journey — survives remount when the rail snaps in. */
+  /** True after Copilot has started the path — survives remount when the rail snaps in. */
   setupDoorConsumed: boolean
-  /** Center Copilot peeled to a 50vw right rail so the three doors stay visible. */
+  /** Center Copilot peeled to a 50vw right rail so the dotted canvas stays visible. */
   copilotDocked: boolean
   /** Copilot has shown the step strip; required to leave center stage. */
   stepStripShown: boolean
@@ -242,6 +244,8 @@ interface OrchestrationState {
   consumeMerchantFinish: () => void
   requestCopilotGuide: () => void
   consumeCopilotGuide: () => void
+  requestCopilotLibrary: (tab?: LibraryTab) => void
+  consumeCopilotLibrary: () => void
   selectNode: (id: string | null) => void
   openFlow: (nodeId: string) => void
   backToCanvas: () => void
@@ -261,7 +265,7 @@ interface OrchestrationState {
   setFocusPresentation: (presentation: FocusPresentation) => void
   chooseDoor: (door: SetupDoor) => void
   consumeSetupDoor: () => void
-  /** Peel center Copilot to a 50vw right rail over the doors. */
+  /** Peel center Copilot to a 50vw right rail over the dotted canvas. */
   dockCopilot: () => void
   markStepStripShown: () => void
   confirmSetupItem: (id: SetupItemId) => void
@@ -314,6 +318,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   pendingMerchantFinish: false,
   merchantComponentApplied: false,
   pendingCopilotGuide: false,
+  pendingCopilotLibrary: null,
   selectedNodeId: null,
   openFlowNodeId: null,
   collapsedFlows: {},
@@ -392,6 +397,9 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   consumeMerchantFinish: () => set({ pendingMerchantFinish: false }),
   requestCopilotGuide: () => set({ pendingCopilotGuide: true, assistantOpen: true }),
   consumeCopilotGuide: () => set({ pendingCopilotGuide: false }),
+  requestCopilotLibrary: (tab) =>
+    set({ pendingCopilotLibrary: tab ?? 'ours', assistantOpen: true }),
+  consumeCopilotLibrary: () => set({ pendingCopilotLibrary: null }),
 
   // Selecting an experience hands the right pane to branding, so the pinned play
   // section has to let go; deselecting hands the pane back to play config.
@@ -437,15 +445,14 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   setFocusPresentation: (focusPresentation) => set({ focusPresentation }),
 
   chooseDoor: (door) => {
-    if (door === 'library') {
-      set({ templatesOpen: true, libraryTab: 'ours' })
-      return
-    }
-    if (door === 'yours') {
-      set({ templatesOpen: true, libraryTab: 'yours' })
-      return
-    }
-    set({ setupDoor: door, setupDoorConsumed: false, assistantOpen: true })
+    set({
+      setupDoor: door,
+      setupDoorConsumed: false,
+      assistantOpen: true,
+      ...(door === 'library' || door === 'yours'
+        ? { libraryTab: door === 'yours' ? 'yours' : 'ours' }
+        : {}),
+    })
   },
   consumeSetupDoor: () => set({ setupDoorConsumed: true }),
   dockCopilot: () => set({ copilotDocked: true, assistantOpen: true }),
@@ -499,6 +506,8 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       pendingMerchantComponents: null,
       pendingMerchantFinish: false,
       merchantComponentApplied: false,
+      pendingCopilotGuide: false,
+      pendingCopilotLibrary: null,
       assistantOpen: true,
       copilotRailExpanded: true,
     })

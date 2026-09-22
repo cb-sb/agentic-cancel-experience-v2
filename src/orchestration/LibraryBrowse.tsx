@@ -196,16 +196,18 @@ export function LibraryBrowse({
           </div>
         </div>
       )}
-      <div className={compact ? 'space-y-[12px]' : 'space-y-5 px-6 py-5'}>
+      <div className={compact ? 'grid grid-cols-1 gap-[12px] sm:grid-cols-2' : 'space-y-5 px-6 py-5'}>
         {rows.length === 0 ? (
-          <p className="py-[16px] text-center text-[13px] text-slate-400">No templates match that search.</p>
+          <p className="col-span-full py-[16px] text-center text-[13px] text-slate-400">No templates match that search.</p>
         ) : grouped ? (
           grouped.map((group) => (
-            <section key={group.id} className="space-y-3">
+            <section key={group.id} className={compact ? 'col-span-full space-y-3' : 'space-y-3'}>
               <SectionLabel>{group.label}</SectionLabel>
-              {group.entries.map((entry) => (
-                <LibraryCard key={entry.id} entry={entry} onApply={() => onApply(entry.id)} />
-              ))}
+              <div className={compact ? 'grid grid-cols-1 gap-[12px] sm:grid-cols-2' : 'space-y-3'}>
+                {group.entries.map((entry) => (
+                  <LibraryCard key={entry.id} entry={entry} onApply={() => onApply(entry.id)} />
+                ))}
+              </div>
             </section>
           ))
         ) : (

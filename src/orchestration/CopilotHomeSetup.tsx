@@ -1,174 +1,61 @@
-import type { JourneyTemplate } from '../journey/types'
-import radioOnUrl from './assets/copilot-radio-on.svg'
-import gridUrl from './assets/copilot-grid.svg'
-import chevronUrl from './assets/copilot-chevron.svg'
-import uploadUrl from './assets/copilot-upload.svg'
-
 export function SectionLabel({ children }: { children: string }) {
   return (
     <p className="text-[11px] font-bold uppercase leading-normal text-[#4b5563]">{children}</p>
   )
 }
 
-function FlowOption({
-  selected,
+export function OptionBtn({
   label,
   hint,
-  badge,
   onClick,
 }: {
-  selected?: boolean
   label: string
-  hint: string
-  badge?: string
+  hint?: string
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-start gap-3 rounded-[12px] bg-white p-4 text-left transition-colors ${
-        selected
-          ? 'border-[1.5px] border-[#6366f1] shadow-[0px_2px_4px_rgba(79,70,229,0.05)]'
-          : 'border border-[#e5e7eb] hover:border-slate-300'
-      }`}
+      className="w-full rounded-[16px] border border-[#e5e7eb] bg-white px-[16px] py-[12px] text-left transition-colors hover:bg-[#fbfcfd]"
     >
-      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center" aria-hidden>
-        {selected ? (
-          <img src={radioOnUrl} alt="" width={16} height={16} className="block size-4" />
-        ) : (
-          <span className="block size-4 rounded-full border-2 border-[#9ca3af]" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold leading-normal text-[#111827]">{label}</span>
-        <span className="mt-1 block text-[12px] font-normal leading-[1.3] text-[#4b5563]">{hint}</span>
-        {badge && (
-          <span className="mt-1 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold leading-normal text-[#4f46e5] bg-[#eef2ff]">
-            {badge}
-          </span>
-        )}
-      </span>
+      <div className="text-[14px] font-medium text-[#19191f]">{label}</div>
+      {hint && <div className="mt-[2px] text-[12.5px] text-[#677488]">{hint}</div>}
     </button>
   )
 }
 
-function ResourceRow({
-  icon,
-  iconBox,
-  label,
-  hint,
-  onClick,
-}: {
-  icon: string
-  iconBox: string
-  label: string
-  hint: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50"
-    >
-      <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconBox}`}>
-        <img src={icon} alt="" width={18} height={18} className="block size-[18px]" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold leading-normal text-[#111827]">{label}</span>
-        <span className="mt-0.5 block text-[12px] leading-[1.3] text-[#4b5563]">{hint}</span>
-      </span>
-      <img src={chevronUrl} alt="" width={16} height={16} className="block size-4 shrink-0" />
-    </button>
-  )
-}
-
-/** Browse / yours / upload — one family, not three loose cards. */
-export function TemplateResources({
-  onTemplates,
-  onYours,
+/** First Copilot screen — the three start paths, as chat rows. */
+export function StartPaths({
+  onTemplate,
   onUpload,
-}: {
-  onTemplates: () => void
-  onYours: () => void
-  onUpload: () => void
-}) {
-  return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel>Templates & resources</SectionLabel>
-      <div className="overflow-hidden rounded-[12px] border border-[#e5e7eb] bg-white">
-        <ResourceRow
-          icon={gridUrl}
-          iconBox="bg-[#eef2ff]"
-          label="Browse templates"
-          hint="Chargebee postures, or switch to My templates"
-          onClick={onTemplates}
-        />
-        <div className="border-t border-[#e5e7eb]">
-          <ResourceRow
-            icon={gridUrl}
-            iconBox="bg-[#ecfdf3]"
-            label="My existing templates"
-            hint="Journeys and components you already scanned"
-            onClick={onYours}
-          />
-        </div>
-        <div className="border-t border-[#e5e7eb]">
-          <ResourceRow
-            icon={uploadUrl}
-            iconBox="bg-[#f9fafb]"
-            label="Upload a template"
-            hint="Download the Growth kit, then drop the composed HTML"
-            onClick={onUpload}
-          />
-        </div>
-      </div>
-    </section>
-  )
-}
-
-export function CopilotHomeSetup({
   onGuide,
-  onRecommend,
-  onTemplates,
-  onYours,
-  onUpload,
 }: {
-  onGuide: () => void
-  onRecommend: (template: JourneyTemplate, said: string) => void
-  onTemplates: () => void
-  onYours: () => void
+  onTemplate: () => void
   onUpload: () => void
+  onGuide: () => void
 }) {
   return (
-    <div className="flex w-full flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <SectionLabel>Start a Cancel Flow</SectionLabel>
-        <div className="flex flex-col gap-2">
-          <FlowOption
-            selected
-            label="Help me choose a cancel flow"
-            hint="I'll ask the job, then recommend a path"
-            badge="AI ASSISTED"
-            onClick={onGuide}
-          />
-          <FlowOption
-            label="Use the recommended 4-step default"
-            hint="Value, survey, one save offer, confirm"
-            onClick={() => onRecommend('cancel_4', 'Use the recommended 4-step default')}
-          />
-          <FlowOption
-            label="Offer a cheaper plan before they leave"
-            hint="Pricing table and checkout, then they can still cancel"
-            onClick={() =>
-              onRecommend('cancel_plan_change', 'Offer a cheaper plan before they leave')
-            }
-          />
-        </div>
-      </section>
-
-      <TemplateResources onTemplates={onTemplates} onYours={onYours} onUpload={onUpload} />
+    <div className="space-y-2">
+      <p className="px-1 text-[15px] font-semibold leading-snug text-[#19191f]">Start a cancel experience</p>
+      <p className="px-1 pb-1 text-[13px] leading-[1.5] text-[#677488]">
+        Pick a path. You’ll get a subscriber journey you can walk before anything goes live.
+      </p>
+      <OptionBtn
+        label="Start with a template"
+        hint="Pick a Chargebee posture, or reopen chrome you already scanned."
+        onClick={onTemplate}
+      />
+      <OptionBtn
+        label="Upload a template"
+        hint="Download the Growth kit, compose an experience with your LLM, then drop the marked HTML."
+        onClick={onUpload}
+      />
+      <OptionBtn
+        label="Help me start"
+        hint="Don’t make me think. Copilot asks the job, then recommends a path."
+        onClick={onGuide}
+      />
     </div>
   )
 }

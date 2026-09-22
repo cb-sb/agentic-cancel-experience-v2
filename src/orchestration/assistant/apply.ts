@@ -2,10 +2,12 @@ import { seedExperience } from '../../lib/blueprints'
 import { composeSteps } from '../../lib/composePlan'
 import { audienceFieldsFor, segment } from '../../lib/growthContext'
 import { useExperience } from '../../store/useExperience'
+import { useJourney } from '../../store/useJourney'
 import { useOrchestration } from '../../store/useOrchestration'
 import type { Experience } from '../../types/experience'
 import type { FlowNode, SplitNode } from '../../types/orchestration'
 import type { ApplyOp, SetupPhase } from './types'
+import { experienceContextReady } from '../copilotStage'
 
 function currentSplit(): SplitNode | null {
   const { play } = useOrchestration.getState()
@@ -152,7 +154,11 @@ export function applyOps(ops: ApplyOp[]): void {
         exp.setMode('play')
         break
       case 'openTemplates':
-        orch.openTemplates()
+        if (!experienceContextReady(useJourney.getState().file, orch.stepStripShown)) {
+          orch.requestCopilotLibrary('ours')
+        } else {
+          orch.openTemplates()
+        }
         break
       case 'closeTemplates':
         orch.closeTemplates()

@@ -3,7 +3,7 @@ import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { useEmptyJourneyDemo } from './emptyDemoFlag'
 
-export type CopilotStage = 'doors' | 'center' | 'rail'
+export type CopilotStage = 'center' | 'rail'
 
 export type SetupDoor = 'upload' | 'library' | 'yours' | 'guide' | 'acquire'
 export type LibraryTab = 'ours' | 'yours'
@@ -25,25 +25,18 @@ export function deriveCopilotStage(args: {
   setupDoor: SetupDoor | null
   stepStripShown: boolean
   emptyDemo: boolean
-  templatesOpen?: boolean
 }): CopilotStage {
   if (args.emptyDemo) return 'rail'
-  const blank = isBlankJourney(args.file)
-  if (!args.setupDoor) {
-    // Keep My templates over the doors while chrome is being picked, so writing
-    // the file for badges does not dump the merchant onto the canvas.
-    if (args.templatesOpen && !args.stepStripShown) return 'doors'
-    return blank ? 'doors' : 'rail'
-  }
   if (experienceContextReady(args.file, args.stepStripShown)) return 'rail'
-  return 'center'
+  const blank = isBlankJourney(args.file)
+  if (blank || args.setupDoor) return 'center'
+  return 'rail'
 }
 
 export function useCopilotStage(): CopilotStage {
   const file = useJourney((s) => s.file)
   const setupDoor = useOrchestration((s) => s.setupDoor)
   const stepStripShown = useOrchestration((s) => s.stepStripShown)
-  const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const emptyDemo = useEmptyJourneyDemo()
-  return deriveCopilotStage({ file, setupDoor, stepStripShown, emptyDemo, templatesOpen })
+  return deriveCopilotStage({ file, setupDoor, stepStripShown, emptyDemo })
 }

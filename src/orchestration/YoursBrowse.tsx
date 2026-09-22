@@ -145,7 +145,7 @@ export function YoursBrowse({
       <div
         className={
           compact
-            ? 'flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto'
+            ? 'flex flex-col gap-[16px] px-[16px] py-[12px]'
             : 'min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5'
         }
       >
