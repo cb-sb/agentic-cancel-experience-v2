@@ -25,14 +25,14 @@ export function StepNavBar() {
 
   if (file.steps.length === 0) {
     return (
-      <div className="flex h-10 flex-none items-center border-b border-slate-200 bg-white px-5 text-[12px] text-slate-400">
+      <div className="flex h-10 flex-none items-center justify-center border-b border-slate-200 bg-white px-5 text-[12px] text-slate-400">
         Prompt a journey and the steps will land here
       </div>
     )
   }
 
   return (
-    <div className="flex h-10 flex-none items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-5">
+    <div className="flex h-10 flex-none items-center justify-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-5">
       {file.steps.map((js) => {
         const step = experience.steps.find((s) => s.id === js.id)
         const label = step ? compactStepLabel(step) : js.kind.replace(/_/g, ' ')

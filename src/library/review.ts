@@ -18,7 +18,7 @@ export function scanReviewCopy(args: {
     return `Contract ${CONTRACT_VERSION} found no marked steps. Upload the experience your LLM composed, not the catalog zip.`
   }
   const chain = steps.map((s) => CB_KIND_LABELS[s.kind as CbKind] ?? s.kind).join(' → ')
-  return `Scan found ${steps.length} marked step${steps.length === 1 ? '' : 's'} (${chain}). Contract ${CONTRACT_VERSION} is satisfied. Bind the catalog here — I will match brand and targeting next. I will not take ${INGRESS_SCOPE.out[0]}, ${INGRESS_SCOPE.out[1]}, or ${INGRESS_SCOPE.out[3]} from the file.`
+  return `Scan found ${steps.length} marked step${steps.length === 1 ? '' : 's'} (${chain}). Contract ${CONTRACT_VERSION} is satisfied. Bind the catalog here. I will not take ${INGRESS_SCOPE.out[0]}, ${INGRESS_SCOPE.out[1]}, or ${INGRESS_SCOPE.out[3]} from the file.`
 }
 
 export function savedToLibraryCopy(name: string, componentLabels: string[] = []): string {
@@ -26,11 +26,11 @@ export function savedToLibraryCopy(name: string, componentLabels: string[] = [])
   const parts = unique.length
     ? `${unique.join(', ')} ${unique.length === 1 ? 'is' : 'are'} now reusable on other experiences.`
     : 'Each marked step is now a reusable component.'
-  return `Saved “${name}” as a journey. ${parts} Copilot still fills brand, audience, holdout, and walk.`
+  return `Saved “${name}” as a journey. ${parts}`
 }
 
 export function attachedChromeCopy(label: string, posture: string): string {
-  return `Attached your ${label} chrome onto ${posture}. Same library object — Copilot still fills brand and targeting.`
+  return `Attached your ${label} chrome onto ${posture}.`
 }
 
 export function startedFromComponentCopy(label: string): string {

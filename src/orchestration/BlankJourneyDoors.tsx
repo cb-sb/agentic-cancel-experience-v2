@@ -54,9 +54,17 @@ export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
     >
       <div
         className={`pointer-events-auto flex w-full flex-col ${
-          packed ? 'items-start' : 'max-w-[920px] items-center'
+          packed ? 'items-start gap-[28px]' : 'max-w-[920px] items-center gap-[40px]'
         }`}
       >
+        <div className={`max-w-[920px] ${packed ? 'text-left' : 'text-center'}`}>
+          <h1 className="text-[22px] font-semibold leading-snug tracking-tight text-slate-900">
+            Start a cancel experience
+          </h1>
+          <p className="mt-xs text-[13.5px] leading-[1.55] text-slate-500">
+            Pick a path. You’ll get a subscriber journey you can walk before anything goes live.
+          </p>
+        </div>
         <div
           className={`flex flex-wrap items-stretch gap-lg ${
             packed ? 'justify-start' : 'w-full justify-center'

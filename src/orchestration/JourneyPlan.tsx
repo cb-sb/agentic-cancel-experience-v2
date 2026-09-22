@@ -1,12 +1,11 @@
-import { patchBrandShortcuts } from '../brand/theme'
 import { brandGatePrompt, isBrandMatched } from '../brand/matchSite'
 import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
 import { LIBRARY, setStepOffer, templateLabel } from '../journey/templates'
+import { uploadedScreenChain } from '../journey/contextDoc'
 import type { AudienceKey, JourneyFile, OfferKey } from '../journey/types'
 import { audienceLabel, useJourney } from '../store/useJourney'
 import type { ShellLayout } from '../types/experience'
-import { useGrowthShell } from '../shell/useGrowthShell'
 
 const AUDIENCES: AudienceKey[] = ['all', 'paying', 'high_value', 'high_risk', 'annual', 'in_trial']
 
@@ -21,16 +20,17 @@ const OFFER_KEYS = OFFER_VARIANTS.map((v) => v.category as OfferKey)
 export type PlanBeat = 'walk' | 'offers' | 'audience' | 'shell' | 'holdout' | 'brand' | 'review' | 'publish'
 
 export function planBeats(file: JourneyFile): PlanBeat[] {
-  const beats: PlanBeat[] = ['brand', 'walk']
+  const beats: PlanBeat[] = ['walk']
   if (file.steps.some((s) => s.kind === 'offer')) beats.push('offers')
-  beats.push('audience', 'holdout', 'publish')
+  beats.push('audience', 'holdout', 'brand', 'publish')
   return beats
 }
 
 export function nextBeat(file: JourneyFile, current: PlanBeat): PlanBeat | null {
   const beats = planBeats(file)
   const i = beats.indexOf(current)
-  return i < 0 ? beats[0] ?? null : (beats[i + 1] ?? null)
+  const rest = i < 0 ? beats : beats.slice(i + 1)
+  return rest.find((b) => b !== 'brand' || !isBrandMatched(file.brand)) ?? null
 }
 
 export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
@@ -57,6 +57,12 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
 }
 
 export function planIntro(file: JourneyFile): string {
+  if (file.source === 'uploaded') {
+    const chain = uploadedScreenChain(file)
+    return chain
+      ? `This is the pack you uploaded (${chain}). Defaults are in — walk it as a subscriber, or open a row on the plan to change who sees it, holdout, or brand.`
+      : 'This is the pack you uploaded. Defaults are in — walk it as a subscriber, or open a row on the plan to change who sees it, holdout, or brand.'
+  }
   const label = templateLabel(file.template)
   if (file.kind === 'acquisition' || !file.steps.some((s) => s.kind === 'offer')) {
     return `I’ve started ${label.toLowerCase()}. Defaults are in — walk it as a subscriber, or open a row on the plan to change who sees it or how it sits on the site.`
@@ -65,6 +71,7 @@ export function planIntro(file: JourneyFile): string {
 }
 
 function flowLine(file: JourneyFile): string {
+  if (file.source === 'uploaded') return uploadedScreenChain(file)
   const entry = LIBRARY.find((e) => e.id === file.template)
   if (entry) return entry.stepLabels.join(' → ')
   const authored = file.steps.filter((s) => s.kind !== 'confirmation' && !s.kind.startsWith('outcome'))
@@ -91,7 +98,7 @@ function beatHint(beat: PlanBeat): string | null {
     case 'holdout':
       return 'Skip this until you want a control group. Zero means everyone sees the experience.'
     case 'brand':
-      return 'Required for every experience. Match the page the snippet will run on, then fine-tune tokens and scoped CSS in the branding studio.'
+      return null
     default:
       return null
   }
@@ -132,13 +139,6 @@ export function PlanSummary({
       label: 'Holdout',
       value: file.holdout === 0 ? 'Everyone in treatment' : `${file.holdout}% see nothing`,
     },
-    {
-      beat: 'brand',
-      label: 'Brand',
-      value: isBrandMatched(file.brand)
-        ? `${file.brand.merchant} · ${file.brand.primary.toUpperCase()}`
-        : 'Match the page this will run on',
-    },
   ]
 
   return (
@@ -146,7 +146,9 @@ export function PlanSummary({
       <div className="border-b border-slate-100 px-3 py-2">
         <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Draft plan</div>
         <div className="mt-0.5 text-[13px] font-bold text-slate-900">{file.name}</div>
-        <div className="text-[11px] text-slate-500">{templateLabel(file.template)}</div>
+        <div className="text-[11px] text-slate-500">
+          {file.source === 'uploaded' ? flowLine(file) || 'Uploaded' : templateLabel(file.template)}
+        </div>
       </div>
       <div className="divide-y divide-slate-100">
         {rows.map((row) =>
@@ -200,7 +202,6 @@ export function PlanBeatCard({
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
   const patchFile = useJourney((s) => s.patchFile)
-  const go = useGrowthShell((s) => s.go)
   const offerSteps = file.steps.filter((s) => s.kind === 'offer')
 
   if (beat === 'walk') {
@@ -330,77 +331,28 @@ export function PlanBeatCard({
       )}
 
       {beat === 'brand' && (
-        <div className="space-y-3">
-          <MatchSiteCard />
-          {isBrandMatched(file.brand) && (
-            <>
-          <input
-            value={file.brand.merchant}
-            onChange={(e) =>
-              patchFile({ brand: patchBrandShortcuts(file.brand, { merchant: e.target.value }) })
-            }
-            placeholder="Merchant name"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-slate-400"
-          />
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[12px] text-slate-600">Primary color</span>
-            <div className="flex overflow-hidden rounded-xl border border-slate-200">
-              <label className="relative block h-9 w-9 cursor-pointer" style={{ background: file.brand.primary }}>
-                <input
-                  type="color"
-                  value={file.brand.primary}
-                  onChange={(e) =>
-                    patchFile({ brand: patchBrandShortcuts(file.brand, { primary: e.target.value }) })
-                  }
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                />
-              </label>
-              <input
-                value={file.brand.primary.toUpperCase()}
-                onChange={(e) =>
-                  patchFile({ brand: patchBrandShortcuts(file.brand, { primary: e.target.value }) })
-                }
-                spellCheck={false}
-                className="w-[90px] border-l border-slate-200 px-2 py-1.5 text-[12px] uppercase text-slate-600 outline-none"
-              />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[12px] text-slate-600">Corner radius</span>
-              <span className="text-[11px] tabular-nums text-slate-400">{file.brand.corners}px</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={24}
-              step={1}
-              value={file.brand.corners}
-              onChange={(e) =>
-                patchFile({ brand: patchBrandShortcuts(file.brand, { corners: Number(e.target.value) }) })
-              }
-              className="mt-1 w-full accent-slate-800"
-            />
-          </div>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => go('experiences.branding')}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Open branding studio
-          </button>
-        </div>
+        <MatchSiteCard
+          compact
+          onMatched={() => onContinue(`Use ${useJourney.getState().file.brand.merchant}`)}
+        />
       )}
 
-      {beat !== 'audience' && beat !== 'shell' && (beat !== 'brand' || isBrandMatched(file.brand)) && (
+      {beat !== 'audience' && beat !== 'shell' && beat !== 'brand' && (
         <button
           type="button"
           onClick={() => onContinue(keepLabel(beat, file))}
           className="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-slate-800"
         >
           {keepLabel(beat, file)}
+        </button>
+      )}
+      {beat === 'brand' && !isBrandMatched(file.brand) && (
+        <button
+          type="button"
+          onClick={() => onContinue('Match the look later')}
+          className="mt-3 w-full rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+        >
+          Do this later
         </button>
       )}
       {beat !== 'brand' && (

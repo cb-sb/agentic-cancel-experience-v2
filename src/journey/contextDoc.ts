@@ -1,6 +1,7 @@
 import { patchBrandShortcuts } from '../brand/theme'
 import { offerVariantLabel } from '../lib/offerVariants'
 import type { ShellLayout } from '../types/experience'
+import { CB_KIND_LABELS, type CbKind } from '../upload/contract'
 import { interpret } from './intake'
 import {
   applyOffers,
@@ -57,6 +58,20 @@ function flowLabels(file: JourneyFile): string[] {
     .map((s) => s.kind.replace(/_/g, ' '))
 }
 
+/** Screen list for an uploaded pack — same labels as confirm. */
+export function uploadedScreenChain(file: JourneyFile): string {
+  return file.steps
+    .map((s) => CB_KIND_LABELS[s.kind as CbKind] ?? s.kind.replace(/_/g, ' '))
+    .join(' → ')
+}
+
+function contextTitle(file: JourneyFile): string {
+  if (file.source === 'uploaded' && (!file.name || file.name === 'Untitled journey')) {
+    return 'Uploaded template'
+  }
+  return file.name || 'Untitled journey'
+}
+
 function offerLine(file: JourneyFile): string | null {
   const offers = file.steps.filter((s) => s.kind === 'offer')
   if (!offers.length) return null
@@ -68,7 +83,7 @@ function offerLine(file: JourneyFile): string | null {
  * sentences so a beat change and a Code edit talk about the same knobs.
  */
 export function renderContext(file: JourneyFile): string {
-  if (file.template === 'none' || file.steps.length === 0) {
+  if (file.steps.length === 0) {
     return [
       file.name || 'Untitled journey',
       '',
@@ -76,16 +91,28 @@ export function renderContext(file: JourneyFile): string {
     ].join('\n')
   }
 
-  const flow = flowLabels(file).join(' → ')
-  const lines = [
-    file.name,
-    `${templateLabel(file.template)} — ${flow}.`,
-    '',
-    `Audience: ${AUDIENCE_LABEL[file.audience]}.`,
-    `Shell: ${shellLine(file.shell)}.`,
-    `Holdout: ${holdoutLine(file.holdout)}.`,
-    `Brand: ${file.brand.merchant}, ${file.brand.primary.toUpperCase()}, ${file.brand.corners}px corners.`,
-  ]
+  const uploaded = file.source === 'uploaded'
+  const flow = uploaded ? uploadedScreenChain(file) : flowLabels(file).join(' → ')
+  const lines = uploaded
+    ? [
+        contextTitle(file),
+        `${flow}.`,
+        'Chrome: uploaded — layout stays; remap slots or upload a new file to change screens.',
+        '',
+        `Audience: ${AUDIENCE_LABEL[file.audience]}.`,
+        `Shell: ${shellLine(file.shell)}.`,
+        `Holdout: ${holdoutLine(file.holdout)}.`,
+        `Brand: ${file.brand.merchant}, ${file.brand.primary.toUpperCase()}, ${file.brand.corners}px corners.`,
+      ]
+    : [
+        file.name,
+        `${templateLabel(file.template)} — ${flow}.`,
+        '',
+        `Audience: ${AUDIENCE_LABEL[file.audience]}.`,
+        `Shell: ${shellLine(file.shell)}.`,
+        `Holdout: ${holdoutLine(file.holdout)}.`,
+        `Brand: ${file.brand.merchant}, ${file.brand.primary.toUpperCase()}, ${file.brand.corners}px corners.`,
+      ]
   const offers = offerLine(file)
   if (offers) {
     lines.push('', `Offers: ${offers}.`)
@@ -101,12 +128,14 @@ function field(text: string, name: string): string | null {
 
 function firstLineName(text: string, current: JourneyFile): string | null {
   const nonempty = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  const line = nonempty.find((l) => l && !LABELED.test(l) && !/^no flow yet/i.test(l))
+  const line = nonempty.find(
+    (l) => l && !LABELED.test(l) && !/^no flow yet/i.test(l) && !/^chrome\s*:/i.test(l),
+  )
   if (!line) return null
   if (/—/.test(line) && /\bstep\b/i.test(line)) return null
   if (/→/.test(line)) return null
   // A lone sentence on a blank file is a prompt, not a title.
-  if (current.template === 'none' && nonempty.length <= 1) return null
+  if (current.template === 'none' && current.source !== 'uploaded' && nonempty.length <= 1) return null
   return line.replace(/\.$/, '').trim()
 }
 
@@ -214,8 +243,9 @@ export function parseContext(
     .split('\n')
     .filter((line) => !LABELED.test(line.trim()))
     .join('\n')
+  const uploaded = current.source === 'uploaded'
   const fallback = interpret(unlabeled, current)
-  let file = fallback.changed ? fallback.file : current
+  let file = fallback.changed && !(uploaded && fallback.rebuilt) ? fallback.file : current
 
   const name = firstLineName(trimmed, current)
   const audienceRaw = field(trimmed, 'audience')
@@ -223,7 +253,7 @@ export function parseContext(
   const holdoutRaw = field(trimmed, 'holdout')
   const brandRaw = field(trimmed, 'brand')
   const offersRaw = field(trimmed, 'offers?')
-  const template = parseTemplate(trimmed, current)
+  const template = uploaded ? null : parseTemplate(trimmed, current)
 
   const audience = audienceRaw ? parseAudience(audienceRaw) : null
   const shell = shellRaw ? parseShell(shellRaw) : null
@@ -240,7 +270,7 @@ export function parseContext(
     offers.length > 0 ||
     !!template
 
-  if (template && template !== file.template) {
+  if (template && template !== file.template && !uploaded) {
     file = startFromTemplate(
       {
         ...file,
@@ -268,8 +298,9 @@ export function parseContext(
     if (fallback.changed || structured) return { file: current }
     return {
       file: current,
-      error:
-        'Could not read a change out of that. Keep the labeled lines (Audience, Shell, Holdout, Brand) or name a step count, offer, shell, or audience.',
+      error: uploaded
+        ? 'The screens came from the pack you uploaded. You can edit audience, shell, holdout, brand, or the offer bind — not the screens.'
+        : 'Could not read a change out of that. Keep the labeled lines (Audience, Shell, Holdout, Brand) or name a step count, offer, shell, or audience.',
     }
   }
 

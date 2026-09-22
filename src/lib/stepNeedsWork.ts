@@ -1,13 +1,9 @@
-import { isBrandMatched } from '../brand/matchSite'
 import type { JourneyFile } from '../journey/types'
 import type { Step } from '../types/experience'
 
 /** Why a canvas step still needs configuration. Empty array means ready. */
 export function stepNeedsWorkReasons(step: Step, file: JourneyFile): string[] {
   const reasons: string[] = []
-  if (!isBrandMatched(file.brand) && file.source !== 'uploaded') {
-    reasons.push('Brand not matched on this surface')
-  }
   if (file.source === 'uploaded') {
     const mapped = file.manifest?.steps.find((s) => s.id === step.id)
     if (mapped?.slots.some((slot) => !slot.bind)) reasons.push('Unbound upload slot')

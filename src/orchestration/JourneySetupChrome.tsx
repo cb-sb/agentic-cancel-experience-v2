@@ -36,7 +36,7 @@ function useTrackerHighlight(): { item?: SetupItem['id']; pulsed: boolean } {
   const beat = useCopilotThread((s) => s.beat)
   if (fromLook) return { item: fromLook, pulsed: true }
   if (turn !== 'plan') return { item: undefined, pulsed: false }
-  if (beat === 'audience' || beat === 'holdout' || beat === 'offers' || beat === 'walk') {
+  if (beat === 'audience' || beat === 'holdout' || beat === 'offers' || beat === 'walk' || beat === 'brand') {
     return { item: beat, pulsed: false }
   }
   return { item: undefined, pulsed: false }

@@ -1,4 +1,3 @@
-import { isBrandMatched } from '../brand/matchSite'
 import type { JourneyFile } from '../journey/types'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
@@ -18,8 +17,6 @@ export function experienceContextReady(file: JourneyFile, stepStripShown: boolea
   if (file.steps.length === 0) return false
   if (file.template === 'none' && file.source !== 'uploaded') return false
   if (file.source === 'uploaded' && !file.manifest?.confirmed) return false
-  if (file.source === 'authored' && file.template !== 'none' && stepStripShown) return true
-  if (!isBrandMatched(file.brand)) return false
   return stepStripShown
 }
 

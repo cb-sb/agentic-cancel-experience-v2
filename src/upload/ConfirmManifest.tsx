@@ -1,6 +1,6 @@
 import { SButton } from '@chargebee/sting-react'
 import { OFFER_VARIANTS } from '../lib/offerVariants'
-import { CB_KIND_LABELS, CONTRACT_VERSION, type CbKind } from './contract'
+import { CB_KIND_LABELS, type CbKind } from './contract'
 import { DEFAULT_SUBSCRIBER_CONTEXT, type ManifestStep, type TemplateManifest } from './types'
 import { formatContractIssue, validateManifest } from './validate'
 import { useUpload } from './useUpload'
@@ -14,6 +14,37 @@ function patchStep(manifest: TemplateManifest, id: string, patch: Partial<Manife
 
 function kindLabel(kind: ManifestStep['kind']): string {
   return CB_KIND_LABELS[kind as CbKind] ?? kind
+}
+
+function kindJob(kind: ManifestStep['kind']): string {
+  switch (kind) {
+    case 'loss_aversion':
+      return 'Shows what they keep and lose. Sample numbers below are for preview.'
+    case 'survey':
+      return 'Why they’re leaving. Edit the reasons below.'
+    case 'offer':
+      return 'The save. Pick which catalog offer fills this screen.'
+    case 'confirmation':
+      return 'Last chance to stay or leave.'
+    case 'pricing_table':
+      return 'Plan picker before checkout.'
+    case 'checkout':
+      return 'Hosted checkout handoff.'
+    case 'outcome_saved':
+      return 'They stayed.'
+    case 'outcome_cancelled':
+      return 'They left.'
+    default:
+      return 'A marked screen from the pack you uploaded.'
+  }
+}
+
+function fieldLabel(name: string): string {
+  return name.replace(/_/g, ' ')
+}
+
+function needsBindCard(step: ManifestStep): boolean {
+  return step.slots.some((s) => s.type === 'offer') || step.fields.length > 0
 }
 
 export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
@@ -30,43 +61,26 @@ export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
 
   const ctx = { ...DEFAULT_SUBSCRIBER_CONTEXT, ...manifest.subscriberContext }
   const hasSurvey = manifest.steps.some((s) => s.kind === 'survey')
-  const hasOffer = manifest.steps.some((s) => s.slots.some((slot) => slot.type === 'offer'))
-  const hasFields = manifest.steps.some((s) => s.fields.length > 0)
+  const bindable = manifest.steps.filter(needsBindCard)
+  const chain = manifest.steps.map((s) => kindLabel(s.kind)).join(' → ')
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex-none rounded-xl bg-[#E36A5A] px-4 py-3 text-white">
         <p className="text-[11px] font-bold uppercase tracking-wider text-white/80">Catalog binds</p>
-        <p className="mt-0.5 text-[14px] font-semibold">Pick which offer and reason list this chrome uses</p>
-        <p className="mt-1 text-[12.5px] text-white/85">
-          Step kinds and slots come from contract {CONTRACT_VERSION}. Layout change = new upload.
-          Targeting, holdout, and publish stay in Copilot.
-        </p>
+        <p className="mt-0.5 text-[14px] font-semibold">Bind the save (and survey) from your catalog</p>
+        {chain && (
+          <p className="mt-1 text-[12.5px] text-white/85">
+            Screens in this pack: {chain}. Layout stays as uploaded — Copilot still owns targeting and publish.
+          </p>
+        )}
       </div>
 
       <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-        {manifest.steps.map((step, index) => (
+        {bindable.map((step) => (
           <article key={step.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                Step {index + 1}
-              </span>
-              <span className="text-[12.5px] font-semibold text-slate-800">{step.id}</span>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11.5px] font-medium text-slate-600">
-                {kindLabel(step.kind)}
-              </span>
-              {step.file && <span className="text-[11px] text-slate-400">{step.file}</span>}
-            </div>
-
-            {step.slots.filter((s) => s.type === 'action').length > 0 && (
-              <p className="mt-2 text-[12px] text-slate-500">
-                Actions:{' '}
-                {step.slots
-                  .filter((s) => s.type === 'action')
-                  .map((s) => s.bind ?? s.id.replace(/^action_/, ''))
-                  .join(', ')}
-              </p>
-            )}
+            <h3 className="text-[14px] font-semibold text-slate-900">{kindLabel(step.kind)}</h3>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">{kindJob(step.kind)}</p>
 
             {step.slots.some((s) => s.type === 'offer') && (
               <ul className="mt-3 space-y-2">
@@ -74,8 +88,11 @@ export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
                   .filter((s) => s.type === 'offer')
                   .map((slot) => (
                     <li key={`${slot.type}:${slot.id}`} className="flex flex-wrap items-center gap-2 text-[12.5px]">
-                      <span className="w-16 font-semibold uppercase tracking-wide text-slate-400">Offer</span>
+                      <label className="w-16 font-semibold uppercase tracking-wide text-slate-400" htmlFor={`bind-${step.id}-${slot.id}`}>
+                        Offer
+                      </label>
                       <select
+                        id={`bind-${step.id}-${slot.id}`}
                         value={slot.bind ?? 'discount'}
                         onChange={(e) =>
                           setManifest(
@@ -105,7 +122,7 @@ export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
                 <ul className="mt-2 space-y-2">
                   {step.fields.map((field) => (
                     <li key={field.name} className="flex flex-wrap items-center gap-2">
-                      <code className="w-40 text-[12px] text-slate-700">{field.name}</code>
+                      <span className="w-40 text-[12px] capitalize text-slate-700">{fieldLabel(field.name)}</span>
                       <input
                         value={ctx[field.name] ?? field.sample ?? ''}
                         onChange={(e) =>
@@ -127,8 +144,11 @@ export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
 
         {hasSurvey && (
           <article className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Survey reasons</p>
-            <ul className="mt-2 space-y-2">
+            <h3 className="text-[14px] font-semibold text-slate-900">Survey</h3>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
+              Why they’re leaving. These reasons fill the survey screen.
+            </p>
+            <ul className="mt-3 space-y-2">
               {(manifest.surveyReasons ?? []).map((r, i) => (
                 <li key={r.id} className="flex gap-2">
                   <input
@@ -161,7 +181,7 @@ export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
           </article>
         )}
 
-        {!hasOffer && !hasSurvey && !hasFields && (
+        {bindable.length === 0 && !hasSurvey && (
           <p className="text-[12.5px] text-slate-500">
             No catalog binds on this pack. Chrome is marked — confirm to host.
           </p>

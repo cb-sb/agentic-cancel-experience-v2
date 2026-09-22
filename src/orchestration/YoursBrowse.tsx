@@ -60,7 +60,7 @@ export function YoursBrowse({
             Components
           </p>
           <p className="mb-[10px] text-[12.5px] text-slate-500">
-            Shared library objects. Attach onto an existing chain, or open one as a single step.
+            Shared primitives. Attach onto a chain, or open one as a single step.
           </p>
           <div className="grid grid-cols-1 gap-[8px] sm:grid-cols-2">
             {components.map((c) => (

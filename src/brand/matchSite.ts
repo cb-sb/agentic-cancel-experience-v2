@@ -283,7 +283,7 @@ export function isBrandMatched(brand: JourneyBrand): boolean {
 
 export function brandGatePrompt(kind: JourneyKind): string {
   const what = kind === 'acquisition' ? 'pricing table' : 'cancel UI'
-  return `This ${what} sits on your site. An in-product URL can be hard to paste — drop a screenshot or video of the billing page, or add the URL. You can also describe it: dark navy, gold buttons, Inter.`
+  return `Match this ${what} to the page it will run on — screenshot, URL, or a short description.`
 }
 
 /**

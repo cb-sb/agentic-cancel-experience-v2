@@ -85,10 +85,10 @@ export function MatchSiteCard({
   }
 
   const copy = matched
-    ? 'Every cancel and pricing-table experience uses this look. Edit a token, rematch from a URL, or drop a new capture.'
+    ? 'Look applied. Refine tokens in Experiences → Branding.'
     : setup || compact
-      ? 'An in-product URL can be hard to paste. Drop a screenshot or video of the billing page — or add the URL — and we’ll pull design tokens you can edit.'
-      : 'Paste the account or billing URL, or drop a screenshot or video of that page. I’ll sample what I can and apply it as tokens.'
+      ? 'Drop a screenshot or video of the billing page, or paste the URL.'
+      : 'Paste the account or billing URL, or drop a screenshot or video of that page.'
 
   const drop = (
     <DropZone
@@ -204,7 +204,7 @@ export function MatchSiteCard({
       {urlRow}
       <div className="mt-2">{drop}</div>
       {note && <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{note}</p>}
-      {matched && (
+      {matched && !compact && (
         <div className="mt-3">
           <BrandTokensEditor />
         </div>

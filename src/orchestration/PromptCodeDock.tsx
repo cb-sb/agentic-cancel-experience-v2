@@ -3,7 +3,7 @@ import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { useExperience } from '../store/useExperience'
 import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
-import { LIBRARY, startFromTemplate, templateLabel, templatePosture, withLive } from '../journey/templates'
+import { startFromTemplate, templateLabel, withLive } from '../journey/templates'
 import { interpret } from '../journey/intake'
 import { compileBrand } from '../brand/theme'
 import { isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
@@ -21,7 +21,7 @@ import { SpotlightFrame } from './SpotlightFrame'
 import { SIcon } from '@chargebee/sting-react'
 import { CopilotHomeSetup } from './CopilotHomeSetup'
 import { DesignModeIcon } from './DesignModeIcon'
-import { useCopilotThread, type CopilotLine } from './copilotThread'
+import { landUploadedPlan, useCopilotThread, type CopilotLine } from './copilotThread'
 import { COPILOT_UI } from './copilotUi'
 import { useAssistant } from './assistant/useAssistant'
 import { useUpload } from '../upload/useUpload'
@@ -30,9 +30,8 @@ import { ConfirmManifest } from '../upload/ConfirmManifest'
 import { StepStrip } from './StepStrip'
 import { CopilotMark } from './CopilotMark'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
-import { applyMerchantJourney, attachComponent, matchingComponents, startFromComponent } from '../library/apply'
-import { attachedChromeCopy, savedToLibraryCopy, scanReviewCopy, startedFromComponentCopy } from '../library/review'
-import { CB_KIND_LABELS, type CbKind } from '../upload/contract'
+import { applyMerchantJourney, attachComponent, startFromComponent } from '../library/apply'
+import { scanReviewCopy } from '../library/review'
 
 function scrollSpotlightInto(container: HTMLElement): boolean {
   const marked = container.querySelector<HTMLElement>('[data-spotlight-on]')
@@ -294,7 +293,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const uploadChecklist = useUpload((s) => s.checklist)
   const uploadManifest = useUpload((s) => s.manifest)
   const uploadArtifact = useUpload((s) => s.artifact)
-  const libraryComponents = useMerchantLibrary((s) => s.components)
 
   const lines = useCopilotThread((s) => s.lines)
   const say = useCopilotThread((s) => s.say)
@@ -361,31 +359,21 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     reset()
   }
 
-  const showStepStrip = () => {
-    useOrchestration.getState().markStepStripShown()
-    say('bot', 'This is the chain a subscriber walks. Drag if the order is wrong.', { widget: 'steps' })
-  }
-
   const beginPostCanvas = () => {
-    const current = useJourney.getState().file
     setTurn('plan')
-    const start: typeof beat = isBrandMatched(current.brand) ? 'walk' : 'brand'
-    setBeat(start)
-    say('bot', beatPrompt(start, current))
+    setBeat('walk')
   }
 
-  /** Recap first — brand is a required chat beat, not a sticky pane. */
+  /** Recap first. Brand waits until the other plan beats are done. */
   const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
     say('bot', planIntro(live), { widget: 'plan' })
-    showStepStrip()
-    if (live.source === 'authored') useOrchestration.getState().setSpotlight('journey')
+    useOrchestration.getState().markStepStripShown()
     beginPostCanvas()
   }
 
   const continuePlan = (said: string) => {
-    if (beat === 'brand' && !isBrandMatched(useJourney.getState().file.brand)) return
     say('you', said)
     const orch = useOrchestration.getState()
     if (beat === 'walk') orch.setWalkedOrSkipped(true)
@@ -405,21 +393,20 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
 
   const keepDefaults = () => {
     const current = useJourney.getState().file
-    if (!isBrandMatched(current.brand)) {
-      setTurn('plan')
-      setBeat('brand')
-      say('bot', beatPrompt('brand', current), { look: 'brand' })
-      return
-    }
     const orch = useOrchestration.getState()
     orch.confirmSetupItem('audience')
     orch.confirmSetupItem('holdout')
     orch.setWalkedOrSkipped(true)
     say('you', 'Keep defaults and walk it')
     setTurn('plan')
+    useExperience.getState().setMode('play')
+    if (!isBrandMatched(current.brand)) {
+      setBeat('brand')
+      say('bot', beatPrompt('brand', current), { look: 'brand' })
+      return
+    }
     setBeat('publish')
     say('bot', beatPrompt('publish', current), { look: 'walk' })
-    useExperience.getState().setMode('play')
   }
 
   const jumpPlan = (next: PlanBeat) => {
@@ -441,8 +428,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
 
   const recommendTemplate = (template: JourneyTemplate, said: string) => {
     say('you', said)
-    const entry = LIBRARY.find((e) => e.id === template)
-    if (entry) say('bot', entry.why)
     applyTemplate(template)
   }
 
@@ -466,17 +451,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }
 
   const afterUploadConfirm = () => {
-    const live = useJourney.getState().file
-    const saved = live.artifact
-      ? useMerchantLibrary.getState().templates.find((t) => t.checksum === live.artifact?.checksum)
-      : undefined
-    say('bot', savedToLibraryCopy(saved?.name ?? live.name, saved?.stepLabels ?? []))
-    say(
-      'bot',
-      'Hosted. Catalog binds are Copilot’s. This is the chain a subscriber walks — then we match the look.',
-    )
-    showStepStrip()
-    beginPostCanvas()
+    landUploadedPlan()
   }
 
   const applyMatchedBrand = async (text: string) => {
@@ -498,8 +473,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
 
   const startAcquire = () => {
     say('you', 'Pricing table → hosted checkout')
-    const entry = LIBRARY.find((e) => e.id === 'acquire_2')
-    if (entry) say('bot', entry.why)
     const next = startFromTemplate(
       { ...EMPTY_JOURNEY, kind: 'acquisition', brand: useJourney.getState().file.brand },
       'acquire_2',
@@ -529,7 +502,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const saved = useMerchantLibrary.getState().getTemplate(id)
     if (!saved) return
     say('you', saved.name)
-    say('bot', `Opened “${saved.name}” from My templates. Copilot still fills brand, audience, holdout, and walk.`)
     landPlan(
       applyMerchantJourney(
         useJourney.getState().file,
@@ -550,12 +522,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const blank = current.steps.length === 0
     const next = blank ? startFromComponent(current, found) : attachComponent(current, found)
     say('you', `Use ${found.label} chrome`)
-    say(
-      'bot',
-      blank
-        ? startedFromComponentCopy(found.label)
-        : attachedChromeCopy(found.label, templatePosture(next.template) || next.name),
-    )
     landPlan(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingMerchantComponent])
@@ -647,12 +613,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     }
     const read = interpret(text, file)
     if (read.changed) replaceFile(read.file)
-    say('bot', read.reply)
     if (read.changed && read.file.steps.length > 0) {
       say('bot', planIntro(read.file), { widget: 'plan' })
-      showStepStrip()
+      useOrchestration.getState().markStepStripShown()
       beginPostCanvas()
+      return
     }
+    say('bot', read.reply)
   }
 
   const options = useMemo(() => {
@@ -734,44 +701,19 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       )
     }
     if (turn === 'plan') {
-      const attachable = matchingComponents(file, libraryComponents).filter(
-        (c) => !file.steps.some((s) => s.kind === c.kind && s.chrome?.libraryComponentId === c.id),
-      )
       return (
-        <div className="space-y-4">
-          {attachable.length > 0 && file.source !== 'uploaded' && (
-            <div className="space-y-2">
-              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#677488]">
-                Your chrome
-              </p>
-              {attachable.slice(0, 4).map((c) => (
-                <OptionBtn
-                  key={c.id}
-                  label={`Use saved ${CB_KIND_LABELS[c.kind as CbKind] ?? c.label}`}
-                  hint="Reuses the same library object — Copilot keeps brand and targeting"
-                  onClick={() => {
-                    const next = attachComponent(useJourney.getState().file, c)
-                    say('you', `Use ${c.label} chrome`)
-                    replaceFile(next)
-                    say('bot', attachedChromeCopy(c.label, templatePosture(next.template) || next.name))
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          <SpotlightFrame id={spotlightForBeat(beat) ?? 'plan'}>
-            <PlanBeatCard
-              beat={beat}
-              onContinue={continuePlan}
-              onConfirm={confirmPlan}
-              onPreview={() => {
-                useOrchestration.getState().setWalkedOrSkipped(true)
-                useExperience.getState().setMode('play')
-              }}
-              onKeepDefaults={keepDefaults}
-            />
-          </SpotlightFrame>
-        </div>
+        <SpotlightFrame id={spotlightForBeat(beat) ?? 'plan'}>
+          <PlanBeatCard
+            beat={beat}
+            onContinue={continuePlan}
+            onConfirm={confirmPlan}
+            onPreview={() => {
+              useOrchestration.getState().setWalkedOrSkipped(true)
+              useExperience.getState().setMode('play')
+            }}
+            onKeepDefaults={keepDefaults}
+          />
+        </SpotlightFrame>
       )
     }
     if (turn === 'done') {
@@ -791,13 +733,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, beat, file, uploadPhase, pendingLibraryTemplate, libraryComponents])
+  }, [turn, beat, file, uploadPhase, pendingLibraryTemplate])
 
   const subtitle = emptyHome
     ? 'New Conversation'
     : dockMode === 'code'
       ? 'Journey context'
-      : file.name && file.template !== 'none'
+      : file.name && (file.template !== 'none' || file.source === 'uploaded' || file.steps.length > 0)
         ? file.name
         : 'New Conversation'
 
@@ -891,7 +833,9 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       {dockMode === 'code' ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <p className="flex-none border-b border-slate-100 px-3 py-2 text-[11.5px] leading-relaxed text-slate-500">
-            This is the context Copilot built. Edit a sentence; the canvas follows.
+            {file.source === 'uploaded'
+              ? 'The screens are the file you uploaded. You can edit who sees it, page type, holdout, brand, or the save offer — not the screens.'
+              : 'This is the context Copilot built. Edit a sentence; the canvas follows.'}
           </p>
           <textarea
             value={draftContext}

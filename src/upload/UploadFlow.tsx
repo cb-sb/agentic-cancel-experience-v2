@@ -1,3 +1,4 @@
+import { landUploadedPlan } from '../orchestration/copilotThread'
 import { useCopilotStage } from '../orchestration/copilotStage'
 import { ConfirmManifest } from './ConfirmManifest'
 import { UploadTemplate } from './UploadTemplate'
@@ -32,7 +33,7 @@ export function UploadFlow() {
             </button>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden p-5">
-          {phase === 'pick' ? <UploadTemplate /> : <ConfirmManifest />}
+          {phase === 'pick' ? <UploadTemplate /> : <ConfirmManifest onConfirmed={landUploadedPlan} />}
         </div>
       </div>
     </div>

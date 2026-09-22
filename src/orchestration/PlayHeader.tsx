@@ -62,24 +62,24 @@ function PlayToolbar() {
 /**
  * `Save draft`, and what it last did.
  *
- * The badge beside it has said `Draft` since the first commit while everything
- * lived in memory, so a reload threw the draft away. The button is what makes
- * the badge true; the line under it is how you know it worked, and it is the
- * one place the prototype admits there is unsaved work.
+ * When the file is clean, only the timestamp shows — a disabled Save button
+ * next to “Saved just now” and a Draft badge is three statuses for one fact.
  */
 function SaveDraft() {
   const dirty = useOrchestration((s) => s.dirty)
   const savedAt = useOrchestration((s) => s.savedAt)
 
+  if (!dirty) {
+    if (!savedAt) return null
+    return (
+      <span className="whitespace-nowrap text-[12px] text-slate-400">Saved {sinceLabel(savedAt)}</span>
+    )
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="whitespace-nowrap text-[11px] font-semibold text-slate-400">
-        {dirty ? 'Unsaved changes' : savedAt ? `Saved ${sinceLabel(savedAt)}` : 'Nothing to save'}
-      </span>
-      <SButton size="small" variant="neutral-outline" disabled={!dirty} onClick={saveDraft}>
-        Save draft
-      </SButton>
-    </div>
+    <SButton size="small" variant="neutral-outline" onClick={saveDraft}>
+      Save draft
+    </SButton>
   )
 }
 
@@ -174,17 +174,17 @@ export function PlayHeader() {
 
   return (
     <>
-      <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-slate-200 bg-white px-5">
+      <header className="grid h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-slate-200 bg-white px-5">
         <PlayIdentity />
         <PlayToolbar />
-        <div className="flex flex-none items-center gap-2">
+        <div className="flex min-w-0 items-center justify-end gap-[12px]">
           {uploaded && (
-            <SButton size="small" variant="neutral-outline" onClick={openRemap}>
+            <SButton size="small" variant="neutral-ghost" onClick={openRemap}>
               Remap slots
             </SButton>
           )}
           <SaveDraft />
-          <span className="mx-1 h-5 w-px bg-slate-200" />
+          <span className="h-5 w-px flex-none bg-slate-200" aria-hidden />
           <PublishControls />
         </div>
       </header>

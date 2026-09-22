@@ -137,9 +137,13 @@ export function interpret(text: string, current: JourneyFile): Interpretation {
   let rebuilt = false
 
   const nextKind = kind ?? (current.template === 'none' ? null : current.kind)
+  const uploaded = current.source === 'uploaded'
 
   // --- Structure: kind, step count, template ------------------------------
-  if (nextKind === 'acquisition') {
+  // Uploaded screens are the pack. Never rebuild them from a Chargebee template.
+  if (uploaded) {
+    // Targeting, shell, offers, and brand still apply below.
+  } else if (nextKind === 'acquisition') {
     if (current.kind !== 'acquisition' || current.template !== 'acquire_2') {
       file = startFromTemplate(file, 'acquire_2')
       rebuilt = true
