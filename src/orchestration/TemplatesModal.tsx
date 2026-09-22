@@ -62,7 +62,7 @@ export function LibraryPanel() {
           onUpload={startNew}
         />
       ) : (
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <LibraryBrowse onApply={(id) => applyLibraryTemplate(id)} />
         </div>
       )}
