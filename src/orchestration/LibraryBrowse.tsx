@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { STabs } from '@chargebee/sting-react'
 import {
   LIBRARY,
   type LibraryEntry,
@@ -141,43 +142,58 @@ export function LibraryBrowse({
           />
         </div>
       </div>
-      <div className={`flex flex-wrap gap-[6px] ${compact ? '' : 'px-6 pt-3'}`}>
-        {(['cancel', 'acquisition'] as const).map((id) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => {
-              setCat(id)
-              setShape('all')
-            }}
-            className={`rounded-full px-[10px] py-[4px] text-[12px] font-semibold ${
-              cat === id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {id === 'cancel' ? 'Cancel' : 'Acquire'}
-          </button>
-        ))}
+      <div className={compact ? '' : 'px-6'}>
+        <STabs
+          value={cat}
+          onValueChange={(id) => {
+            setCat(id as Filter)
+            setShape('all')
+          }}
+          variant="underline"
+          size="sm"
+        >
+          <STabs.List>
+            <STabs.Trigger value="cancel">Cancel</STabs.Trigger>
+            <STabs.Trigger value="acquisition">Acquire</STabs.Trigger>
+          </STabs.List>
+        </STabs>
       </div>
       {cat === 'cancel' && (
-        <div className={`flex flex-wrap gap-[6px] ${compact ? '' : 'sticky top-0 z-10 bg-white px-6 pt-2'}`}>
-          {SHAPE_PILLS.map((pill) => {
-            const count =
-              pill.id === 'all'
-                ? cancelCatalog.length
-                : shapeCounts[pill.id]
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => setShape(pill.id)}
-                className={`rounded-full px-[10px] py-[4px] text-[12px] font-semibold ${
-                  shape === pill.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {pill.label} ({count})
-              </button>
-            )
-          })}
+        <div
+          className={`flex flex-col gap-[8px] ${
+            compact ? '' : 'sticky top-0 z-10 bg-white px-6 pt-3'
+          }`}
+        >
+          <SectionLabel>Path type</SectionLabel>
+          <div
+            role="group"
+            aria-label="Path type"
+            className="inline-flex w-fit max-w-full flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-[3px]"
+          >
+            {SHAPE_PILLS.map((pill) => {
+              const count =
+                pill.id === 'all' ? cancelCatalog.length : shapeCounts[pill.id]
+              const selected = shape === pill.id
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setShape(pill.id)}
+                  className={`rounded-md px-[10px] py-[5px] text-[12px] font-medium ${
+                    selected
+                      ? 'bg-white text-slate-900'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {pill.label}
+                  <span className={`ml-[4px] text-[11px] font-normal ${selected ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
       <div className={compact ? 'space-y-[12px]' : 'min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5'}>

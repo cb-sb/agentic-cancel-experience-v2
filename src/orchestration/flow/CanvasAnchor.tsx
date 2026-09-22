@@ -19,6 +19,7 @@ import { useOrchestration } from '../../store/useOrchestration'
 export function CanvasAnchor() {
   const { getViewport, setViewport } = useReactFlow()
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
+  const copilotRailExpanded = useOrchestration((s) => s.copilotRailExpanded)
   const last = useRef<number | null>(null)
 
   const hold = useCallback(() => {
@@ -49,7 +50,7 @@ export function CanvasAnchor() {
    * layout, which was late enough to show a single frame of the play at its
    * uncorrected position — a flicker on the way out of focus.
    */
-  useLayoutEffect(hold, [hold, assistantOpen])
+  useLayoutEffect(hold, [hold, assistantOpen, copilotRailExpanded])
 
   useEffect(() => {
     const pane = document.querySelector('[data-canvas-pane]')

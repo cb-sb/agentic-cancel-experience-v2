@@ -3,7 +3,7 @@ import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { usePresence } from '../lib/usePresence'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
-import { ASSISTANT_FOLDED_W, ASSISTANT_W, COPILOT_CENTER_W } from './paneTokens'
+import { ASSISTANT_EXPANDED_W, ASSISTANT_FOLDED_W, ASSISTANT_W, COPILOT_CENTER_W } from './paneTokens'
 import { useAssistant } from './assistant/useAssistant'
 import { CopilotMark } from './CopilotMark'
 import { PromptCodeDock } from './PromptCodeDock'
@@ -58,14 +58,14 @@ function CenterOverlay({
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center">
       <div
-        aria-hidden={!library}
+        aria-hidden={!onBackdrop}
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm motion-reduce:transition-none"
         style={{
           opacity: library ? 1 : 0,
-          pointerEvents: library && onBackdrop ? 'auto' : 'none',
+          pointerEvents: onBackdrop ? 'auto' : 'none',
           transition: `opacity ${COPILOT_MORPH_MS}ms ${library ? EASE_ENTER : EASE_LEAVE}`,
         }}
-        onClick={library ? onBackdrop : undefined}
+        onClick={onBackdrop}
       />
       <div
         className="relative z-10 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] motion-reduce:transition-none"
@@ -89,6 +89,8 @@ export function OrchestrationCanvas() {
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const copilotDocked = useOrchestration((s) => s.copilotDocked)
+  const dockCopilot = useOrchestration((s) => s.dockCopilot)
+  const copilotRailExpanded = useOrchestration((s) => s.copilotRailExpanded)
   const previewing = useExperience((s) => s.mode === 'play')
   const stage = useCopilotStage()
 
@@ -129,7 +131,10 @@ export function OrchestrationCanvas() {
           <DoorsBackdrop />
           {stage === 'doors' && !templatesOpen && <BlankJourneyDoors />}
           {(library || copilot) && (
-            <CenterOverlay size={copilot ? 'copilot' : 'library'} onBackdrop={closeTemplates}>
+            <CenterOverlay
+              size={copilot ? 'copilot' : 'library'}
+              onBackdrop={copilot ? dockCopilot : closeTemplates}
+            >
               {copilot ? <PromptCodeDock compact /> : <LibraryPanel />}
             </CenterOverlay>
           )}
@@ -140,10 +145,12 @@ export function OrchestrationCanvas() {
     )
   }
 
-  const gridTemplateColumns = [
-    '1fr',
-    assistantOpen ? `${ASSISTANT_W}px` : `${ASSISTANT_FOLDED_W}px`,
-  ].join(' ')
+  const railWidth = assistantOpen
+    ? copilotRailExpanded
+      ? ASSISTANT_EXPANDED_W
+      : `${ASSISTANT_W}px`
+    : `${ASSISTANT_FOLDED_W}px`
+  const gridTemplateColumns = ['1fr', railWidth].join(' ')
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-100">
@@ -197,7 +204,7 @@ function AssistantColumn() {
           aria-hidden={!dock.open}
           className="absolute inset-0 flex min-h-0 flex-col motion-reduce:transition-none"
           style={{
-            width: ASSISTANT_W,
+            width: '100%',
             right: 0,
             opacity: dock.open ? 1 : 0,
             transform: `translateX(${dock.open ? 0 : 16}px)`,

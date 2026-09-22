@@ -288,6 +288,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const pendingCopilotGuide = useOrchestration((s) => s.pendingCopilotGuide)
   const setupDoor = useOrchestration((s) => s.setupDoor)
   const copilotDocked = useOrchestration((s) => s.copilotDocked)
+  const copilotRailExpanded = useOrchestration((s) => s.copilotRailExpanded)
+  const setCopilotRailExpanded = useOrchestration((s) => s.setCopilotRailExpanded)
   const uploadPhase = useUpload((s) => s.phase)
   const uploadChecklist = useUpload((s) => s.checklist)
   const uploadManifest = useUpload((s) => s.manifest)
@@ -346,6 +348,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }, [spotlight, spotlightNonce])
 
   const reset = () => {
+    useUpload.getState().close()
     replaceFile({ ...EMPTY_JOURNEY, brand: useJourney.getState().file.brand })
     useOrchestration.getState().resetSetup()
     setTurn('kind')
@@ -354,17 +357,8 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     resetThread()
   }
 
-  const conversationStarted =
-    file.steps.length > 0 ||
-    draft.trim().length > 0 ||
-    lines.filter((l) => l.from === 'you').length > 1
-
   const goBack = () => {
-    if (copilotDocked || !conversationStarted) {
-      reset()
-      return
-    }
-    useOrchestration.getState().dockCopilot()
+    reset()
   }
 
   const showStepStrip = () => {
@@ -872,9 +866,23 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               {label}
             </button>
           ))}
+          {!compact && !copilotDocked && (
+            <HeaderIconButton
+              label={copilotRailExpanded ? 'Reduce Copilot width' : 'Expand Copilot width'}
+              pressed={copilotRailExpanded}
+              onClick={() => setCopilotRailExpanded(!copilotRailExpanded)}
+            >
+              <SIcon name={copilotRailExpanded ? 'chevrons-right' : 'chevrons-left'} size={16} />
+            </HeaderIconButton>
+          )}
           {!focusing && !compact && !copilotDocked && (
             <HeaderIconButton label="Collapse Copilot" onClick={() => setAssistantOpen(false)}>
               <SIcon name="panel-right" size={16} />
+            </HeaderIconButton>
+          )}
+          {(compact || copilotDocked) && (
+            <HeaderIconButton label="Close" onClick={reset}>
+              <SIcon name="x" size={16} />
             </HeaderIconButton>
           )}
         </div>
@@ -916,7 +924,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
         <div className="flex min-h-0 flex-1">
           <div className="flex w-[44px] flex-none flex-col items-center gap-[8px] pt-[16px]">
             {compact || copilotDocked ? (
-              <HeaderIconButton label="Back" onClick={goBack}>
+              <HeaderIconButton label="Exit" onClick={goBack}>
                 <SIcon name="arrow-left" size={16} />
               </HeaderIconButton>
             ) : (

@@ -7,7 +7,7 @@
  * finished animating, which it cannot get by measuring mid-flight.
  */
 
-/** Chargebee Copilot, open — a full-height right rail, not a floating card. */
+/** Chargebee Copilot, reduced rail — keeps more of the workflow canvas in view. */
 export const ASSISTANT_W = 400
 
 /**
@@ -15,6 +15,13 @@ export const ASSISTANT_W = 400
  * Back peels the window to the right without resizing the conversation.
  */
 export const COPILOT_CENTER_W = '50vw'
+
+/**
+ * Expanded rail after a journey lands. Same 50vw as center Copilot so the
+ * conversation does not shrink when the canvas snaps in; the merchant can
+ * switch back to `ASSISTANT_W`.
+ */
+export const ASSISTANT_EXPANDED_W = COPILOT_CENTER_W
 
 /**
  * Chargebee Copilot, folded. A narrow right rail that holds the launcher icon

@@ -180,6 +180,11 @@ interface OrchestrationState {
   dockPosition: DockPosition
   /** Whether the setup-assistant side pane is open (pushes the canvas). */
   assistantOpen: boolean
+  /**
+   * Rail Copilot takes `ASSISTANT_EXPANDED_W` (50vw) instead of the reduced
+   * 400px column. Default on so a landed template does not shrink the chat.
+   */
+  copilotRailExpanded: boolean
   /** Cursor design-mode: click a canvas element to ask about it. */
   annotateMode: boolean
   /** Element currently being annotated (inline composer open), or null. */
@@ -238,6 +243,7 @@ interface OrchestrationState {
   toggleFlowDetail: (flowId: string) => void
   setDockPosition: (pos: DockPosition) => void
   setAssistantOpen: (open: boolean) => void
+  setCopilotRailExpanded: (expanded: boolean) => void
   setAnnotateMode: (on: boolean) => void
   openAnnotation: (target: AnnotationTarget) => void
   closeAnnotation: () => void
@@ -306,6 +312,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   detailFlows: {},
   dockPosition: 'bottom-left',
   assistantOpen: true,
+  copilotRailExpanded: true,
   annotateMode: false,
   annotationTarget: null,
   configTarget: null,
@@ -370,6 +377,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
     if (!open && get().focusTarget && useExperience.getState().mode !== 'play') return
     set({ assistantOpen: open })
   },
+  setCopilotRailExpanded: (expanded) => set({ copilotRailExpanded: expanded }),
   setAnnotateMode: (on) =>
     set({
       annotateMode: on,
@@ -461,6 +469,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       pendingMerchantTemplate: null,
       pendingMerchantComponent: null,
       assistantOpen: true,
+      copilotRailExpanded: true,
     })
   },
 

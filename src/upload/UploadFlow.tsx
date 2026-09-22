@@ -20,16 +20,16 @@ export function UploadFlow() {
             </h2>
             <p className="text-[12px] text-slate-500">Chargebee hosts chrome. Growth owns the slots.</p>
           </div>
-          <button
-            type="button"
-            onClick={close}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
-            aria-label="Close"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
+            <button
+              type="button"
+              onClick={close}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden p-5">
           {phase === 'pick' ? <UploadTemplate /> : <ConfirmManifest />}
