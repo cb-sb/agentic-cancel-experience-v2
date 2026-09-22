@@ -1,3 +1,4 @@
+import { SButton } from '@chargebee/sting-react'
 import { brandGatePrompt, isBrandMatched } from '../brand/matchSite'
 import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
@@ -6,6 +7,25 @@ import { uploadedScreenChain } from '../journey/contextDoc'
 import type { AudienceKey, JourneyFile, OfferKey } from '../journey/types'
 import { audienceLabel, useJourney } from '../store/useJourney'
 import type { ShellLayout } from '../types/experience'
+
+function CtaPair({
+  primary,
+  secondary,
+}: {
+  primary: { label: string; onClick: () => void }
+  secondary: { label: string; onClick: () => void }
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-[8px]">
+      <SButton size="small" variant="neutral-outline" className="w-auto shrink-0" onClick={secondary.onClick}>
+        {secondary.label}
+      </SButton>
+      <SButton size="small" variant="primary" className="w-auto shrink-0" onClick={primary.onClick}>
+        {primary.label}
+      </SButton>
+    </div>
+  )
+}
 
 const AUDIENCES: AudienceKey[] = ['all', 'paying', 'high_value', 'high_risk', 'annual', 'in_trial']
 
@@ -217,43 +237,22 @@ export function PlanBeatCard({
 
   if (beat === 'walk') {
     return (
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={onPreview}
-          className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-[13px] font-bold text-white hover:bg-slate-800"
-        >
-          Walk this as a subscriber
-        </button>
-        <button
-          type="button"
-          onClick={() => onContinue('Skip walk for now')}
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          Skip walk for now
-        </button>
-      </div>
+      <CtaPair
+        primary={{ label: 'Walk this as a subscriber', onClick: onPreview }}
+        secondary={{ label: 'Skip walk for now', onClick: () => onContinue('Skip walk for now') }}
+      />
     )
   }
 
   if (beat === 'publish' || beat === 'review') {
     return (
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={onPreview}
-          className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-[13px] font-bold text-white hover:bg-slate-800"
-        >
-          Walk this as a subscriber
-        </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          {beat === 'publish' ? 'Publish anyway' : 'Looks good — I’m done for now'}
-        </button>
-      </div>
+      <CtaPair
+        primary={{ label: 'Walk this as a subscriber', onClick: onPreview }}
+        secondary={{
+          label: beat === 'publish' ? 'Publish anyway' : 'Looks good — I’m done for now',
+          onClick: onConfirm,
+        }}
+      />
     )
   }
 
@@ -349,31 +348,31 @@ export function PlanBeatCard({
       )}
 
       {beat !== 'audience' && beat !== 'shell' && beat !== 'brand' && (
-        <button
-          type="button"
-          onClick={() => onContinue(keepLabel(beat, file))}
-          className="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-slate-800"
-        >
-          {keepLabel(beat, file)}
-        </button>
+        <div className="mt-3">
+          <CtaPair
+            primary={{ label: keepLabel(beat, file), onClick: () => onContinue(keepLabel(beat, file)) }}
+            secondary={{ label: 'Keep defaults and walk it', onClick: onKeepDefaults }}
+          />
+        </div>
       )}
       {beat === 'brand' && !isBrandMatched(file.brand) && (
-        <button
-          type="button"
-          onClick={() => onContinue('Match the look later')}
-          className="mt-3 w-full rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-        >
-          Do this later
-        </button>
+        <div className="mt-3 flex justify-end">
+          <SButton
+            size="small"
+            variant="neutral-ghost"
+            className="w-auto shrink-0"
+            onClick={() => onContinue('Match the look later')}
+          >
+            Do this later
+          </SButton>
+        </div>
       )}
-      {beat !== 'brand' && (
-        <button
-          type="button"
-          onClick={onKeepDefaults}
-          className="mt-2 w-full rounded-xl px-3 py-2 text-[12.5px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-        >
-          Keep defaults and walk it
-        </button>
+      {(beat === 'audience' || beat === 'shell') && (
+        <div className="mt-3 flex justify-end">
+          <SButton size="small" variant="neutral-ghost" className="w-auto shrink-0" onClick={onKeepDefaults}>
+            Keep defaults and walk it
+          </SButton>
+        </div>
       )}
     </div>
   )

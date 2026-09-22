@@ -261,20 +261,20 @@ export function StepStrip({
 
   return (
     <div className="mt-[12px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-end justify-between gap-[12px] px-[16px] pb-[10px] pt-[14px]">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-            Step chain
-          </p>
-          <p className="mt-[2px] text-[14px] font-bold leading-[20px] text-slate-900">
+      <div className="px-[16px] pb-[10px] pt-[14px]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          Step chain
+        </p>
+        <div className="mt-[2px] flex flex-wrap items-baseline gap-x-[8px] gap-y-[2px]">
+          <p className="text-[14px] font-bold leading-[20px] text-slate-900">
             {steps.length} screen{steps.length === 1 ? '' : 's'} a subscriber walks
           </p>
+          {canReorder && <p className="text-[12px] leading-[20px] text-slate-400">Drag to reorder</p>}
         </div>
-        {canReorder && <p className="pb-[2px] text-[12px] text-slate-400">Drag to reorder</p>}
       </div>
       <ol
         ref={listRef}
-        className="flex items-start overflow-x-auto px-[16px] py-[16px]"
+        className="no-scrollbar flex items-start overflow-x-auto px-[16px] py-[16px]"
         style={{
           backgroundColor: '#f8fafc',
           backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)',
