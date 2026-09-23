@@ -165,10 +165,18 @@ function HeaderIconButton({
   )
 }
 
+function lineEnterClass(line: CopilotLine) {
+  const ts = Number(line.id.split('-')[0])
+  const fresh = Number.isFinite(ts) && Date.now() - ts < 800
+  if (!fresh) return ''
+  return line.from === 'you' ? 'cb-copilot-enter-you' : 'cb-copilot-enter'
+}
+
 function ChatLine({ line, children }: { line: CopilotLine; children?: ReactNode }) {
+  const enter = lineEnterClass(line)
   if (line.from === 'you') {
     return (
-      <div className="flex justify-end pl-[36px]">
+      <div className={`flex justify-end pl-[36px] ${enter}`}>
         <div className="max-w-[min(92%,520px)]">
           {line.ref && (
             <div className="mb-[4px] text-right text-[11px] font-medium text-[#677488]">On {line.ref}</div>
@@ -186,7 +194,7 @@ function ChatLine({ line, children }: { line: CopilotLine; children?: ReactNode 
   }
 
   return (
-    <div className="flex items-start gap-[10px]">
+    <div className={`flex items-start gap-[10px] ${enter}`}>
       <CopilotMark size={20} className="mt-[2px] shrink-0" alt="" />
       <div className="min-w-0 flex-1">
         {line.ref && (
@@ -899,7 +907,11 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                   </ChatLine>
                 ))}
               </div>
-              <div className="mt-[16px]">{options}</div>
+              {options ? (
+                <div key={`${turn}-${beat}-${uploadPhase}`} className="cb-copilot-enter mt-[16px]">
+                  {options}
+                </div>
+              ) : null}
             </div>
             <div className="flex-none px-[16px] pb-[12px] pt-[4px]">
               <PromptInput
