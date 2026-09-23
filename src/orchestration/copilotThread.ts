@@ -87,7 +87,10 @@ export const useCopilotThread = create<CopilotThread>((set) => ({
       ],
     }))
     if (from === 'bot') {
-      const look = opts.look ?? spotlightForWidget(opts.widget)
+      // The step-chain strip no longer flashes a look-here ring the first time
+      // it appears — it now animates its cards in instead. Only an explicit
+      // `look` (or another widget like the plan card) points the merchant.
+      const look = opts.look ?? (opts.widget === 'steps' ? null : spotlightForWidget(opts.widget))
       if (look) useOrchestration.getState().setSpotlight(look)
     }
   },

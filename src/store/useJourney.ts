@@ -5,7 +5,13 @@ import { compileJourney } from '../journey/compile'
 import { stringifyJourney, parseJourney } from '../journey/yaml'
 import { parseContext } from '../journey/contextDoc'
 import { journeyBrandFrom } from '../brand/theme'
-import { EMPTY_JOURNEY, DEFAULT_JOURNEY_BRAND, isTailKind, type JourneyFile } from '../journey/types'
+import {
+  EMPTY_JOURNEY,
+  DEFAULT_JOURNEY_BRAND,
+  isTailKind,
+  type JourneyFile,
+  type JourneyStepFile,
+} from '../journey/types'
 import type { Branding } from '../types/experience'
 import { useExperience } from './useExperience'
 import { useOrchestration } from './useOrchestration'
@@ -77,6 +83,8 @@ interface JourneyState {
   setYaml: (text: string) => void
   applyContextDoc: (text: string) => void
   reorderSteps: (fromId: string, toId: string) => void
+  /** Patch one step's content directly (Context editor). Deep-merges `content`. */
+  updateStep: (id: string, patch: Partial<JourneyStepFile>) => void
   applyBrand: (branding: Branding, matched?: boolean) => void
 }
 
@@ -122,6 +130,20 @@ export const useJourney = create<JourneyState>((set, get) => ({
       return
     }
     set({ ...pushFile(parsed.file), contextError: null })
+  },
+
+  updateStep: (id, patch) => {
+    const file = get().file
+    const steps = file.steps.map((s) =>
+      s.id === id
+        ? {
+            ...s,
+            ...patch,
+            content: patch.content ? { ...s.content, ...patch.content } : s.content,
+          }
+        : s,
+    )
+    set({ ...pushFile({ ...file, steps }), contextError: null })
   },
 
   applyBrand: (branding, matched) => {

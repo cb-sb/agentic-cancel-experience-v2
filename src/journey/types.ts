@@ -76,6 +76,22 @@ export interface JourneyStepChrome {
   fields: ManifestField[]
 }
 
+/**
+ * Component-level content the Context editor writes back onto a step. These are
+ * overrides layered on top of the factory defaults at compile time, so the
+ * JourneyFile stays the source of truth for what the subscriber actually sees.
+ */
+export interface JourneyStepContent {
+  /** Loss aversion — "what you'll keep" bullet labels, in order. */
+  keepItems?: string[]
+  /** Loss aversion — "what you'll lose" bullet labels, in order. */
+  loseItems?: string[]
+  /** Survey — reason option labels, in order. */
+  surveyReasons?: string[]
+  /** Survey — free-text prompt under the reasons. */
+  surveyPrompt?: string
+}
+
 export interface JourneyStepFile {
   id: string
   kind: JourneyStepKind
@@ -83,6 +99,8 @@ export interface JourneyStepFile {
   headline?: string
   body?: string
   offer?: OfferKey
+  /** Component-level copy the Context editor edits directly. */
+  content?: JourneyStepContent
   /** Saved merchant chrome for this step. Compile still uses factories for the rest. */
   chrome?: JourneyStepChrome
 }

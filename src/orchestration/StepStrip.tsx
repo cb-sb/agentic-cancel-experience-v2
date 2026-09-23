@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { SButton, SIcon } from '@chargebee/sting-react'
 import { isTailKind, type JourneyStepFile } from '../journey/types'
 import { StepOutline } from './flow/tiers/StepOutline'
@@ -20,9 +20,11 @@ const KIND_LABEL: Record<JourneyStepFile['kind'], string> = {
 
 const THUMB_W = 184
 const THUMB_H = 124
-const GAP_IDLE = 22
-const GAP_DRAG = 32
+const GAP_IDLE = 30
+const GAP_DRAG = 34
 const DRAG_THRESHOLD = 6
+/** Fast per-card stagger for the one-time "steps being added" intro. */
+const INTRO_STEP_MS = 80
 
 function visibleSteps(steps: JourneyStepFile[], includeOutcomes: boolean) {
   if (includeOutcomes) return steps
@@ -49,16 +51,20 @@ function SlotGap({
   insert,
   dragging,
   chevron,
+  popDelay,
 }: {
   insert: boolean
   dragging: boolean
   chevron: boolean
+  popDelay?: number
 }) {
   const w = insert ? GAP_DRAG : dragging && chevron ? GAP_DRAG : chevron ? GAP_IDLE : 0
   return (
     <li
-      className="relative flex flex-none items-center justify-center self-start"
-      style={{ width: w, height: THUMB_H }}
+      className={`relative flex flex-none items-center justify-center self-start${
+        popDelay != null ? ' cb-step-pop' : ''
+      }`}
+      style={{ width: w, height: THUMB_H, ...(popDelay != null ? { animationDelay: `${popDelay}ms` } : {}) }}
       aria-hidden
     >
       {insert ? (
@@ -74,11 +80,11 @@ function SlotGap({
       ) : (
         chevron &&
         !dragging && (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-slate-300">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-slate-400">
             <path
               d="M5.5 2.5 11 8l-5.5 5.5"
               stroke="currentColor"
-              strokeWidth="1.7"
+              strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -194,6 +200,14 @@ export function StepStrip({
   const insertRef = useRef<number | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
   const [insertIndex, setInsertIndex] = useState<number | null>(null)
+  // Play the "steps being added" intro once, on first appearance of the strip.
+  const [introDone, setIntroDone] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setIntroDone(true), steps.length * INTRO_STEP_MS + 360)
+    return () => window.clearTimeout(t)
+    // Intentionally runs only on mount so reorders never re-trigger the intro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const fromIndex = dragging ? steps.findIndex((s) => s.id === dragging) : -1
   const firstTail = steps.findIndex((s) => isTailKind(s.kind))
@@ -284,14 +298,19 @@ export function StepStrip({
         {steps.map((step, index) => {
           const locked = isTailKind(step.kind)
           const compiled = compiledSteps.find((s) => s.id === step.id)
+          const popDelay = introDone ? undefined : index * INTRO_STEP_MS
           return (
             <Fragment key={step.id}>
               <SlotGap
                 insert={lineAt === index}
                 dragging={Boolean(dragging)}
                 chevron={index > 0}
+                popDelay={popDelay}
               />
-              <li className="flex-none">
+              <li
+                className={`flex-none${popDelay != null ? ' cb-step-pop' : ''}`}
+                style={popDelay != null ? { animationDelay: `${popDelay}ms` } : undefined}
+              >
                 <StepThumb
                   fileStep={step}
                   compiled={compiled}

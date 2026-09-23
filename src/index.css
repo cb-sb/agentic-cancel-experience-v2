@@ -473,6 +473,29 @@ body {
 .cb-copilot-enter {
   animation: cb-copilot-enter 240ms cubic-bezier(0.22, 0.68, 0, 1) 40ms both;
 }
+/*
+ * Step-chain intro. Cards drop into the strip one after another so the merchant
+ * watches the journey get assembled, rather than the whole chain snapping in at
+ * once. `both` holds each card hidden until its stagger delay elapses.
+ */
+@keyframes cb-step-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.cb-step-pop {
+  animation: cb-step-pop 200ms cubic-bezier(0.22, 0.68, 0, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cb-step-pop {
+    animation: none;
+  }
+}
 .cb-copilot-enter-you {
   animation: cb-copilot-enter-you 220ms cubic-bezier(0.22, 0.68, 0, 1) both;
 }

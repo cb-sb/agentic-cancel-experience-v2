@@ -2,7 +2,23 @@ import { useEffect } from 'react'
 import { LibraryBrowse } from './LibraryBrowse'
 import { YoursBrowse } from './YoursBrowse'
 import { useOrchestration } from '../store/useOrchestration'
-import type { LibraryTab } from './copilotStage'
+import { useCopilotStage, type LibraryTab } from './copilotStage'
+
+function ExpandIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </svg>
+  )
+}
+
+function CollapseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 3H3v6M15 21h6v-6M3 3l7 7M21 21l-7-7" />
+    </svg>
+  )
+}
 
 export function LibraryPanel() {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
@@ -41,12 +57,11 @@ export function LibraryPanel() {
         <button
           type="button"
           onClick={closeTemplates}
-          aria-label="Close"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Back to Copilot"
+          className="inline-flex items-center gap-[6px] rounded-lg px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <CollapseIcon />
+          Back to Copilot
         </button>
       </div>
       <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[20px] py-[10px]">
@@ -77,25 +92,51 @@ export function CopilotLibrary({ onUpload }: { onUpload: () => void }) {
   const finishMerchantComponents = useOrchestration((s) => s.finishMerchantComponents)
   const libraryTab = useOrchestration((s) => s.libraryTab)
   const setLibraryTab = useOrchestration((s) => s.setLibraryTab)
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const openTemplates = useOrchestration((s) => s.openTemplates)
+  const closeTemplates = useOrchestration((s) => s.closeTemplates)
+  const stage = useCopilotStage()
+  const copilotDocked = useOrchestration((s) => s.copilotDocked)
+  const expanded = templatesOpen && stage === 'center' && !copilotDocked
+
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeTemplates()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expanded, closeTemplates])
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[16px] py-[10px]">
-        {(['ours', 'yours'] as const).map((id) => (
-          <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
-        ))}
+      <div className="flex items-center justify-between gap-[8px] border-b border-slate-100 px-[16px] py-[10px]">
+        <div className="flex min-w-0 flex-1 gap-[6px]">
+          {(['ours', 'yours'] as const).map((id) => (
+            <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => (expanded ? closeTemplates() : openTemplates())}
+          aria-label={expanded ? 'Collapse into Copilot' : 'Expand library'}
+          title={expanded ? 'Collapse into Copilot' : 'Expand'}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        >
+          {expanded ? <CollapseIcon /> : <ExpandIcon />}
+        </button>
       </div>
       {libraryTab === 'yours' ? (
         <YoursBrowse
-          compact
+          compact={!expanded}
           onApplyJourney={(id) => applyMerchantTemplate(id)}
           onApplyComponents={(ids) => applyMerchantComponents(ids)}
           onDone={() => finishMerchantComponents()}
           onUpload={onUpload}
         />
       ) : (
-        <div className="px-[16px] py-[12px]">
-          <LibraryBrowse compact onApply={(id) => applyLibraryTemplate(id)} />
+        <div className={expanded ? 'min-h-0 px-[8px] py-[12px]' : 'px-[16px] py-[12px]'}>
+          <LibraryBrowse compact={!expanded} onApply={(id) => applyLibraryTemplate(id)} />
         </div>
       )}
     </div>
@@ -120,9 +161,9 @@ export function TemplatesModal() {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[60] flex p-[12px]">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={closeTemplates} />
-      <div className="relative flex h-[740px] w-[880px] max-w-full overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-2xl">
         <LibraryPanel />
       </div>
     </div>

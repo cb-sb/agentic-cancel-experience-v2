@@ -7,7 +7,7 @@ import { startFromTemplate, templateLabel, withLive } from '../journey/templates
 import { interpret } from '../journey/intake'
 import { compileBrand } from '../brand/theme'
 import { isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
-import { renderContext } from '../journey/contextDoc'
+import { ContextEditor } from './ContextEditor'
 import {
   PlanBeatCard,
   PlanSummary,
@@ -223,14 +223,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
   const applyBrand = useJourney((s) => s.applyBrand)
-  const applyContextDoc = useJourney((s) => s.applyContextDoc)
-  const contextError = useJourney((s) => s.contextError)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const annotateMode = useOrchestration((s) => s.annotateMode)
   const setAnnotateMode = useOrchestration((s) => s.setAnnotateMode)
   const closeAnnotation = useOrchestration((s) => s.closeAnnotation)
   const focusing = useOrchestration((s) => s.focusTarget !== null)
   const openTemplates = useOrchestration((s) => s.openTemplates)
+  const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const pendingLibraryTemplate = useOrchestration((s) => s.pendingLibraryTemplate)
   const pendingMerchantTemplate = useOrchestration((s) => s.pendingMerchantTemplate)
@@ -257,9 +256,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const setBeat = useCopilotThread((s) => s.setBeat)
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const contextFocused = useRef(false)
-  const contextDoc = useMemo(() => renderContext(file), [file])
-  const [draftContext, setDraftContext] = useState(contextDoc)
 
   const emptyHome =
     dockMode === 'prompt' &&
@@ -271,16 +267,6 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     if (annotateMode) setDockMode('prompt')
   }, [annotateMode, setDockMode])
-
-  useEffect(() => {
-    if (!contextFocused.current) setDraftContext(contextDoc)
-  }, [contextDoc])
-
-  const applyDraftContext = () => {
-    applyContextDoc(draftContext)
-    const next = useJourney.getState()
-    if (!next.contextError) setDraftContext(renderContext(next.file))
-  }
 
   const spotlight = useOrchestration((s) => s.spotlight)
   const spotlightNonce = useOrchestration((s) => s.spotlightNonce)
@@ -482,8 +468,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (template === 'none') return
     say('you', templateLabel(template))
     const next = startFromTemplate(useJourney.getState().file, template)
-    if (useOrchestration.getState().stepStripShown) landPlan(next)
-    else proposePlan(next)
+    landPlan(next)
   }
 
   useEffect(() => {
@@ -506,8 +491,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       saved,
       useMerchantLibrary.getState().components,
     )
-    if (useOrchestration.getState().stepStripShown) landPlan(next)
-    else proposePlan(next)
+    landPlan(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingMerchantTemplate])
 
@@ -763,8 +747,12 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
             label="Templates"
             pressed={templatesOpen || turn === 'library'}
             onClick={() => {
-              if (stage === 'center') startLibrary()
-              else openTemplates()
+              if (stage === 'center') {
+                if (turn === 'library') {
+                  if (templatesOpen) closeTemplates()
+                  else openTemplates()
+                } else startLibrary()
+              } else openTemplates()
             }}
           >
             <SIcon name="layout-template" size={16} />
@@ -829,36 +817,10 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       {dockMode === 'code' ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <p className="flex-none border-b border-slate-100 px-3 py-2 text-[11.5px] leading-relaxed text-slate-500">
-            {file.source === 'uploaded'
-              ? 'The screens are the file you uploaded. You can edit who sees it, page type, holdout, brand, or the save offer — not the screens.'
-              : 'This is the context Copilot built. Edit a sentence; the canvas follows.'}
+            The complete workflow map. Edit any component — offers, surveys, loss aversion — and the
+            canvas follows. No need to rebuild through chat.
           </p>
-          <textarea
-            value={draftContext}
-            onChange={(e) => setDraftContext(e.target.value)}
-            onFocus={() => {
-              contextFocused.current = true
-            }}
-            onBlur={() => {
-              contextFocused.current = false
-              applyDraftContext()
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                applyDraftContext()
-              }
-            }}
-            spellCheck
-            className="min-h-0 flex-1 resize-none bg-white px-4 py-4 text-[13px] leading-relaxed text-slate-800 outline-none"
-          />
-          {contextError ? (
-            <div className="flex-none border-t border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">{contextError}</div>
-          ) : (
-            <div className="flex-none border-t border-slate-100 px-3 py-2 text-[11px] text-slate-400">
-              Blur to apply, or ⌘↵
-            </div>
-          )}
+          <ContextEditor />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">

@@ -7,6 +7,8 @@ import {
   ASSISTANT_EXPANDED_W,
   ASSISTANT_FOLDED_W,
   ASSISTANT_W,
+  COPILOT_CENTER_EXPANDED_H,
+  COPILOT_CENTER_EXPANDED_W,
   COPILOT_CENTER_H,
   COPILOT_CENTER_W,
 } from './paneTokens'
@@ -51,12 +53,16 @@ function CanvasBackdrop() {
 }
 
 function CenterOverlay({
+  expanded,
   onBackdrop,
   children,
 }: {
+  expanded?: boolean
   onBackdrop?: () => void
   children: React.ReactNode
 }) {
+  const width = expanded ? COPILOT_CENTER_EXPANDED_W : COPILOT_CENTER_W
+  const height = expanded ? COPILOT_CENTER_EXPANDED_H : COPILOT_CENTER_H
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center">
       <div
@@ -70,10 +76,10 @@ function CenterOverlay({
       <div
         className="relative z-10 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] motion-reduce:transition-none"
         style={{
-          width: COPILOT_CENTER_W,
-          height: COPILOT_CENTER_H,
-          maxWidth: COPILOT_CENTER_W,
-          maxHeight: COPILOT_CENTER_H,
+          width,
+          height,
+          maxWidth: width,
+          maxHeight: height,
           transition: `width ${COPILOT_MORPH_MS}ms ${EASE_ENTER}, height ${COPILOT_MORPH_MS}ms ${EASE_ENTER}`,
         }}
       >
@@ -85,6 +91,7 @@ function CenterOverlay({
 
 export function OrchestrationCanvas() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const assistantOpen = useOrchestration((s) => s.assistantOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const copilotDocked = useOrchestration((s) => s.copilotDocked)
@@ -112,6 +119,7 @@ export function OrchestrationCanvas() {
               <PromptCodeDock />
             </div>
           </div>
+          {templatesOpen && <TemplatesModal />}
           <UploadFlow />
         </div>
       )
@@ -120,7 +128,10 @@ export function OrchestrationCanvas() {
       <div className="flex h-full min-h-0 flex-col bg-slate-100">
         <Workspace>
           <CanvasBackdrop />
-          <CenterOverlay onBackdrop={dockCopilot}>
+          <CenterOverlay
+            expanded={templatesOpen}
+            onBackdrop={templatesOpen ? closeTemplates : dockCopilot}
+          >
             <PromptCodeDock compact />
           </CenterOverlay>
         </Workspace>

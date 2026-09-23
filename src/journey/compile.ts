@@ -11,6 +11,7 @@ import {
   makeSurvey,
 } from '../lib/factories'
 import { offerVariantPatch } from '../lib/offerVariants'
+import { uid } from '../lib/id'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { AUDIENCE_LIBRARY, conditionExpression, type Audience, type Play } from '../types/orchestration'
 import type { BlueprintId, Experience, Step } from '../types/experience'
@@ -31,6 +32,23 @@ function offerPatch(key: OfferKey | undefined) {
   return offerVariantPatch(key ?? 'discount')
 }
 
+function slugCode(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'reason'
+}
+
+/** Merge edited bullet labels onto factory items, keeping ids/metadata by index. */
+function mergeLabeled<T extends { id: string; label: string }>(
+  base: T[],
+  labels: string[] | undefined,
+  makeId: () => string,
+): T[] {
+  if (!labels) return base
+  return labels
+    .map((label) => label.trim())
+    .filter(Boolean)
+    .map((label, i) => (base[i] ? { ...base[i], label } : ({ id: makeId(), label } as T)))
+}
+
 function compileStep(s: JourneyStepFile): Step {
   const ghost = s.live === false
   const id = s.id
@@ -38,22 +56,49 @@ function compileStep(s: JourneyStepFile): Step {
   const base = { id, layout: 'single' as const, disabled: ghost }
 
   switch (s.kind) {
-    case 'loss_aversion':
+    case 'loss_aversion': {
+      const la = makeLossAversion({ id: cid })
       return {
         ...base,
         stage: 'value_reinforcement',
         title: s.headline ?? 'Before you go',
         description: s.body ?? '',
-        components: [makeLossAversion({ id: cid })],
+        components: [
+          {
+            ...la,
+            keepItems: mergeLabeled(la.keepItems ?? [], s.content?.keepItems, () => uid('kp')),
+            loseItems: mergeLabeled(la.loseItems ?? [], s.content?.loseItems, () => uid('ls')),
+          },
+        ],
       }
-    case 'survey':
+    }
+    case 'survey': {
+      const sv = makeSurvey({ id: cid })
+      const reasons = s.content?.surveyReasons
+      const options = reasons
+        ? reasons
+            .map((label) => label.trim())
+            .filter(Boolean)
+            .map((label, i) =>
+              sv.options[i]
+                ? { ...sv.options[i], label }
+                : { id: uid('rs'), label, code: slugCode(label), followUp: null, linkedOfferId: null },
+            )
+        : sv.options
       return {
         ...base,
         stage: 'route_detection',
         title: s.headline ?? 'Why are you cancelling?',
         description: s.body ?? 'Your feedback shapes what we build next.',
-        components: [makeSurvey({ id: cid })],
+        components: [
+          {
+            ...sv,
+            options,
+            ...(s.content?.surveyPrompt ? { freeTextPrompt: s.content.surveyPrompt } : {}),
+          },
+        ],
       }
+    }
     case 'offer':
       return {
         ...base,
@@ -99,7 +144,13 @@ function compileStep(s: JourneyStepFile): Step {
         stage: 'confirmation',
         title: s.headline ?? 'Are you sure you want to cancel?',
         description: s.body ?? '',
-        components: [makeConfirmation({ id: cid, title: s.headline ?? 'Are you sure you want to cancel?' })],
+        components: [
+          makeConfirmation({
+            id: cid,
+            title: s.headline ?? 'Are you sure you want to cancel?',
+            ...(s.body ? { subtitle: s.body } : {}),
+          }),
+        ],
       }
     case 'outcome_saved':
       return {

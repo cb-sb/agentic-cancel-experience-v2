@@ -36,7 +36,7 @@ function stripSteps(steps: Step[], templateId: LibraryEntry['id']): Step[] {
 }
 
 function thumbScale(count: number, acquire: boolean, compact?: boolean) {
-  const base = acquire ? 0.4 : count <= 2 ? 0.48 : count === 3 ? 0.44 : count === 4 ? 0.34 : 0.3
+  const base = acquire ? 0.46 : count <= 2 ? 0.56 : count === 3 ? 0.52 : count === 4 ? 0.42 : 0.38
   return compact ? base * 0.84 : base
 }
 
@@ -194,6 +194,9 @@ function TemplateStepThumb({
 
   return (
     <div className="flex flex-none flex-col items-center">
+      <span className="mb-2.5 max-w-full truncate px-0.5 text-[11px] font-semibold text-slate-600">
+        {label}
+      </span>
       {acquire ? (
         <div
           className="overflow-hidden rounded-xl bg-white shadow-[0_18px_40px_-16px_rgba(15,23,42,0.45)]"
@@ -218,9 +221,6 @@ function TemplateStepThumb({
           <div className="overflow-hidden rounded-[15px] bg-white">{screen}</div>
         </div>
       )}
-      <span className="mt-2.5 max-w-full truncate px-0.5 text-[11px] font-semibold text-slate-600">
-        {label}
-      </span>
     </div>
   )
 }
@@ -248,21 +248,22 @@ export function TemplatePreviewStrip({
   const scale = thumbScale(steps.length, acquire, compact)
   const nativeH = acquire ? 480 : 500
   const tint = `${experience.branding.primaryColor}14`
-  const chevronOffset = (nativeH * scale) / 2 - 9
+  const labelBlock = 28
+  const chevronOffset = labelBlock + (nativeH * scale) / 2 - 9
 
   return (
     <div
       aria-hidden
-      className="pointer-events-none relative overflow-hidden"
+      className="relative overflow-x-auto"
       style={{
-        backgroundColor: '#eef2f6',
-        backgroundImage: `linear-gradient(180deg, ${tint}, transparent 70%), radial-gradient(#c5cdd8 1.15px, transparent 1.15px)`,
+        backgroundColor: '#f5f7fa',
+        backgroundImage: `linear-gradient(180deg, #ffffff 0%, ${tint} 46%, #f2f4f8 100%), radial-gradient(rgba(148,163,184,0.35) 1.05px, transparent 1.05px)`,
         backgroundSize: 'auto, 18px 18px',
       }}
     >
       <div
-        className={`flex items-start justify-center overflow-x-auto ${
-          compact ? 'px-[16px] py-[16px]' : 'px-7 py-7'
+        className={`pointer-events-none flex w-max min-w-full items-start justify-center ${
+          compact ? 'px-[16px] pb-[18px] pt-[6px]' : 'px-8 pb-9 pt-3'
         }`}
       >
         {steps.map((step, i) => (

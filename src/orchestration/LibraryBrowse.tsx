@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { STabs } from '@chargebee/sting-react'
+import { SButton, STabs } from '@chargebee/sting-react'
 import {
   LIBRARY,
   type LibraryEntry,
@@ -45,32 +45,20 @@ function matchesQuery(entry: LibraryEntry, q: string) {
 
 function LibraryCard({
   entry,
-  onApply,
+  onPick,
 }: {
   entry: LibraryEntry
-  onApply: () => void
+  onPick: () => void
 }) {
   const brand = useJourney((s) => s.file.brand)
   const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
   const stepMeta = `${entry.stepCount} screen${entry.stepCount === 1 ? '' : 's'} · ${kindLabel}`
   const badge = shapeLabel(entry.shape)
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onApply}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onApply()
-        }
-      }}
-      className="group w-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.35)]"
-    >
-      <TemplatePreviewStrip entry={entry} brand={brand} compact />
-      <div className="px-[16px] pb-[16px] pt-[14px]">
+    <article className="group w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:border-slate-300/80 hover:shadow-[0_12px_32px_-16px_rgba(15,23,42,0.28)]">
+      <div className="px-[18px] pb-[14px] pt-[16px]">
         <div className="flex items-start justify-between gap-[8px]">
-          <div className="text-[14px] font-bold leading-snug text-slate-900">{entry.title}</div>
+          <h3 className="text-[15px] font-bold leading-snug text-slate-900">{entry.title}</h3>
           {badge && (
             <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-normal text-[#4f46e5] bg-[#eef2ff]">
               {badge}
@@ -80,19 +68,72 @@ function LibraryCard({
         <div className="mt-[4px] text-[12px] font-medium text-slate-500">
           {entry.posture} · {stepMeta}
         </div>
-        <p className="mt-[8px] line-clamp-1 text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
-        <span className="mt-[10px] inline-flex items-center gap-[4px] text-[12.5px] font-semibold text-indigo-600 group-hover:text-indigo-700">
+        <p className="mt-[8px] line-clamp-2 text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+        <button
+          type="button"
+          onClick={onPick}
+          className="mt-[12px] inline-flex items-center gap-[4px] text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700"
+        >
           Use this template
-          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-            →
-          </span>
-        </span>
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+        </button>
       </div>
+      <TemplatePreviewStrip entry={entry} brand={brand} />
+    </article>
+  )
+}
+
+function TemplateConfirm({
+  entry,
+  onBack,
+  onConfirm,
+}: {
+  entry: LibraryEntry
+  onBack: () => void
+  onConfirm: () => void
+}) {
+  const brand = useJourney((s) => s.file.brand)
+  const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
+  const badge = shapeLabel(entry.shape)
+  return (
+    <div className="flex flex-col gap-[12px]">
+      <button
+        type="button"
+        onClick={onBack}
+        className="self-start text-[12.5px] font-semibold text-slate-500 hover:text-slate-800"
+      >
+        ← Back to templates
+      </button>
+      <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-col gap-[12px] px-[16px] py-[16px]">
+          <div className="flex items-start justify-between gap-[8px]">
+            <h3 className="text-[16px] font-bold leading-snug text-slate-900">{entry.title}</h3>
+            {badge && (
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-normal text-[#4f46e5] bg-[#eef2ff]">
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="text-[13px] font-medium text-slate-500">
+            {entry.posture} · {entry.stepCount} screen{entry.stepCount === 1 ? '' : 's'} · {kindLabel}
+          </p>
+          <p className="text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+          <div className="flex flex-wrap items-center justify-end gap-[8px] pt-[4px]">
+            <SButton size="small" variant="neutral-outline" className="w-auto shrink-0" onClick={onBack}>
+              Back
+            </SButton>
+            <SButton size="small" variant="primary" className="w-auto shrink-0" onClick={onConfirm}>
+              Use this path
+            </SButton>
+          </div>
+        </div>
+        <TemplatePreviewStrip entry={entry} brand={brand} />
+      </article>
     </div>
   )
 }
 
-/** Template catalog as a panel. Compact mode sits inside Copilot; full mode fills the modal. */
+/** Template catalog as a panel. Compact mode sits inside Copilot; full mode fills the overlay. */
 export function LibraryBrowse({
   compact,
   onApply,
@@ -103,6 +144,7 @@ export function LibraryBrowse({
   const [cat, setCat] = useState<Filter>('cancel')
   const [shape, setShape] = useState<ShapeFilter>('all')
   const [query, setQuery] = useState('')
+  const [pending, setPending] = useState<LibraryEntry | null>(null)
 
   const cancelCatalog = useMemo(() => LIBRARY.filter((e) => e.kind === 'cancel'), [])
   const shapeCounts = useMemo(() => {
@@ -129,6 +171,16 @@ export function LibraryBrowse({
           entries: rows.filter((e) => e.shape === g.id),
         })).filter((g) => g.entries.length > 0)
       : null
+
+  if (pending) {
+    return (
+      <TemplateConfirm
+        entry={pending}
+        onBack={() => setPending(null)}
+        onConfirm={() => onApply(pending.id)}
+      />
+    )
+  }
 
   return (
     <div className={compact ? 'flex flex-col gap-[12px]' : 'flex h-full min-h-0 flex-col'}>
@@ -196,23 +248,31 @@ export function LibraryBrowse({
           </div>
         </div>
       )}
-      <div className={compact ? 'grid grid-cols-1 gap-[12px] sm:grid-cols-2' : 'space-y-5 px-6 py-5'}>
+      <div className={compact ? 'flex flex-col gap-[12px]' : 'space-y-5 px-6 py-5'}>
         {rows.length === 0 ? (
-          <p className="col-span-full py-[16px] text-center text-[13px] text-slate-400">No templates match that search.</p>
+          <p className="py-[16px] text-center text-[13px] text-slate-400">No templates match that search.</p>
         ) : grouped ? (
           grouped.map((group) => (
-            <section key={group.id} className={compact ? 'col-span-full space-y-3' : 'space-y-3'}>
+            <section key={group.id} className="space-y-3">
               <SectionLabel>{group.label}</SectionLabel>
-              <div className={compact ? 'grid grid-cols-1 gap-[12px] sm:grid-cols-2' : 'space-y-3'}>
+              <div className="flex flex-col gap-[12px]">
                 {group.entries.map((entry) => (
-                  <LibraryCard key={entry.id} entry={entry} onApply={() => onApply(entry.id)} />
+                  <LibraryCard
+                    key={entry.id}
+                    entry={entry}
+                    onPick={() => setPending(entry)}
+                  />
                 ))}
               </div>
             </section>
           ))
         ) : (
           rows.map((entry) => (
-            <LibraryCard key={entry.id} entry={entry} onApply={() => onApply(entry.id)} />
+            <LibraryCard
+              key={entry.id}
+              entry={entry}
+              onPick={() => setPending(entry)}
+            />
           ))
         )}
       </div>

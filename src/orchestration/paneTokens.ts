@@ -17,6 +17,10 @@ export const ASSISTANT_W = 400
 export const COPILOT_CENTER_W = 'calc((100% - 48px) * 0.75)'
 export const COPILOT_CENTER_H = 'calc((100% - 48px) * 0.8)'
 
+/** Catalog expand — Copilot fills the workspace, then collapses back to center. */
+export const COPILOT_CENTER_EXPANDED_W = 'calc(100% - 24px)'
+export const COPILOT_CENTER_EXPANDED_H = 'calc(100% - 24px)'
+
 /**
  * Expanded rail after a journey lands. Narrower than center Copilot so the
  * workflow canvas has room; the merchant can switch back to `ASSISTANT_W`.

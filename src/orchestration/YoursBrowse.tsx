@@ -52,6 +52,7 @@ export function YoursBrowse({
   const [journeyFilter, setJourneyFilter] = useState<JourneyFilter>('all')
   const [sort, setSort] = useState<SortMode>('kind')
   const [selected, setSelected] = useState<string[]>([])
+  const [pendingJourney, setPendingJourney] = useState<MerchantTemplate | null>(null)
 
   const onThis = useMemo(() => {
     const ids = new Set<string>()
@@ -140,6 +141,48 @@ export function YoursBrowse({
     )
   }
 
+  if (pendingJourney) {
+    const kindLabelText = pendingJourney.kind === 'acquisition' ? 'Acquire' : 'Cancel'
+    return (
+      <div className={compact ? 'px-[16px] py-[12px]' : 'px-6 py-5'}>
+        <button
+          type="button"
+          onClick={() => setPendingJourney(null)}
+          className="mb-[12px] text-[12.5px] font-semibold text-slate-500 hover:text-slate-800"
+        >
+          ← Back to templates
+        </button>
+        <div className="rounded-2xl border border-slate-200 bg-white p-[16px]">
+          <div className="text-[16px] font-bold text-slate-900">{pendingJourney.name}</div>
+          <div className="mt-[6px] text-[13px] font-medium text-slate-500">
+            {pendingJourney.stepLabels.join(' → ')} · {kindLabelText}
+          </div>
+          <p className="mt-[10px] text-[13px] leading-relaxed text-slate-600">
+            This will open the canvas on this path. You can still edit screens after.
+          </p>
+          <div className="mt-[16px] flex flex-wrap items-center justify-end gap-[8px]">
+            <SButton
+              size="small"
+              variant="neutral-outline"
+              className="w-auto shrink-0"
+              onClick={() => setPendingJourney(null)}
+            >
+              Back
+            </SButton>
+            <SButton
+              size="small"
+              variant="primary"
+              className="w-auto shrink-0"
+              onClick={() => onApplyJourney(pendingJourney.id)}
+            >
+              Use this path
+            </SButton>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div
@@ -159,7 +202,7 @@ export function YoursBrowse({
                 <JourneyCard
                   key={t.id}
                   template={t}
-                  onApply={() => onApplyJourney(t.id)}
+                  onPick={() => setPendingJourney(t)}
                   onRemove={() => removeTemplate(t.id)}
                 />
               ))}
@@ -336,11 +379,11 @@ function PillRow({
 
 function JourneyCard({
   template,
-  onApply,
+  onPick,
   onRemove,
 }: {
   template: MerchantTemplate
-  onApply: () => void
+  onPick: () => void
   onRemove: () => void
 }) {
   const kindLabelText = template.kind === 'acquisition' ? 'Acquire' : 'Cancel'
@@ -355,10 +398,7 @@ function JourneyCard({
         </div>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemove()
-          }}
+          onClick={onRemove}
           className="text-[12px] font-semibold text-slate-400 hover:text-rose-600"
         >
           Remove
@@ -366,7 +406,7 @@ function JourneyCard({
       </div>
       <button
         type="button"
-        onClick={onApply}
+        onClick={onPick}
         className="mt-[12px] text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700"
       >
         Use this template →
