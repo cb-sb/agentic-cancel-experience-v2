@@ -205,7 +205,7 @@ export function UploadTemplate() {
       <div className="mb-[4px]">
         <h2 className="text-[16px] font-bold text-[#19191f]">Upload your file</h2>
         <p className="mt-[2px] text-[13px] leading-[1.5] text-[#677488]">
-          Drop the HTML or zip you composed. Copilot binds the catalog — targeting, holdout, and publish stay here.
+          Drop the HTML or zip you built from the Growth kit. Copilot binds the catalog; targeting, holdout, and publish stay here.
         </p>
       </div>
 
@@ -250,9 +250,21 @@ export function UploadTemplate() {
         </div>
       </SpotlightFrame>
 
-      <p className="mt-[8px] px-[2px] text-[12px] text-slate-400">
-        Supported: HTML, ZIP, CSS · contract v{CONTRACT_VERSION}
-      </p>
+      <div className="mt-[8px] flex flex-wrap items-center justify-between gap-x-[12px] gap-y-[4px] px-[2px] text-[12px] text-slate-400">
+        <span>
+          HTML, ZIP, CSS · needs the kit’s{' '}
+          <code className="rounded bg-slate-100 px-1 text-[11px] text-slate-500">data-cb-*</code> marks · v{CONTRACT_VERSION}
+        </span>
+        {!mappingOnly && (
+          <button
+            type="button"
+            onClick={() => setBranch('kit')}
+            className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-2 hover:text-[#4338ca]"
+          >
+            No kit yet? Get the kit
+          </button>
+        )}
+      </div>
 
       {checklist.length > 0 && (
         <div className="mt-[12px] rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-800">

@@ -9,6 +9,7 @@ import {
   EMPTY_JOURNEY,
   DEFAULT_JOURNEY_BRAND,
   isTailKind,
+  type JourneyCancelHandling,
   type JourneyFile,
   type JourneyStepFile,
 } from '../journey/types'
@@ -85,6 +86,8 @@ interface JourneyState {
   reorderSteps: (fromId: string, toId: string) => void
   /** Patch one step's content directly (Context editor). Deep-merges `content`. */
   updateStep: (id: string, patch: Partial<JourneyStepFile>) => void
+  /** Patch the cancellation-handling config. Deep-merges onto what's there. */
+  updateCancelHandling: (patch: Partial<JourneyCancelHandling>) => void
   applyBrand: (branding: Branding, matched?: boolean) => void
 }
 
@@ -144,6 +147,12 @@ export const useJourney = create<JourneyState>((set, get) => ({
         : s,
     )
     set({ ...pushFile({ ...file, steps }), contextError: null })
+  },
+
+  updateCancelHandling: (patch) => {
+    const file = get().file
+    const cancelHandling = { ...file.cancelHandling, ...patch }
+    set({ ...pushFile({ ...file, cancelHandling }), contextError: null })
   },
 
   applyBrand: (branding, matched) => {

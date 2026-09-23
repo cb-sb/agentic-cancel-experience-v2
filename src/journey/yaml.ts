@@ -60,11 +60,16 @@ export function stringifyJourney(file: JourneyFile): string {
     `shell: ${file.shell}`,
     `audience: ${file.audience}`,
     `holdout: ${file.holdout}`,
+  ]
+  if (file.cancelHandling && Object.keys(file.cancelHandling).length > 0) {
+    head.push(`cancel_handling: ${JSON.stringify(file.cancelHandling)}`)
+  }
+  head.push(
     'brand:',
     `  merchant: ${yamlStr(file.brand.merchant)}`,
     `  primary: ${yamlStr(file.brand.primary)}`,
     `  corners: ${file.brand.corners}`,
-  ]
+  )
   if (file.brand.matched) head.push('  matched: true')
   if (file.brand.theme) head.push(`  theme: ${JSON.stringify(file.brand.theme)}`)
   if (file.source === 'uploaded') {
@@ -200,6 +205,12 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
           return { error: `Line ${n}: holdout must be 0–50` }
         }
         file.holdout = holdout
+      } else if (key === 'cancel_handling') {
+        try {
+          file.cancelHandling = JSON.parse(val) as JourneyFile['cancelHandling']
+        } catch {
+          return { error: `Line ${n}: cancel_handling must be JSON` }
+        }
       } else if (key === 'brand') {
         inBrand = true
       } else if (key === 'source') {

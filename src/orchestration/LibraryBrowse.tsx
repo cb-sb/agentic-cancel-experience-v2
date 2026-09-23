@@ -118,7 +118,7 @@ function TemplateConfirm({
             {entry.posture} · {entry.stepCount} screen{entry.stepCount === 1 ? '' : 's'} · {kindLabel}
           </p>
           <p className="text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
-          <div className="flex flex-wrap items-center justify-end gap-[8px] pt-[4px]">
+          <div className="flex flex-wrap items-center justify-start gap-[8px] pt-[4px]">
             <SButton size="small" variant="neutral-outline" className="w-auto shrink-0" onClick={onBack}>
               Back
             </SButton>

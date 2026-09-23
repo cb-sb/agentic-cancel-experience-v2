@@ -55,7 +55,7 @@ export interface AnnotationTarget {
  * a panel — the assistant used to ask for it and get a drawer that opened on
  * nothing.
  */
-export type PlayConfigSection = 'audience' | 'targeting'
+export type PlayConfigSection = 'audience' | 'targeting' | 'cancel'
 
 /** The single step isolated for detailed editing, or null on the open canvas. */
 export interface FocusTarget {
@@ -222,6 +222,8 @@ interface OrchestrationState {
   stepStripShown: boolean
   /** Beats the merchant confirmed — defaults do not count until this is set. */
   confirmedSetup: ConfirmedSetup
+  /** Growth is connected to Billing and the snippet is installed (prerequisite). */
+  installConnected: boolean
   walkedOrSkipped: boolean
   dismissedStepNeedsWork: boolean
   trackerOpen: boolean
@@ -268,6 +270,7 @@ interface OrchestrationState {
   /** Peel center Copilot to a 50vw right rail over the dotted canvas. */
   dockCopilot: () => void
   markStepStripShown: () => void
+  setInstallConnected: (value: boolean) => void
   confirmSetupItem: (id: SetupItemId) => void
   setWalkedOrSkipped: (value: boolean) => void
   dismissStepNeedsWork: () => void
@@ -338,6 +341,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   copilotDocked: false,
   stepStripShown: false,
   confirmedSetup: {},
+  installConnected: false,
   walkedOrSkipped: false,
   dismissedStepNeedsWork: false,
   trackerOpen: false,
@@ -457,6 +461,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   consumeSetupDoor: () => set({ setupDoorConsumed: true }),
   dockCopilot: () => set({ copilotDocked: true, assistantOpen: true }),
   markStepStripShown: () => set({ stepStripShown: true }),
+  setInstallConnected: (installConnected) => set({ installConnected }),
   confirmSetupItem: (id) =>
     set((s) => ({ confirmedSetup: { ...s.confirmedSetup, [id]: true } })),
   setWalkedOrSkipped: (walkedOrSkipped) =>
@@ -494,6 +499,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       copilotDocked: false,
       stepStripShown: false,
       confirmedSetup: {},
+      installConnected: false,
       walkedOrSkipped: false,
       dismissedStepNeedsWork: false,
       trackerOpen: false,

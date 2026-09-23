@@ -8,13 +8,14 @@ import { useCopilotThread } from './copilotThread'
 import { jumpSetupItem } from './setupActions'
 import { trackerItemForSpotlight } from './spotlight'
 import { useLookTarget } from './useLookTarget'
-import { setupProgress, type SetupItem, type SetupTrack } from './setupTracker'
+import { setupProgress, type SetupItem, type SetupGroupId } from './setupTracker'
 
 export function useSetupProgress() {
   const file = useJourney((s) => s.file)
   const play = useOrchestration((s) => s.play)
   const experience = useExperience((s) => s.experiences[PRIMARY_EXPERIENCE_ID])
   const confirmed = useOrchestration((s) => s.confirmedSetup)
+  const installConnected = useOrchestration((s) => s.installConnected)
   const walkedOrSkipped = useOrchestration((s) => s.walkedOrSkipped)
   const stepStripShown = useOrchestration((s) => s.stepStripShown)
   const dismissedStepNeedsWork = useOrchestration((s) => s.dismissedStepNeedsWork)
@@ -23,6 +24,7 @@ export function useSetupProgress() {
     play,
     experience,
     confirmed,
+    installConnected,
     walkedOrSkipped,
     stepStripShown,
     dismissedStepNeedsWork,
@@ -40,6 +42,41 @@ function useTrackerHighlight(): { item?: SetupItem['id']; pulsed: boolean } {
     return { item: beat, pulsed: false }
   }
   return { item: undefined, pulsed: false }
+}
+
+/**
+ * Status pill. Ready / Needs work for real gates; an informational pointer
+ * (Reporting) and the publish gate get their own neutral wording so the
+ * checklist doesn't read as "incomplete" for things that aren't gates.
+ */
+function StatusBadge({ item }: { item: SetupItem }) {
+  if (item.info) {
+    return (
+      <span className="shrink-0 rounded-[6px] bg-slate-100 px-[6px] py-[2px] text-[10px] font-semibold leading-[14px] text-slate-500">
+        {item.done ? 'Noted' : 'After launch'}
+      </span>
+    )
+  }
+  if (item.gate) {
+    return (
+      <span
+        className={`shrink-0 rounded-[6px] px-[6px] py-[2px] text-[10px] font-semibold leading-[14px] ${
+          item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-indigo-50 text-indigo-700'
+        }`}
+      >
+        {item.done ? 'Live' : 'Ready to publish'}
+      </span>
+    )
+  }
+  return (
+    <span
+      className={`shrink-0 rounded-[6px] px-[6px] py-[2px] text-[10px] font-semibold leading-[14px] ${
+        item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'
+      }`}
+    >
+      {item.done ? 'Ready' : 'Needs work'}
+    </span>
+  )
 }
 
 function TrackColumn({
@@ -88,13 +125,7 @@ function TrackColumn({
                   <span className="text-[13px] font-semibold leading-[18px] text-slate-800">
                     {item.label}
                   </span>
-                  <span
-                    className={`shrink-0 rounded-[6px] px-[6px] py-[2px] text-[10px] font-semibold leading-[14px] ${
-                      item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'
-                    }`}
-                  >
-                    {item.done ? 'Ready' : 'Needs work'}
-                  </span>
+                  <StatusBadge item={item} />
                 </span>
                 <span className="mt-[4px] block text-[12px] leading-[16px] text-slate-500">
                   {item.hint}
@@ -187,30 +218,17 @@ export function SetupTrackerDock() {
           />
         </div>
         <div className="flex flex-col gap-[18px] px-[8px] pb-[16px] pt-[12px]">
-          <TrackColumn
-            title="Play setup"
-            done={progress.playDone}
-            total={progress.playTotal}
-            items={progress.play}
-            highlight={highlight.item}
-            pulsed={highlight.pulsed}
-          />
-          <TrackColumn
-            title="Experience"
-            done={progress.experienceDone}
-            total={progress.experienceTotal}
-            items={progress.experience}
-            highlight={highlight.item}
-            pulsed={highlight.pulsed}
-          />
-          <TrackColumn
-            title="Testing / reporting"
-            done={progress.testingDone}
-            total={progress.testingTotal}
-            items={progress.testing}
-            highlight={highlight.item}
-            pulsed={highlight.pulsed}
-          />
+          {progress.groups.map((group) => (
+            <TrackColumn
+              key={group.id}
+              title={group.title}
+              done={group.done}
+              total={group.total}
+              items={group.items}
+              highlight={highlight.item}
+              pulsed={highlight.pulsed}
+            />
+          ))}
         </div>
       </div>
 
@@ -238,9 +256,19 @@ export function SetupTrackerDock() {
   )
 }
 
-export function trackForItem(id: SetupItem['id']): SetupTrack {
-  if (id === 'walk' || id === 'reporting') return 'testing'
-  return id === 'audience' || id === 'targeting' || id === 'offers' || id === 'holdout'
-    ? 'play'
-    : 'experience'
+export function trackForItem(id: SetupItem['id']): SetupGroupId {
+  switch (id) {
+    case 'connect':
+      return 'connect'
+    case 'audience':
+    case 'experiment':
+    case 'holdout':
+      return 'play'
+    case 'walk':
+    case 'publish':
+    case 'reporting':
+      return 'launch'
+    default:
+      return 'page'
+  }
 }

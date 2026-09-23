@@ -7,6 +7,7 @@ import { useCopilotThread } from './copilotThread'
 import type { SetupItemId } from './setupTracker'
 import { beatPrompt, type PlanBeat } from './JourneyPlan'
 import { spotlightForBeat } from './spotlight'
+import type { Step } from '../types/experience'
 
 /** Open the surface that already owns this setup item. */
 export function jumpSetupItem(id: SetupItemId) {
@@ -15,27 +16,58 @@ export function jumpSetupItem(id: SetupItemId) {
   const experience = useExperience.getState().experiences[PRIMARY_EXPERIENCE_ID]
   orch.setAssistantOpen(true)
 
+  const focus = (predicate: (s: Step) => boolean) => {
+    if (!experience) return
+    const step = experience.steps.find(predicate) ?? experience.steps[0]
+    if (step) orch.focusStep({ experienceId: experience.id, stepId: step.id })
+  }
+
   switch (id) {
+    case 'connect': {
+      const thread = useCopilotThread.getState()
+      const already =
+        thread.turn === 'plan' &&
+        thread.lines.some((l) => l.from === 'bot' && l.text.includes('connected to Billing'))
+      if (!already) {
+        thread.setTurn('plan')
+        thread.say(
+          'bot',
+          'Before this can go live, Growth has to be connected to Billing and the cancel snippet has to be on your site — cancelPage() / attachCancelHandler() where your Cancel link lives. This prototype marks it done so you can keep building.',
+        )
+      }
+      orch.setInstallConnected(true)
+      return
+    }
     case 'audience':
       orch.openConfig('audience')
       jumpCopilot('audience')
       return
-    case 'targeting':
+    case 'experiment':
       orch.openConfig('targeting')
+      orch.confirmSetupItem('experiment')
+      return
+    case 'cancelHandling':
+      orch.openConfig('cancel')
       return
     case 'holdout':
       jumpCopilot('holdout')
       return
     case 'offers': {
-      const offer = experience?.steps.find((s) => s.components.some((c) => c.kind === 'offer'))
-      if (offer && experience) orch.focusStep({ experienceId: experience.id, stepId: offer.id })
+      focus((s) => s.components.some((c) => c.kind === 'offer'))
       jumpCopilot('offers')
       return
     }
+    case 'content':
+      focus((s) => s.components.some((c) => c.kind === 'loss_aversion'))
+      return
+    case 'survey':
+      focus((s) => s.components.some((c) => c.kind === 'survey'))
+      return
+    case 'confirmation':
+      focus((s) => s.stage === 'confirmation' || s.stage === 'outcome')
+      return
     case 'stepConfig': {
-      const needy = experience?.steps.find((s) => stepNeedsWork(s, file))
-      const step = needy ?? experience?.steps[0]
-      if (step && experience) orch.focusStep({ experienceId: experience.id, stepId: step.id })
+      focus((s) => stepNeedsWork(s, file))
       return
     }
     case 'brand':
@@ -61,6 +93,14 @@ export function jumpSetupItem(id: SetupItemId) {
       }
       return
     }
+    case 'publish': {
+      const thread = useCopilotThread.getState()
+      const already = thread.turn === 'plan' && thread.beat === 'publish'
+      thread.setTurn('plan')
+      thread.setBeat('publish')
+      if (!already) thread.say('bot', beatPrompt('publish', file))
+      return
+    }
     case 'reporting': {
       orch.setAssistantOpen(true)
       const thread = useCopilotThread.getState()
@@ -70,7 +110,7 @@ export function jumpSetupItem(id: SetupItemId) {
         thread.setTurn('plan')
         thread.say(
           'bot',
-          'After this is live, Reports → Cancels and Offer Performance are where lift shows up. Holdout is what makes that comparison honest.',
+          'After this is live, Reports → Cancels and Offer Performance are where lift shows up. The control slice is what makes that comparison honest.',
         )
       }
       orch.confirmSetupItem('reporting')

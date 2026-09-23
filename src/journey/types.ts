@@ -105,6 +105,27 @@ export interface JourneyStepFile {
   chrome?: JourneyStepChrome
 }
 
+/** How Growth actually processes the cancel once the page is done with it. */
+export type CancelProcessing = 'billing_api' | 'override'
+
+/** When the cancel takes effect after it is processed. */
+export type CancelTiming = 'immediate' | 'end_of_term' | 'end_of_billing_term'
+
+/**
+ * Cancellation handling — the Cancel Page "Button Configurations" and "Billing
+ * Configurations" in Growth: where Nevermind/Cancel route, and how the cancel
+ * is processed and timed. Billing/compliance-critical, so it is tracked
+ * explicitly rather than assumed.
+ */
+export interface JourneyCancelHandling {
+  processing?: CancelProcessing
+  timing?: CancelTiming
+  /** Where "Never mind" returns the subscriber. */
+  nevermindUrl?: string
+  /** Where a confirmed cancel returns the subscriber. */
+  cancelUrl?: string
+}
+
 /**
  * The file behind Prompt and Code. Chat patches it; Code edits it; the canvas
  * and the player are compiled from it.
@@ -118,6 +139,8 @@ export interface JourneyFile {
   brand: JourneyBrand
   /** Share of traffic that sees no treatment. 0 means everyone is in. */
   holdout: number
+  /** How the cancel is routed and processed once the page is done. */
+  cancelHandling?: JourneyCancelHandling
   steps: JourneyStepFile[]
   /**
    * `uploaded` means the subscriber sees merchant markup hosted by Chargebee.
