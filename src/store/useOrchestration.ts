@@ -55,7 +55,7 @@ export interface AnnotationTarget {
  * a panel — the assistant used to ask for it and get a drawer that opened on
  * nothing.
  */
-export type PlayConfigSection = 'audience' | 'targeting' | 'cancel'
+export type PlayConfigSection = 'audience' | 'targeting'
 
 /** The single step isolated for detailed editing, or null on the open canvas. */
 export interface FocusTarget {

@@ -18,7 +18,6 @@ import { PromptCodeDock } from './PromptCodeDock'
 import { FlowCanvas } from './flow/FlowCanvas'
 import { FocusPresentation } from './focus'
 import { PlayHeader } from './PlayHeader'
-import { PlayConfigSidebar } from './PlayConfigSidebar'
 import { PreviewOverlay } from './PreviewHeader'
 import { TemplatesModal } from './TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
@@ -164,7 +163,6 @@ export function OrchestrationCanvas() {
               <div data-canvas-pane className="relative z-0 h-full min-h-0 min-w-0 overflow-hidden">
                 <FlowCanvas />
               </div>
-              {!previewing && <PlayConfigSidebar />}
               <FocusPresentation />
               {previewing && <PreviewOverlay />}
             </div>

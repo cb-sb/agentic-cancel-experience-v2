@@ -2,8 +2,6 @@ import { useEffect, useRef } from 'react'
 import { usePresence } from '../lib/usePresence'
 import { EASE_ENTER, EASE_LEAVE } from '../lib/motion'
 import { useOrchestration, type PlayConfigSection } from '../store/useOrchestration'
-import { useJourney } from '../store/useJourney'
-import type { CancelProcessing, CancelTiming } from '../journey/types'
 import { AudienceSetup, SplitSetup } from './NodeSetup'
 import type { SplitNode } from '../types/orchestration'
 
@@ -26,20 +24,15 @@ const SLIDE = 28
 /** The width the collapsed rail stands on. */
 export const CONFIG_RAIL_W = 34
 
-const TAB_LABEL: Record<PlayConfigSection, string> = {
+const TAB_LABEL: Record<'audience' | 'targeting', string> = {
   audience: 'Audience',
   targeting: 'Targeting',
-  cancel: 'Cancellation',
 }
 
-/**
- * Which sections the play exposes: audience always, targeting once there is a
- * split to divide, and cancellation handling always — it is the routing every
- * cancel page needs regardless of how traffic is split.
- */
-function useConfigSections(): PlayConfigSection[] {
+/** Which sections the play actually has: targeting needs a split to configure. */
+function useConfigSections(): ('audience' | 'targeting')[] {
   const kind = useOrchestration((s) => s.play.targeting.kind)
-  return kind === 'split' ? ['audience', 'targeting', 'cancel'] : ['audience', 'cancel']
+  return kind === 'split' ? ['audience', 'targeting'] : ['audience']
 }
 
 /**
@@ -72,7 +65,7 @@ export function PlayConfigSidebar() {
   const panel = usePresence(target !== null, OUT_MS)
   // The section outlives the state that chose it, by exactly one exit: closing
   // clears it immediately, and a panel with nothing in it cannot slide out.
-  const last = useRef<PlayConfigSection>('audience')
+  const last = useRef<'audience' | 'targeting'>('audience')
   if (target) last.current = target
   const section = target ?? last.current
 
@@ -149,13 +142,7 @@ export function PlayConfigSidebar() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               <div className="mx-auto" style={{ maxWidth: CONTENT_W }}>
-                {section === 'audience' ? (
-                  <AudienceSetup />
-                ) : section === 'targeting' ? (
-                  split && <SplitSetup split={split} />
-                ) : (
-                  <CancelHandlingSetup />
-                )}
+                {section === 'audience' ? <AudienceSetup /> : split && <SplitSetup split={split} />}
               </div>
             </div>
           </aside>
@@ -178,14 +165,12 @@ function ConfigRail({
   active,
   onPick,
 }: {
-  sections: PlayConfigSection[]
+  sections: ('audience' | 'targeting')[]
   active: PlayConfigSection | null
-  onPick: (s: PlayConfigSection) => void
+  onPick: (s: 'audience' | 'targeting') => void
 }) {
   const play = useOrchestration((s) => s.play)
-  const cancelHandling = useJourney((s) => s.file.cancelHandling)
   const audienceSet = play.audience.targetAll || (play.audience.conditions?.length ?? 0) > 0
-  const cancelSet = Boolean(cancelHandling?.processing && cancelHandling?.timing)
 
   return (
     <div
@@ -210,155 +195,8 @@ function ConfigRail({
           {s === 'audience' && !audienceSet && (
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
           )}
-          {s === 'cancel' && !cancelSet && (
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-          )}
         </button>
       ))}
     </div>
-  )
-}
-
-const PROCESSING_OPTIONS: { id: CancelProcessing; label: string; hint: string }[] = [
-  { id: 'billing_api', label: 'Process via Billing', hint: "Growth cancels the subscription through Chargebee's API." },
-  { id: 'override', label: 'Override', hint: 'Hand off to your own email, URL, or webhook instead.' },
-]
-
-const TIMING_OPTIONS: { id: CancelTiming; label: string; hint: string }[] = [
-  { id: 'immediate', label: 'Immediately', hint: 'Cancel takes effect the moment it is confirmed.' },
-  { id: 'end_of_term', label: 'End of current term', hint: 'Access continues until this term ends.' },
-  { id: 'end_of_billing_term', label: 'End of billing term', hint: 'Cancel at the end of the paid billing cycle.' },
-]
-
-/**
- * Cancellation handling — Growth's Button and Billing Configurations: where
- * Never mind / Cancel route, how the cancel is processed, and when it lands.
- * Billing- and compliance-critical, so it is a first-class config, not an
- * assumption buried in the page.
- */
-function CancelHandlingSetup() {
-  const cancelHandling = useJourney((s) => s.file.cancelHandling)
-  const update = useJourney((s) => s.updateCancelHandling)
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-[14px] font-bold text-slate-900">Cancellation handling</h3>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-          What happens once the subscriber is done with the page — how the cancel is processed, when
-          it takes effect, and where each button sends them.
-        </p>
-      </div>
-
-      <fieldset>
-        <legend className="text-[12px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-          Processing
-        </legend>
-        <div className="mt-2 space-y-2">
-          {PROCESSING_OPTIONS.map((o) => (
-            <OptionRow
-              key={o.id}
-              label={o.label}
-              hint={o.hint}
-              selected={cancelHandling?.processing === o.id}
-              onClick={() => update({ processing: o.id })}
-            />
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend className="text-[12px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-          Cancel timing
-        </legend>
-        <div className="mt-2 space-y-2">
-          {TIMING_OPTIONS.map((o) => (
-            <OptionRow
-              key={o.id}
-              label={o.label}
-              hint={o.hint}
-              selected={cancelHandling?.timing === o.id}
-              onClick={() => update({ timing: o.id })}
-            />
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="space-y-3">
-        <legend className="text-[12px] font-semibold uppercase tracking-[0.06em] text-slate-500">
-          Return URLs <span className="font-normal normal-case text-slate-400">(optional)</span>
-        </legend>
-        <UrlField
-          label="Never mind"
-          placeholder="https://app.example.com/account"
-          value={cancelHandling?.nevermindUrl ?? ''}
-          onCommit={(v) => update({ nevermindUrl: v })}
-        />
-        <UrlField
-          label="After cancel"
-          placeholder="https://example.com/goodbye"
-          value={cancelHandling?.cancelUrl ?? ''}
-          onCommit={(v) => update({ cancelUrl: v })}
-        />
-      </fieldset>
-    </div>
-  )
-}
-
-function OptionRow({
-  label,
-  hint,
-  selected,
-  onClick,
-}: {
-  label: string
-  hint: string
-  selected: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={`w-full rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
-        selected
-          ? 'border-slate-900 bg-slate-900 text-white'
-          : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-      }`}
-    >
-      <div className="text-[13px] font-semibold">{label}</div>
-      <div className={`mt-0.5 text-[11.5px] leading-snug ${selected ? 'text-white/70' : 'text-slate-500'}`}>
-        {hint}
-      </div>
-    </button>
-  )
-}
-
-function UrlField({
-  label,
-  placeholder,
-  value,
-  onCommit,
-}: {
-  label: string
-  placeholder: string
-  value: string
-  onCommit: (value: string) => void
-}) {
-  return (
-    <label className="block">
-      <span className="text-[12px] font-medium text-slate-600">{label}</span>
-      <input
-        type="url"
-        defaultValue={value}
-        placeholder={placeholder}
-        onBlur={(e) => {
-          const next = e.target.value.trim()
-          if (next !== value) onCommit(next)
-        }}
-        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none placeholder:text-slate-300 hover:border-slate-300 focus:border-slate-400"
-      />
-    </label>
   )
 }

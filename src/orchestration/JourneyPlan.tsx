@@ -4,7 +4,13 @@ import { MatchSiteCard } from '../brand/MatchSiteCard'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
 import { LIBRARY, setStepOffer, templateLabel } from '../journey/templates'
 import { uploadedScreenChain } from '../journey/contextDoc'
-import type { AudienceKey, JourneyFile, OfferKey } from '../journey/types'
+import type {
+  AudienceKey,
+  CancelProcessing,
+  CancelTiming,
+  JourneyFile,
+  OfferKey,
+} from '../journey/types'
 import { audienceLabel, useJourney } from '../store/useJourney'
 import type { ShellLayout } from '../types/experience'
 
@@ -37,7 +43,28 @@ const SHELLS: { id: ShellLayout; label: string; hint: string }[] = [
 
 const OFFER_KEYS = OFFER_VARIANTS.map((v) => v.category as OfferKey)
 
-export type PlanBeat = 'walk' | 'offers' | 'audience' | 'shell' | 'holdout' | 'brand' | 'review' | 'publish'
+export type PlanBeat =
+  | 'walk'
+  | 'offers'
+  | 'audience'
+  | 'shell'
+  | 'holdout'
+  | 'brand'
+  | 'cancel'
+  | 'experiment'
+  | 'review'
+  | 'publish'
+
+const PROCESSING_CHOICES: { id: CancelProcessing; label: string; hint: string }[] = [
+  { id: 'billing_api', label: 'Process via Billing', hint: "Growth cancels through Chargebee's API." },
+  { id: 'override', label: 'Override', hint: 'Hand off to your own email, URL, or webhook.' },
+]
+
+const TIMING_CHOICES: { id: CancelTiming; label: string; hint: string }[] = [
+  { id: 'immediate', label: 'Immediately', hint: 'Cancel the moment it is confirmed.' },
+  { id: 'end_of_term', label: 'End of current term', hint: 'Access continues until this term ends.' },
+  { id: 'end_of_billing_term', label: 'End of billing term', hint: 'Cancel at the end of the paid cycle.' },
+]
 
 export function planBeats(file: JourneyFile): PlanBeat[] {
   const beats: PlanBeat[] = ['walk']
@@ -67,6 +94,10 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
       return 'A modal sits on your site. A full page is the hosted cancel URL. Keep the overlay unless you already host a cancel page.'
     case 'holdout':
       return 'A holdout is a slice that skips this experience so you can measure lift. Leave it at none until you are ready to experiment.'
+    case 'cancel':
+      return 'How should the cancel be handled once someone goes through? Pick how it’s processed and when it takes effect. Return URLs are optional.'
+    case 'experiment':
+      return 'This play splits traffic to compare treatments. Check the split reads right — an offer variant against a no-offer control is the honest comparison.'
     case 'brand':
       return brandGatePrompt(file.kind)
     case 'review':
@@ -233,6 +264,7 @@ export function PlanBeatCard({
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
   const patchFile = useJourney((s) => s.patchFile)
+  const updateCancelHandling = useJourney((s) => s.updateCancelHandling)
   const offerSteps = file.steps.filter((s) => s.kind === 'offer')
 
   if (beat === 'walk') {
@@ -340,6 +372,84 @@ export function PlanBeatCard({
         </div>
       )}
 
+      {beat === 'cancel' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Processing</div>
+            {PROCESSING_CHOICES.map((o) => (
+              <Choice
+                key={o.id}
+                label={o.label}
+                hint={o.hint}
+                selected={file.cancelHandling?.processing === o.id}
+                onClick={() => updateCancelHandling({ processing: o.id })}
+              />
+            ))}
+          </div>
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Cancel timing</div>
+            {TIMING_CHOICES.map((o) => (
+              <Choice
+                key={o.id}
+                label={o.label}
+                hint={o.hint}
+                selected={file.cancelHandling?.timing === o.id}
+                onClick={() => updateCancelHandling({ timing: o.id })}
+              />
+            ))}
+          </div>
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              Return URLs <span className="font-medium normal-case text-slate-400">(optional)</span>
+            </div>
+            <UrlRow
+              label="Never mind"
+              placeholder="https://app.example.com/account"
+              value={file.cancelHandling?.nevermindUrl ?? ''}
+              onCommit={(v) => updateCancelHandling({ nevermindUrl: v })}
+            />
+            <UrlRow
+              label="After cancel"
+              placeholder="https://example.com/goodbye"
+              value={file.cancelHandling?.cancelUrl ?? ''}
+              onCommit={(v) => updateCancelHandling({ cancelUrl: v })}
+            />
+          </div>
+          <div className="flex justify-end">
+            <SButton
+              size="small"
+              variant="primary"
+              className="w-auto shrink-0"
+              disabled={!(file.cancelHandling?.processing && file.cancelHandling?.timing)}
+              onClick={() => onContinue('Set cancellation handling')}
+            >
+              Save cancellation handling
+            </SButton>
+          </div>
+        </div>
+      )}
+
+      {beat === 'experiment' && (
+        <div className="flex flex-wrap items-center justify-end gap-[8px]">
+          <SButton
+            size="small"
+            variant="neutral-outline"
+            className="w-auto shrink-0"
+            onClick={() => onContinue('Adjust the split on the canvas')}
+          >
+            I’ll adjust it
+          </SButton>
+          <SButton
+            size="small"
+            variant="primary"
+            className="w-auto shrink-0"
+            onClick={() => onContinue('The split looks right')}
+          >
+            The split looks right
+          </SButton>
+        </div>
+      )}
+
       {beat === 'brand' && (
         <MatchSiteCard
           compact
@@ -347,7 +457,11 @@ export function PlanBeatCard({
         />
       )}
 
-      {beat !== 'audience' && beat !== 'shell' && beat !== 'brand' && (
+      {beat !== 'audience' &&
+        beat !== 'shell' &&
+        beat !== 'brand' &&
+        beat !== 'cancel' &&
+        beat !== 'experiment' && (
         <div className="mt-3">
           <CtaPair
             primary={{ label: keepLabel(beat, file), onClick: () => onContinue(keepLabel(beat, file)) }}
@@ -389,6 +503,34 @@ function keepLabel(beat: PlanBeat, file: JourneyFile): string {
     default:
       return 'Continue'
   }
+}
+
+function UrlRow({
+  label,
+  placeholder,
+  value,
+  onCommit,
+}: {
+  label: string
+  placeholder: string
+  value: string
+  onCommit: (value: string) => void
+}) {
+  return (
+    <label className="block">
+      <span className="text-[11.5px] font-medium text-slate-500">{label}</span>
+      <input
+        type="url"
+        defaultValue={value}
+        placeholder={placeholder}
+        onBlur={(e) => {
+          const next = e.target.value.trim()
+          if (next !== value) onCommit(next)
+        }}
+        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none placeholder:text-slate-300 hover:border-slate-300 focus:border-slate-400"
+      />
+    </label>
+  )
 }
 
 function Choice({

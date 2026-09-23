@@ -39,15 +39,13 @@ export function jumpSetupItem(id: SetupItemId) {
       return
     }
     case 'audience':
-      orch.openConfig('audience')
       jumpCopilot('audience')
       return
     case 'experiment':
-      orch.openConfig('targeting')
-      orch.confirmSetupItem('experiment')
+      jumpCopilot('experiment')
       return
     case 'cancelHandling':
-      orch.openConfig('cancel')
+      jumpCopilot('cancel')
       return
     case 'holdout':
       jumpCopilot('holdout')

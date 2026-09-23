@@ -351,6 +351,24 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (beat === 'audience') orch.confirmSetupItem('audience')
     if (beat === 'holdout') orch.confirmSetupItem('holdout')
     if (beat === 'offers') orch.confirmSetupItem('offers')
+    // Cancellation and experiment are side-trips opened from the tracker, not
+    // steps in the linear plan — they finish in place rather than advancing the
+    // beat chain (which would misroute back to Walk).
+    if (beat === 'cancel') {
+      say('bot', 'Locked in — the tracker shows cancellation handling as ready.')
+      setTurn('done')
+      return
+    }
+    if (beat === 'experiment') {
+      if (said === 'The split looks right') {
+        orch.confirmSetupItem('experiment')
+        say('bot', 'Marked reviewed. Change the variants or split on the canvas anytime, then reopen this row.')
+      } else {
+        say('bot', 'Open the split on the canvas to change the variants and traffic — reopen this row when it reads right.')
+      }
+      setTurn('done')
+      return
+    }
     const current = useJourney.getState().file
     const next = nextBeat(current, beat)
     if (next) {
