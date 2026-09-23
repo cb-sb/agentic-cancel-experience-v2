@@ -3,7 +3,6 @@ import { useExperience } from '../store/useExperience'
 import { saveDraft } from '../store/draft'
 import { useOrchestration } from '../store/useOrchestration'
 import { useJourney } from '../store/useJourney'
-import { StepNavBar } from './StepNavBar'
 import { useUpload } from '../upload/useUpload'
 import { canPublishUploaded, manifestErrors } from '../upload/validate'
 import { useSetupProgress } from './JourneySetupChrome'
@@ -173,22 +172,19 @@ export function PlayHeader() {
   const openRemap = useUpload((s) => s.openRemap)
 
   return (
-    <>
-      <header className="grid h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-slate-200 bg-white px-5">
-        <PlayIdentity />
-        <PlayToolbar />
-        <div className="flex min-w-0 items-center justify-end gap-[12px]">
-          {uploaded && (
-            <SButton size="small" variant="neutral-ghost" onClick={openRemap}>
-              Remap slots
-            </SButton>
-          )}
-          <SaveDraft />
-          <span className="h-5 w-px flex-none bg-slate-200" aria-hidden />
-          <PublishControls />
-        </div>
-      </header>
-      <StepNavBar />
-    </>
+    <header className="grid h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-slate-200 bg-white px-5">
+      <PlayIdentity />
+      <PlayToolbar />
+      <div className="flex min-w-0 items-center justify-end gap-[12px]">
+        {uploaded && (
+          <SButton size="small" variant="neutral-ghost" onClick={openRemap}>
+            Remap slots
+          </SButton>
+        )}
+        <SaveDraft />
+        <span className="h-5 w-px flex-none bg-slate-200" aria-hidden />
+        <PublishControls />
+      </div>
+    </header>
   )
 }
