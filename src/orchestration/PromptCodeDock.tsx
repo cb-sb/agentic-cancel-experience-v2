@@ -35,6 +35,7 @@ import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { applyMerchantJourney } from '../library/apply'
 import { scanReviewCopy } from '../library/review'
 import { clearDraft } from '../store/draft'
+import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
 import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
 
@@ -294,6 +295,9 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     setBeat('walk')
     setDraft('')
     resetThread()
+    // Snap the activity baseline to the now-empty file and drop any flush the
+    // reset queued, so starting over doesn't log a phantom "removed step".
+    resetHistoryBaseline()
   }
 
   const goBack = () => {

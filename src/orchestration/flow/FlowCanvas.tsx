@@ -23,7 +23,6 @@ import {
 import '@xyflow/react/dist/style.css'
 import { useExperience } from '../../store/useExperience'
 import { useOrchestration } from '../../store/useOrchestration'
-import { DemoChip } from './DemoChip'
 import { iconProps } from './icons'
 import { JourneyEdge } from './JourneyEdge'
 import { buildFlowGraph } from './layout'
@@ -172,10 +171,9 @@ function ZoomControlsPanel({
   const resetOpts = demoFloor ? { ...DEMO_FIT, duration: 250 } : { ...INITIAL_FIT, duration: 250 }
 
   return (
-    // The demo chip rides in the same row rather than stacking above it: the
-    // corner above the controls belongs to the minimap.
+    // Focus opens as an overlay for now. The DemoChip (overlay vs. drawer
+    // toggle) is parked — re-add it here to compare presentations again.
     <Panel position="bottom-right" className="nowheel nopan !m-4 flex items-center gap-2">
-      <DemoChip />
       <div className="flex h-9 items-center gap-0.5 rounded-xl border border-slate-200 bg-white/95 px-1 shadow-sm backdrop-blur">
       <ZoomButton title="Zoom out" onClick={() => zoomTo(zoom * 0.87)} disabled={zoom <= minZoom + 1e-3}>
         <svg {...iconProps} width={14} height={14}>

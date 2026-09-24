@@ -1,14 +1,17 @@
+import type { ReactNode } from 'react'
 import { SButton, SIcon, SProgressBar } from '@chargebee/sting-react'
 import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { useExperience } from '../store/useExperience'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
+import { ActivityTab } from './ActivityTab'
+import { useCopilotStage } from './copilotStage'
 import { useCopilotThread } from './copilotThread'
 import { jumpSetupItem } from './setupActions'
 import { trackerItemForSpotlight } from './spotlight'
 import { useLookTarget } from './useLookTarget'
-import { setupProgress, type SetupItem, type SetupGroupId } from './setupTracker'
+import { setupProgress, type SetupItem, type SetupGroupId, type SetupProgress } from './setupTracker'
 
 export function useSetupProgress() {
   const file = useJourney((s) => s.file)
@@ -160,15 +163,69 @@ function ProgressDonut({
   )
 }
 
+/** The checklist body — the four completion groups. */
+function CompletionTab({
+  progress,
+  highlight,
+}: {
+  progress: SetupProgress
+  highlight: { item?: SetupItem['id']; pulsed: boolean }
+}) {
+  return (
+    <div className="flex flex-col gap-[18px] px-[8px] pb-[16px] pt-[12px]">
+      {progress.groups.map((group) => (
+        <TrackColumn
+          key={group.id}
+          title={group.title}
+          done={group.done}
+          total={group.total}
+          items={group.items}
+          highlight={highlight.item}
+          pulsed={highlight.pulsed}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** Segmented switcher tab in the open dock header. */
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-[8px] px-[10px] py-[4px] text-[12px] font-semibold leading-[16px] transition-colors ${
+        active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 /**
  * Persistent journey-completion dock. One surface: a compact pill when closed,
- * the same shell growing up into the checklist. Anchored bottom-left.
+ * the same shell growing up into the checklist. Anchored bottom-left. When open
+ * it tabs between the Completion checklist and the Activity monitor.
  */
 export function SetupTrackerDock() {
   const hasSteps = useJourney((s) => s.file.steps.length > 0)
+  const stage = useCopilotStage()
+  const copilotDocked = useOrchestration((s) => s.copilotDocked)
   const progress = useSetupProgress()
   const open = useOrchestration((s) => s.trackerOpen)
   const setTrackerOpen = useOrchestration((s) => s.setTrackerOpen)
+  const tab = useOrchestration((s) => s.trackerTab)
+  const setTrackerTab = useOrchestration((s) => s.setTrackerTab)
   const highlight = useTrackerHighlight()
   const pct = progress.percent
   const complete = progress.done === progress.total && progress.total > 0
@@ -183,6 +240,10 @@ export function SetupTrackerDock() {
     : `${progress.done} of ${progress.total} complete`
 
   if (!hasSteps) return null
+  // While Copilot is centered as an overlay (e.g. proposing a plan), the
+  // journey already has steps but isn't in the workspace yet — the dock would
+  // sit on top of the centered window. It belongs to the docked/rail canvas.
+  if (stage === 'center' && !copilotDocked) return null
 
   return (
     <div
@@ -205,10 +266,15 @@ export function SetupTrackerDock() {
         aria-hidden={!open}
         {...(!open ? { inert: '' } : {})}
       >
-        <div className="flex items-center justify-between gap-[12px] px-[20px] pb-[4px] pt-[16px]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-            Journey completion
-          </p>
+        <div className="flex items-center justify-between gap-[8px] px-[16px] pb-[8px] pt-[14px]">
+          <div className="flex items-center gap-[2px] rounded-[10px] bg-slate-100 p-[2px]">
+            <TabButton active={tab === 'completion'} onClick={() => setTrackerTab('completion')}>
+              Completion
+            </TabButton>
+            <TabButton active={tab === 'activity'} onClick={() => setTrackerTab('activity')}>
+              Activity
+            </TabButton>
+          </div>
           <SButton
             size="small"
             variant="neutral-ghost"
@@ -217,19 +283,11 @@ export function SetupTrackerDock() {
             icon={<SIcon name="x" size={14} />}
           />
         </div>
-        <div className="flex flex-col gap-[18px] px-[8px] pb-[16px] pt-[12px]">
-          {progress.groups.map((group) => (
-            <TrackColumn
-              key={group.id}
-              title={group.title}
-              done={group.done}
-              total={group.total}
-              items={group.items}
-              highlight={highlight.item}
-              pulsed={highlight.pulsed}
-            />
-          ))}
-        </div>
+        {tab === 'completion' ? (
+          <CompletionTab progress={progress} highlight={highlight} />
+        ) : (
+          <ActivityTab />
+        )}
       </div>
 
       <button

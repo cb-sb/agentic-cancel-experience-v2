@@ -100,8 +100,10 @@ export function OrchestrationCanvas() {
   const previewing = useExperience((s) => s.mode === 'play')
   const stage = useCopilotStage()
 
+  // Keep Copilot open while editing. Entering Preview no longer folds it, so
+  // the canvas column keeps its width and the centered mode switch stays put.
   useEffect(() => {
-    setAssistantOpen(!previewing)
+    if (!previewing) setAssistantOpen(true)
   }, [previewing, setAssistantOpen])
 
   if (stage === 'center') {
@@ -164,7 +166,7 @@ export function OrchestrationCanvas() {
                 <FlowCanvas />
               </div>
               <FocusPresentation />
-              {previewing && <PreviewOverlay />}
+              <PreviewOverlay />
             </div>
           </div>
           <AssistantColumn />

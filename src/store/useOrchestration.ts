@@ -227,6 +227,8 @@ interface OrchestrationState {
   walkedOrSkipped: boolean
   dismissedStepNeedsWork: boolean
   trackerOpen: boolean
+  /** Which tab the open tracker shows. */
+  trackerTab: 'completion' | 'activity'
   publishGapsOpen: boolean
   /** Surface Copilot is pointing at, or null after the pulse expires. */
   spotlight: SpotlightId | null
@@ -275,6 +277,7 @@ interface OrchestrationState {
   setWalkedOrSkipped: (value: boolean) => void
   dismissStepNeedsWork: () => void
   setTrackerOpen: (open: boolean) => void
+  setTrackerTab: (tab: 'completion' | 'activity') => void
   setPublishGapsOpen: (open: boolean) => void
   setSpotlight: (id: SpotlightId | null, ms?: number) => void
   resetSetup: () => void
@@ -333,7 +336,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   annotationTarget: null,
   configTarget: null,
   focusTarget: null,
-  focusPresentation: 'drawer',
+  focusPresentation: 'overlay',
   savedAt: null,
   dirty: false,
   setupDoor: null,
@@ -345,6 +348,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   walkedOrSkipped: false,
   dismissedStepNeedsWork: false,
   trackerOpen: false,
+  trackerTab: 'completion',
   publishGapsOpen: false,
   spotlight: null,
   spotlightNonce: 0,
@@ -471,6 +475,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
     })),
   dismissStepNeedsWork: () => set({ dismissedStepNeedsWork: true }),
   setTrackerOpen: (trackerOpen) => set({ trackerOpen }),
+  setTrackerTab: (trackerTab) => set({ trackerTab }),
   setPublishGapsOpen: (publishGapsOpen) => set({ publishGapsOpen }),
   setSpotlight: (id, ms = 12000) => {
     if (spotlightTimer != null) window.clearTimeout(spotlightTimer)
@@ -482,7 +487,9 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
     set((s) => ({
       spotlight: id,
       spotlightNonce: s.spotlightNonce + 1,
-      ...(TRACKER_SPOTLIGHTS.includes(id) && id !== 'journey' ? { trackerOpen: true } : {}),
+      ...(TRACKER_SPOTLIGHTS.includes(id) && id !== 'journey'
+        ? { trackerOpen: true, trackerTab: 'completion' as const }
+        : {}),
     }))
     if (ms > 0) {
       spotlightTimer = window.setTimeout(() => {
@@ -503,6 +510,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       walkedOrSkipped: false,
       dismissedStepNeedsWork: false,
       trackerOpen: false,
+      trackerTab: 'completion',
       publishGapsOpen: false,
       spotlight: null,
       templatesOpen: false,

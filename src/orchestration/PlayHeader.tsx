@@ -172,6 +172,9 @@ export function PlayHeader() {
   const openRemap = useUpload((s) => s.openRemap)
 
   return (
+    // Mode switch is centered on the canvas (the middle track). It only stays
+    // put across Build/Preview because the canvas width no longer changes
+    // between them — Preview keeps the Copilot rail instead of folding it.
     <header className="grid h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-slate-200 bg-white px-5">
       <PlayIdentity />
       <PlayToolbar />
