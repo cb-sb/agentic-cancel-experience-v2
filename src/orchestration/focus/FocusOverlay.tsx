@@ -31,7 +31,22 @@ export function FocusOverlay({ session, open }: { session: FocusSession; open: b
         }`,
       }}
     >
-      <FocusChrome session={session} />
+      <button
+        type="button"
+        onClick={session.exit}
+        title="Close"
+        aria-label="Close"
+        className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/55 text-slate-700 shadow-[0_4px_16px_rgba(15,23,42,0.12)] backdrop-blur-[2px] transition-colors hover:bg-white/80 hover:text-slate-900 motion-reduce:transition-none"
+        style={{
+          opacity: open ? 1 : 0,
+          transition: `opacity ${open ? DRAWER_IN_MS : DRAWER_OUT_MS}ms ${open ? EASE_ENTER : EASE_LEAVE}`,
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+      <FocusChrome session={session} reserveClose />
 
       <div className="relative min-h-0 flex-1">
         <FocusCard session={session} />

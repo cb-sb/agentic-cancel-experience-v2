@@ -8,10 +8,6 @@ export type CopilotStage = 'center' | 'rail'
 export type SetupDoor = 'upload' | 'library' | 'yours' | 'guide' | 'acquire'
 export type LibraryTab = 'ours' | 'yours'
 
-function isBlankJourney(file: JourneyFile): boolean {
-  return file.template === 'none' && file.steps.length === 0
-}
-
 /** Authoring context is enough to snap Copilot back to the rail. Play setup is tracked after. */
 export function experienceContextReady(file: JourneyFile, stepStripShown: boolean): boolean {
   if (file.steps.length === 0) return false
@@ -28,9 +24,7 @@ export function deriveCopilotStage(args: {
 }): CopilotStage {
   if (args.emptyDemo) return 'rail'
   if (experienceContextReady(args.file, args.stepStripShown)) return 'rail'
-  const blank = isBlankJourney(args.file)
-  if (blank || args.setupDoor) return 'center'
-  return 'rail'
+  return 'center'
 }
 
 export function useCopilotStage(): CopilotStage {

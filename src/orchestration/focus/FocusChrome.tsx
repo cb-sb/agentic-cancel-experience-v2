@@ -14,13 +14,26 @@ import type { FocusSession } from './useFocusSession'
  * same navigation, named rather than laid out — and the canvas beside it is
  * doing the job the strip does in the overlay.
  */
-export function FocusChrome({ session, dense = false }: { session: FocusSession; dense?: boolean }) {
+export function FocusChrome({
+  session,
+  dense = false,
+  reserveClose = false,
+}: {
+  session: FocusSession
+  dense?: boolean
+  /** Room for the overlay's top-right close button. */
+  reserveClose?: boolean
+}) {
   const device = useExperience((s) => s.device)
   const setDevice = useExperience((s) => s.setDevice)
   const { experience, position, order, at, go, exit } = session
 
   return (
-    <div className="flex h-14 flex-none items-center gap-2 border-b border-slate-200 bg-white/85 px-3 backdrop-blur-sm">
+    <div
+      className={`flex h-14 flex-none items-center gap-2 border-b border-slate-200 bg-white/85 pl-3 backdrop-blur-sm ${
+        reserveClose ? 'pr-16' : 'pr-3'
+      }`}
+    >
       <button
         type="button"
         onClick={exit}
