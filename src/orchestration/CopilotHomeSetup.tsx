@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react'
+import { SIcon } from '@chargebee/sting-react'
+
 export function SectionLabel({ children }: { children: string }) {
   return (
     <p className="text-[11px] font-bold uppercase leading-normal text-[#4b5563]">{children}</p>
@@ -9,19 +12,22 @@ export function OptionBtn({
   hint,
   onClick,
   pill,
+  icon,
 }: {
   label: string
   hint?: string
   onClick: () => void
   pill?: boolean
+  icon?: ReactNode
 }) {
   if (pill) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center rounded-[14px] border border-[#e5e7eb] bg-white px-[18px] py-[14px] text-left text-[14px] leading-snug text-[#19191f] transition-colors hover:bg-[#fbfcfd]"
+        className="flex w-full items-center gap-[12px] rounded-[14px] border border-[#e5e7eb] bg-white px-[18px] py-[14px] text-left text-[14px] leading-snug text-[#19191f] transition-colors hover:bg-[#fbfcfd]"
       >
+        {icon ? <span className="flex shrink-0 text-[#677488]">{icon}</span> : null}
         {label}
       </button>
     )
@@ -55,9 +61,24 @@ export function StartPaths({
         Pick a path. You’ll get a subscriber journey you can walk before anything goes live.
       </p>
       <div className="flex flex-col gap-[12px]">
-        <OptionBtn pill label="Start me off with a Chargebee template" onClick={onTemplate} />
-        <OptionBtn pill label="I’ll upload my own template to work from" onClick={onUpload} />
-        <OptionBtn pill label="Help me pick the right path for this cancel" onClick={onGuide} />
+        <OptionBtn
+          pill
+          icon={<SIcon name="layout-template" size={16} />}
+          label="Start me off with a Chargebee template"
+          onClick={onTemplate}
+        />
+        <OptionBtn
+          pill
+          icon={<SIcon name="upload" size={16} />}
+          label="I’ll upload my own template to work from"
+          onClick={onUpload}
+        />
+        <OptionBtn
+          pill
+          icon={<SIcon name="compass" size={16} />}
+          label="Help me pick the right path for this cancel"
+          onClick={onGuide}
+        />
       </div>
     </div>
   )
