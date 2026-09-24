@@ -34,9 +34,9 @@ function clip(text: string, max = 48): string {
 function fromLoss(step: JourneyStepFile): Omit<SharedCard, 'id' | 'contentHash' | 'savedAt'> {
   const fallback = makeLossAversion()
   const title = step.headline?.trim() || 'Before you go'
-  const keepItems = step.content?.keepItems ?? fallback.keepItems.map((item) => item.label)
-  const loseItems = step.content?.loseItems ?? fallback.loseItems.map((item) => item.label)
-  const description = step.body?.trim() || fallback.message
+  const keepItems = step.content?.keepItems ?? (fallback.keepItems ?? []).map((item) => item.label)
+  const loseItems = step.content?.loseItems ?? (fallback.loseItems ?? []).map((item) => item.label)
+  const description = step.body?.trim() || fallback.message || ''
   return {
     kind: 'loss_aversion',
     name: clip(title) || 'What you keep',
@@ -55,7 +55,7 @@ function fromSurvey(step: JourneyStepFile): Omit<SharedCard, 'id' | 'contentHash
   const surveyReasons =
     step.content?.surveyReasons?.map((label) => label.trim()).filter(Boolean) ??
     fallback.options.map((option) => option.label)
-  const surveyPrompt = step.content?.surveyPrompt?.trim() || fallback.freeTextPrompt
+  const surveyPrompt = step.content?.surveyPrompt?.trim() || fallback.freeTextPrompt || ''
   const description = surveyReasons.slice(0, 3).join(' · ') || DEFAULT_SURVEY_BODY
   return {
     kind: 'survey',
