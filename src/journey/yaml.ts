@@ -47,6 +47,8 @@ function emitStep(s: JourneyStepFile): string {
   if (s.headline) lines.push(`    headline: ${yamlStr(s.headline)}`)
   if (s.body) lines.push(`    body: ${yamlStr(s.body)}`)
   if (s.offer) lines.push(`    offer: ${s.offer}`)
+  if (s.sharedOfferId) lines.push(`    shared_offer: ${yamlStr(s.sharedOfferId)}`)
+  if (s.sharedCardId) lines.push(`    shared_card: ${yamlStr(s.sharedCardId)}`)
   if (s.chrome) lines.push(`    chrome: ${JSON.stringify(s.chrome)}`)
   return lines.join('\n')
 }
@@ -57,6 +59,7 @@ export function stringifyJourney(file: JourneyFile): string {
     `kind: ${file.kind}`,
     `template: ${file.template}`,
     `name: ${yamlStr(file.name)}`,
+    ...(file.libraryId ? [`library_id: ${yamlStr(file.libraryId)}`] : []),
     `shell: ${file.shell}`,
     `audience: ${file.audience}`,
     `holdout: ${file.holdout}`,
@@ -192,7 +195,8 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
       } else if (key === 'template') {
         if (!TEMPLATES.has(v as JourneyTemplate)) return { error: `Line ${n}: unknown template` }
         file.template = v as JourneyTemplate
-      } else if (key === 'name') file.name = v
+      }       else if (key === 'name') file.name = v
+      else if (key === 'library_id') file.libraryId = v
       else if (key === 'shell') {
         if (!SHELLS.has(v as ShellLayout)) return { error: `Line ${n}: unknown shell` }
         file.shell = v as ShellLayout
@@ -255,7 +259,7 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
       current = { id: String(parseScalar(item[1])), kind: 'survey' }
       continue
     }
-    const field = line.match(/^\s{2,}([a-z]+):\s*(.*)$/)
+    const field = line.match(/^\s{2,}([a-z_]+):\s*(.*)$/)
     if (!field || !current) return { error: `Line ${n}: expected a step field` }
     const key = field[1]
     const parsed = parseScalar(field[2])
@@ -269,7 +273,9 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
     else if (key === 'offer') {
       if (!OFFERS.has(parsed as OfferKey)) return { error: `Line ${n}: unknown offer` }
       current.offer = parsed as OfferKey
-    } else if (key === 'chrome') {
+    } else if (key === 'shared_offer') current.sharedOfferId = String(parsed)
+    else if (key === 'shared_card') current.sharedCardId = String(parsed)
+    else if (key === 'chrome') {
       try {
         current.chrome = JSON.parse(String(field[2].trim() || parsed)) as JourneyStepFile['chrome']
       } catch {

@@ -99,6 +99,16 @@ export interface JourneyStepFile {
   headline?: string
   body?: string
   offer?: OfferKey
+  /**
+   * Link to a shared offer in the merchant library. The library holds the
+   * wording; this step does not keep a private copy.
+   */
+  sharedOfferId?: string
+  /**
+   * Link to a shared loss-aversion card or survey in the merchant library.
+   * The library holds the wording; this step does not keep a private copy.
+   */
+  sharedCardId?: string
   /** Component-level copy the Context editor edits directly. */
   content?: JourneyStepContent
   /** Saved merchant chrome for this step. Compile still uses factories for the rest. */
@@ -134,6 +144,8 @@ export interface JourneyFile {
   kind: JourneyKind
   template: JourneyTemplate
   name: string
+  /** Stable id once this journey has been saved into the merchant library. */
+  libraryId?: string
   shell: ShellLayout
   audience: AudienceKey
   brand: JourneyBrand

@@ -15,6 +15,7 @@ import { uid } from '../lib/id'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { AUDIENCE_LIBRARY, conditionExpression, type Audience, type Play } from '../types/orchestration'
 import type { BlueprintId, Experience, Step } from '../types/experience'
+import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import type { JourneyFile, JourneyStepFile, OfferKey } from './types'
 
 const TEMPLATE_BLUEPRINT: Record<JourneyFile['template'], BlueprintId> = {
@@ -57,24 +58,30 @@ function compileStep(s: JourneyStepFile): Step {
 
   switch (s.kind) {
     case 'loss_aversion': {
+      const shared = s.sharedCardId
+        ? useMerchantLibrary.getState().cards.find((card) => card.id === s.sharedCardId)
+        : undefined
       const la = makeLossAversion({ id: cid })
       return {
         ...base,
         stage: 'value_reinforcement',
-        title: s.headline ?? 'Before you go',
-        description: s.body ?? '',
+        title: shared?.title ?? s.headline ?? 'Before you go',
+        description: shared?.description ?? s.body ?? '',
         components: [
           {
             ...la,
-            keepItems: mergeLabeled(la.keepItems ?? [], s.content?.keepItems, () => uid('kp')),
-            loseItems: mergeLabeled(la.loseItems ?? [], s.content?.loseItems, () => uid('ls')),
+            keepItems: mergeLabeled(la.keepItems ?? [], shared?.keepItems ?? s.content?.keepItems, () => uid('kp')),
+            loseItems: mergeLabeled(la.loseItems ?? [], shared?.loseItems ?? s.content?.loseItems, () => uid('ls')),
           },
         ],
       }
     }
     case 'survey': {
+      const shared = s.sharedCardId
+        ? useMerchantLibrary.getState().cards.find((card) => card.id === s.sharedCardId)
+        : undefined
       const sv = makeSurvey({ id: cid })
-      const reasons = s.content?.surveyReasons
+      const reasons = shared?.surveyReasons ?? s.content?.surveyReasons
       const options = reasons
         ? reasons
             .map((label) => label.trim())
@@ -88,18 +95,23 @@ function compileStep(s: JourneyStepFile): Step {
       return {
         ...base,
         stage: 'route_detection',
-        title: s.headline ?? 'Why are you cancelling?',
+        title: shared?.title ?? s.headline ?? 'Why are you cancelling?',
         description: s.body ?? 'Your feedback shapes what we build next.',
         components: [
           {
             ...sv,
             options,
-            ...(s.content?.surveyPrompt ? { freeTextPrompt: s.content.surveyPrompt } : {}),
+            ...((shared?.surveyPrompt || s.content?.surveyPrompt)
+              ? { freeTextPrompt: shared?.surveyPrompt || s.content?.surveyPrompt }
+              : {}),
           },
         ],
       }
     }
-    case 'offer':
+    case 'offer': {
+      const shared = s.sharedOfferId
+        ? useMerchantLibrary.getState().offers.find((o) => o.id === s.sharedOfferId)
+        : undefined
       return {
         ...base,
         stage: s.id === 'entry' ? 'entry_offer' : 'save_mechanic',
@@ -110,12 +122,22 @@ function compileStep(s: JourneyStepFile): Step {
             id: cid,
             reasonLinked: s.id !== 'entry',
             media: { type: 'image' },
-            ...offerPatch(s.offer),
-            ...(s.headline ? { title: s.headline } : {}),
-            ...(s.body ? { description: s.body } : {}),
+            ...(shared
+              ? {
+                  category: shared.offer,
+                  title: shared.title,
+                  description: shared.description,
+                  primaryCta: shared.primaryCta,
+                }
+              : {
+                  ...offerPatch(s.offer),
+                  ...(s.headline ? { title: s.headline } : {}),
+                  ...(s.body ? { description: s.body } : {}),
+                }),
           }),
         ],
       }
+    }
     case 'pricing_table':
       return {
         ...base,

@@ -2,8 +2,13 @@ import { useMemo, useState } from 'react'
 import { SButton } from '@chargebee/sting-react'
 import { withLive } from '../journey/templates'
 import { attachComponents, startFromComponents } from '../library/apply'
+import { journeyFromSharedCard, journeysUsingCard, placeSharedCard } from '../library/cards'
+import { journeyFromSharedOffer, journeysUsing, placeSharedOffer } from '../library/offers'
+import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { useJourney } from '../store/useJourney'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
+import { useOrchestration } from '../store/useOrchestration'
+import type { SavedJourney, SharedCard, SharedOffer } from '../library/types'
 import { CB_KIND_LABELS, CB_KINDS, type CbKind } from '../upload/contract'
 import { ChromeThumb } from '../upload/ChromeThumb'
 import type { MerchantComponent, MerchantTemplate } from '../library/types'
@@ -45,7 +50,13 @@ export function YoursBrowse({
 }) {
   const templates = useMerchantLibrary((s) => s.templates)
   const components = useMerchantLibrary((s) => s.components)
+  const offers = useMerchantLibrary((s) => s.offers)
+  const cards = useMerchantLibrary((s) => s.cards)
+  const journeys = useMerchantLibrary((s) => s.journeys)
   const removeTemplate = useMerchantLibrary((s) => s.removeTemplate)
+  const syncJourney = useMerchantLibrary((s) => s.syncJourney)
+  const closeTemplates = useOrchestration((s) => s.closeTemplates)
+  const focusStep = useOrchestration((s) => s.focusStep)
   const file = useJourney((s) => s.file)
   const replaceFile = useJourney((s) => s.replaceFile)
   const [kindFilter, setKindFilter] = useState<KindFilter>('all')
@@ -59,9 +70,63 @@ export function YoursBrowse({
     for (const step of file.steps) {
       const id = step.chrome?.libraryComponentId
       if (id) ids.add(id)
+      if (step.sharedOfferId) ids.add(step.sharedOfferId)
+      if (step.sharedCardId) ids.add(step.sharedCardId)
     }
     return ids
   }, [file.steps])
+
+  const showStep = (stepId: string) => {
+    closeTemplates()
+    focusStep({ experienceId: PRIMARY_EXPERIENCE_ID, stepId })
+  }
+
+  const commitAdded = (next: ReturnType<typeof useJourney.getState>['file']) => {
+    replaceFile({ ...next, steps: withLive(next.steps, true) })
+  }
+
+  const useOffer = (offer: SharedOffer) => {
+    const current = useJourney.getState().file
+    const placed = placeSharedOffer(current, offer)
+    if (placed.kind === 'show') {
+      showStep(placed.stepId)
+      return
+    }
+    if (placed.kind === 'start') {
+      replaceFile(journeyFromSharedOffer(current, offer))
+      closeTemplates()
+      return
+    }
+    commitAdded(placed.file)
+  }
+
+  const useCard = (card: SharedCard) => {
+    const current = useJourney.getState().file
+    const placed = placeSharedCard(current, card)
+    if (placed.kind === 'show') {
+      showStep(placed.stepId)
+      return
+    }
+    if (placed.kind === 'blocked') return
+    if (placed.kind === 'start') {
+      replaceFile(journeyFromSharedCard(current, card))
+      closeTemplates()
+      return
+    }
+    commitAdded(placed.file)
+  }
+
+  const openJourney = (journey: SavedJourney) => {
+    const current = useJourney.getState().file
+    if (current.libraryId === journey.id) {
+      closeTemplates()
+      return
+    }
+    if (current.steps.length > 0) syncJourney(current)
+    const fresh = useMerchantLibrary.getState().journeys.find((j) => j.id === journey.id) ?? journey
+    replaceFile(fresh.file)
+    closeTemplates()
+  }
 
   const kindsPresent = useMemo(() => {
     const have = new Set(components.map((c) => c.kind))
@@ -123,7 +188,7 @@ export function YoursBrowse({
     setSelected([])
   }
 
-  if (templates.length === 0 && components.length === 0) {
+  if (templates.length === 0 && components.length === 0 && offers.length === 0 && cards.length === 0 && journeys.length === 0) {
     return (
       <div className={compact ? 'px-[4px] py-[16px]' : 'px-6 py-10'}>
         <p className="text-[14px] font-semibold text-slate-800">No saved templates yet</p>
@@ -192,6 +257,43 @@ export function YoursBrowse({
             : 'min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5'
         }
       >
+        {journeys.length > 0 && (
+          <section>
+            <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+              Your journeys
+            </p>
+            <div className="space-y-[10px]">
+              {journeys.map((journey) => (
+                <div
+                  key={journey.id}
+                  className="rounded-2xl border border-slate-200/90 bg-white p-[16px]"
+                >
+                  <div className="text-[14px] font-bold text-slate-900">{journey.name}</div>
+                  <div className="mt-[4px] text-[12px] text-slate-500">
+                    {journey.offerIds.length === 0
+                      ? 'No shared offers'
+                      : `${journey.offerIds.length} shared offer${journey.offerIds.length === 1 ? '' : 's'}`}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openJourney(journey)}
+                    className="mt-[12px] text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    Open this journey →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        <SavedPieces
+          file={file}
+          offers={offers}
+          cards={cards}
+          journeys={journeys}
+          onOffer={useOffer}
+          onCard={useCard}
+        />
         {templates.length > 0 && (
           <section>
             <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -374,6 +476,140 @@ function PillRow({
         })}
       </div>
     </div>
+  )
+}
+
+function usedLine(journeys: SavedJourney[]): string {
+  if (journeys.length === 0) return 'Not on a saved journey yet'
+  if (journeys.length === 1) return `In: ${journeys[0].name}`
+  return `In: ${journeys.map((journey) => journey.name).join(', ')}`
+}
+
+function PieceCard({
+  name,
+  description,
+  used,
+  action,
+  onClick,
+}: {
+  name: string
+  description: string
+  used: string
+  action: 'add' | 'show' | 'start' | 'blocked'
+  onClick: () => void
+}) {
+  const label =
+    action === 'show'
+      ? 'Show on this journey'
+      : action === 'start'
+        ? 'Start a journey with this'
+        : 'Add to this journey'
+  return (
+    <div className="rounded-2xl border border-slate-200/90 bg-white p-[14px]">
+      <div className="text-[13px] font-bold text-slate-900">{name}</div>
+      <p className="mt-[4px] line-clamp-2 text-[12.5px] leading-snug text-slate-500">{description}</p>
+      <div className="mt-[6px] text-[12px] text-slate-500">{used}</div>
+      <div className="mt-[12px]">
+        {action === 'blocked' ? (
+          <p className="text-[12.5px] text-slate-500">This journey already has a survey.</p>
+        ) : (
+          <button type="button" onClick={onClick} className="text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700">
+            {label}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SavedPieces({
+  file,
+  offers,
+  cards,
+  journeys,
+  onOffer,
+  onCard,
+}: {
+  file: ReturnType<typeof useJourney.getState>['file']
+  offers: SharedOffer[]
+  cards: SharedCard[]
+  journeys: SavedJourney[]
+  onOffer: (offer: SharedOffer) => void
+  onCard: (card: SharedCard) => void
+}) {
+  const loss = cards.filter((card) => card.kind === 'loss_aversion')
+  const surveys = cards.filter((card) => card.kind === 'survey')
+  if (offers.length === 0 && loss.length === 0 && surveys.length === 0) return null
+
+  const groups: { title: string; rows: { id: string; name: string; description: string; used: string; action: 'add' | 'show' | 'start' | 'blocked'; onClick: () => void }[] }[] = [
+    {
+      title: 'Loss aversion',
+      rows: loss.map((card) => {
+        const placed = placeSharedCard(file, card)
+        return {
+          id: card.id,
+          name: card.name,
+          description: card.description,
+          used: usedLine(journeysUsingCard(card.id, journeys, file)),
+          action: placed.kind === 'add' ? 'add' : placed.kind,
+          onClick: () => onCard(card),
+        }
+      }),
+    },
+    {
+      title: 'Survey reasons',
+      rows: surveys.map((card) => {
+        const placed = placeSharedCard(file, card)
+        return {
+          id: card.id,
+          name: card.name,
+          description: card.description,
+          used: usedLine(journeysUsingCard(card.id, journeys, file)),
+          action: placed.kind === 'add' ? 'add' : placed.kind,
+          onClick: () => onCard(card),
+        }
+      }),
+    },
+    {
+      title: 'Offers',
+      rows: offers.map((offer) => {
+        const placed = placeSharedOffer(file, offer)
+        return {
+          id: offer.id,
+          name: offer.name,
+          description: offer.description,
+          used: usedLine(journeysUsing(offer.id, journeys, file)),
+          action: placed.kind,
+          onClick: () => onOffer(offer),
+        }
+      }),
+    },
+  ]
+
+  return (
+    <>
+      {groups
+        .filter((group) => group.rows.length > 0)
+        .map((group) => (
+          <section key={group.title}>
+            <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+              {group.title}
+            </p>
+            <div className="grid grid-cols-1 gap-[8px]">
+              {group.rows.map((row) => (
+                <PieceCard
+                  key={row.id}
+                  name={row.name}
+                  description={row.description}
+                  used={row.used}
+                  action={row.action}
+                  onClick={row.onClick}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+    </>
   )
 }
 

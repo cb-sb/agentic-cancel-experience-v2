@@ -3,7 +3,9 @@ import { SIcon } from '@chargebee/sting-react'
 import { useJourney } from '../store/useJourney'
 import { useExperience } from '../store/useExperience'
 import { patchBrandShortcuts } from '../brand/theme'
-import { OFFER_VARIANTS } from '../lib/offerVariants'
+import { OFFER_VARIANTS, offerVariantPatch } from '../lib/offerVariants'
+import { journeysUsing, wordingFromStep } from '../library/offers'
+import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { templateLabel } from '../journey/templates'
 import { uploadedScreenChain } from '../journey/contextDoc'
 import type {
@@ -74,7 +76,7 @@ function TextField({
 }: {
   label: string
   value: string
-  onCommit: (v: string) => void
+  onCommit: (v: string) => void | false
   multiline?: boolean
   placeholder?: string
 }) {
@@ -83,7 +85,8 @@ function TextField({
     setV(value)
   }, [value])
   const commit = () => {
-    if (v !== value) onCommit(v)
+    if (v === value) return
+    if (onCommit(v) === false) setV(value)
   }
   return (
     <Field label={label}>
@@ -242,9 +245,33 @@ function comp<K extends string>(step: Step | undefined, kind: K) {
 /** Kind-specific editor for one step, reading live values from the compiled step. */
 function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compiled: Step | undefined }) {
   const updateStep = useJourney((s) => s.updateStep)
+  const file = useJourney((s) => s.file)
+  const offers = useMerchantLibrary((s) => s.offers)
+  const journeys = useMerchantLibrary((s) => s.journeys)
   const id = fileStep.id
   const setHeadline = (v: string) => updateStep(id, { headline: v.trim() || undefined })
   const setBody = (v: string) => updateStep(id, { body: v.trim() || undefined })
+  const shared = offers.find((o) => o.id === fileStep.sharedOfferId)
+  const used = fileStep.sharedOfferId ? journeysUsing(fileStep.sharedOfferId, journeys, file) : []
+
+  const keepOffer = (step: JourneyStepFile): boolean => {
+    if (fileStep.sharedOfferId && used.length > 1) {
+      const ok = window.confirm(
+        `This offer is used in ${used.length} experiences. Keeping this change updates all of them.`,
+      )
+      if (!ok) return false
+    }
+    if (fileStep.sharedOfferId) {
+      useMerchantLibrary.getState().updateOffer(fileStep.sharedOfferId, wordingFromStep(step, shared))
+    }
+    updateStep(id, {
+      offer: step.offer,
+      headline: step.headline,
+      body: step.body,
+      sharedOfferId: step.sharedOfferId,
+    })
+    return true
+  }
 
   switch (fileStep.kind) {
     case 'loss_aversion': {
@@ -289,16 +316,84 @@ function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compile
     }
     case 'offer': {
       const c = comp(compiled, 'offer') as OfferComponent | undefined
+      const offerType = (shared?.offer ?? c?.category ?? 'discount') as OfferKey
       return (
         <>
           <SelectField
-            label="Offer type"
-            value={(c?.category ?? 'discount') as OfferKey}
-            options={OFFER_OPTIONS}
-            onChange={(offer) => updateStep(id, { offer, headline: undefined, body: undefined })}
+            label="Use an offer"
+            value={fileStep.sharedOfferId ?? ''}
+            options={[
+              { id: '', label: offers.length ? 'Start a new offer' : 'Start a new offer (none saved yet)' },
+              ...offers.map((o) => ({ id: o.id, label: o.name })),
+            ]}
+            onChange={(picked) => {
+              if (!picked) {
+                updateStep(id, { sharedOfferId: undefined, offer: 'discount', headline: undefined, body: undefined })
+                return
+              }
+              const existing = offers.find((o) => o.id === picked)
+              if (!existing) return
+              updateStep(id, {
+                sharedOfferId: existing.id,
+                offer: existing.offer,
+                headline: existing.title,
+                body: existing.description,
+              })
+            }}
           />
-          <TextField label="Headline" value={c?.title ?? ''} onCommit={setHeadline} />
-          <TextField label="Description" value={c?.description ?? ''} onCommit={setBody} multiline />
+          {fileStep.sharedOfferId && (
+            <p className="rounded-[10px] bg-slate-50 px-[12px] py-[8px] text-[12px] leading-relaxed text-slate-600">
+              Shared offer. Used in {used.length} experience{used.length === 1 ? '' : 's'}.
+              {used.length > 1 ? ' A change here updates all of them.' : ''}
+            </p>
+          )}
+          <SelectField
+            label="Offer type"
+            value={offerType}
+            options={OFFER_OPTIONS}
+            onChange={(offer) => {
+              const patch = offerVariantPatch(offer)
+              keepOffer({
+                ...fileStep,
+                offer,
+                headline: patch.title,
+                body: patch.description,
+              })
+            }}
+          />
+          <TextField
+            label="Headline"
+            value={c?.title ?? ''}
+            onCommit={(v) => {
+              const title = v.trim()
+              if (!title) return false
+              return keepOffer({ ...fileStep, headline: title }) ? undefined : false
+            }}
+          />
+          <TextField
+            label="Description"
+            value={c?.description ?? ''}
+            onCommit={(v) => keepOffer({ ...fileStep, body: v.trim() }) ? undefined : false}
+            multiline
+          />
+          {fileStep.sharedOfferId && (
+            <button
+              type="button"
+              onClick={() => {
+                const copy = useMerchantLibrary.getState().duplicateOffer(fileStep.sharedOfferId!)
+                if (!copy) return
+                updateStep(id, {
+                  sharedOfferId: copy.id,
+                  offer: copy.offer,
+                  headline: copy.title,
+                  body: copy.description,
+                })
+              }}
+              className="text-[12.5px] font-semibold text-slate-600 hover:text-slate-900"
+            >
+              Make a separate copy
+            </button>
+          )}
         </>
       )
     }

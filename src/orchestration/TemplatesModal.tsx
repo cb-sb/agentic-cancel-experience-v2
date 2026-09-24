@@ -50,7 +50,7 @@ export function LibraryPanel() {
           <h2 className="text-[15px] font-bold text-slate-900">Template library</h2>
           <p className="text-[12px] text-slate-500">
             {libraryTab === 'yours'
-              ? 'Journeys and components you already scanned.'
+              ? 'Loss-aversion cards, survey reasons, and offers you can reuse, plus anything you uploaded.'
               : 'Chargebee postures. Copilot takes it from there.'}
           </p>
         </div>

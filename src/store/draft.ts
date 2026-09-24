@@ -7,6 +7,7 @@ import { restoreJourney, useJourney } from './useJourney'
 import { useExperience } from './useExperience'
 import { useOrchestration } from './useOrchestration'
 import { useHistory, type HistoryEntry } from './useHistory'
+import { useMerchantLibrary } from './useMerchantLibrary'
 
 const KEY = 'cancel-experience:draft:v2'
 
@@ -70,6 +71,8 @@ export function applyDraftPayload(p: DraftPayload): void {
 }
 
 export function saveDraft(): void {
+  const synced = useMerchantLibrary.getState().syncJourney(useJourney.getState().file)
+  if (synced !== useJourney.getState().file) useJourney.getState().replaceFile(synced)
   const orch = useOrchestration.getState()
   const exp = useExperience.getState()
   const savedAt = Date.now()

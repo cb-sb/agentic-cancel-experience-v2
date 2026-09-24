@@ -440,13 +440,13 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   focusStep: (target) => {
     useExperience.getState().setActiveExperience(target.experienceId)
     useExperience.getState().setActiveStep(target.stepId)
-    // Inline edit always comes with Copilot in annotate mode so the merchant
-    // can point at the 1:1 card (or the play beside it) and ask about it.
+    // Focusing a step opens Copilot beside the 1:1 card, but annotate mode is
+    // never auto-enabled — it stays off until the user clicks Annotate.
     set({
       focusTarget: target,
       annotationTarget: null,
       assistantOpen: true,
-      annotateMode: true,
+      annotateMode: false,
     })
   },
   exitFocus: () => set({ focusTarget: null }),

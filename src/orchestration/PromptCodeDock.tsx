@@ -4,7 +4,7 @@ import { useOrchestration } from '../store/useOrchestration'
 import { useExperience } from '../store/useExperience'
 import { EMPTY_JOURNEY, type JourneyTemplate } from '../journey/types'
 import { startFromTemplate, templateLabel, withLive } from '../journey/templates'
-import { interpret } from '../journey/intake'
+import { EXAMPLE_PROMPTS, GOAL_CHOICES, interpret } from '../journey/intake'
 import { compileBrand } from '../brand/theme'
 import { isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
 import { ContextEditor } from './ContextEditor'
@@ -203,7 +203,7 @@ function ChatLine({ line, children }: { line: CopilotLine; children?: ReactNode 
         )}
         {line.text && (
           <div
-            className="w-fit max-w-[min(100%,560px)] rounded-[20px] border px-[16px] py-[10px] text-[15px] leading-[1.55]"
+            className="w-fit max-w-[min(100%,560px)] whitespace-pre-line rounded-[20px] border px-[16px] py-[10px] text-[15px] leading-[1.55]"
             style={{
               background: COPILOT_UI.botBubble,
               borderColor: COPILOT_UI.botBorder,
@@ -256,6 +256,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const beat = useCopilotThread((s) => s.beat)
   const setBeat = useCopilotThread((s) => s.setBeat)
   const [draft, setDraft] = useState('')
+  const [goalAsk, setGoalAsk] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const emptyHome =
@@ -615,11 +616,16 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
    * Typing skips the turns. Brand matching can sample a live URL; everything
    * else is a patch to the journey file, then we land on the recap.
    */
-  const send = () => {
-    const text = draft.trim()
+  const saySoon = (text: string, extra?: Parameters<typeof say>[2]) => {
+    window.setTimeout(() => say('bot', text, extra), 420)
+  }
+
+  const sendText = (raw: string, shown?: string) => {
+    const text = raw.trim()
     if (!text) return
     setDraft('')
-    say('you', text)
+    setGoalAsk(false)
+    say('you', shown ?? text)
     if (turn === 'plan' && beat === 'brand') {
       void applyMatchedBrand(text).then((ok) => {
         if (!ok) return
@@ -628,7 +634,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
         if (next) {
           setBeat(next)
           const look = spotlightForBeat(next)
-          say('bot', beatPrompt(next, current), look ? { look } : undefined)
+          saySoon(beatPrompt(next, current), look ? { look } : undefined)
         }
       })
       return
@@ -637,18 +643,36 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
       void applyMatchedBrand(text)
       return
     }
-    const read = interpret(text, file)
+    const read = interpret(text, useJourney.getState().file)
+    if (read.goals) {
+      window.setTimeout(() => {
+        setGoalAsk(true)
+        say('bot', read.reply)
+      }, 420)
+      return
+    }
     if (read.changed) replaceFile(read.file)
-    if (read.changed && read.file.steps.length > 0) {
-      say('bot', planIntro(read.file), { widget: 'plan' })
+    if (read.rebuilt && read.file.steps.length > 0) {
+      saySoon(read.reply, { widget: 'plan' })
       useOrchestration.getState().markStepStripShown()
       beginPostCanvas()
       return
     }
-    say('bot', read.reply)
+    saySoon(read.reply)
   }
 
+  const send = () => sendText(draft)
+
   const options = useMemo(() => {
+    if (goalAsk) {
+      return (
+        <div className="space-y-2">
+          {GOAL_CHOICES.map((goal) => (
+            <OptionBtn key={goal.id} pill label={goal.label} onClick={() => sendText(goal.prompt, goal.label)} />
+          ))}
+        </div>
+      )
+    }
     if (pendingLibraryTemplate) return null
     if (turn === 'upload') {
       return uploadPhase === 'confirm' ? (
@@ -732,7 +756,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, beat, file, uploadPhase, pendingLibraryTemplate])
+  }, [goalAsk, turn, beat, file, uploadPhase, pendingLibraryTemplate])
 
   const subtitle = emptyHome
     ? 'New Conversation'
@@ -910,6 +934,20 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                       : 'Ask Copilot...'
                 }
               />
+              {!(turn === 'plan' && beat === 'brand') && (
+                <div className="mt-[8px] flex flex-col gap-[4px] px-[4px]">
+                  {EXAMPLE_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => sendText(prompt)}
+                      className="text-left text-[12.5px] font-medium text-indigo-600 hover:text-indigo-700"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="mt-[8px] px-[4px] text-center text-[11px] leading-snug text-[#9aa3b2]">
                 By using Chargebee Copilot, you accept our third-party AI terms.
               </p>
