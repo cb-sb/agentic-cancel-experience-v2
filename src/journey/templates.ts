@@ -105,6 +105,7 @@ export function templatePosture(template: JourneyTemplate): string {
 
 export type LibraryKind = 'cancel' | 'acquisition'
 export type LibraryShape = 'single' | 'multi' | 'in_app'
+export type LibraryJob = 'comply' | 'learn' | 'save'
 
 /** Consultative catalog for the Copilot template library — one card per journey Copilot already knows. */
 export interface LibraryEntry {
@@ -118,68 +119,76 @@ export interface LibraryEntry {
   stepCount: number
   /** Cancel catalog grouping — omitted on acquire. */
   shape?: LibraryShape
+  /** Benefit group on the template door. Omitted on acquire. */
+  job?: LibraryJob
 }
 
 export const LIBRARY: LibraryEntry[] = [
   {
     id: 'cancel_1',
-    title: 'Confirm',
-    posture: 'Frictionless exit',
+    title: 'One-click cancel',
+    posture: 'For FTC-style compliance',
     why: 'Use this when the law or your brand asks for a frictionless exit. The subscriber confirms once and is done — no survey, no save offer. Best for FTC-style click-to-cancel, and for merchants who would rather lose the revenue than add friction.',
     stepLabels: ['Confirm', 'Saved', 'Cancelled'],
     kind: 'cancel',
     stepCount: 1,
     shape: 'single',
+    job: 'comply',
   },
   {
     id: 'cancel_2',
-    title: 'What you keep → Confirm',
-    posture: 'Clean exit',
+    title: 'Show the cost of leaving',
+    posture: 'For a considered exit',
     why: 'Remind them what they keep on this plan, then let them confirm. Two screens make the cost of leaving visible without asking why or putting an offer in the way — a clean exit that still feels considered.',
     stepLabels: ['What you keep', 'Confirm'],
     kind: 'cancel',
     stepCount: 2,
     shape: 'multi',
+    job: 'comply',
   },
   {
     id: 'cancel_3',
-    title: 'What you keep → Why they’re leaving → Confirm',
-    posture: 'Learn why they leave',
+    title: 'Learn why they leave',
+    posture: 'Reason data, without a save',
     why: 'Learn why they are leaving, then let them go. The survey is for you — it does not gate the cancel. Use this when you want the reason data and a short value reminder, but you are not ready to put a save offer on the path.',
     stepLabels: ['What you keep', 'Why they’re leaving', 'Confirm'],
     kind: 'cancel',
     stepCount: 3,
     shape: 'multi',
+    job: 'learn',
   },
   {
     id: 'cancel_4',
-    title: 'What you keep → Why they’re leaving → One save → Confirm',
-    posture: 'Fair save',
+    title: 'One save offer',
+    posture: 'The default for most merchants',
     why: 'The default cancel journey: show what they lose, ask why, make one save offer, then confirm. One offer after the reason is enough to be consultative without stacking discounts. Start here unless you already know you need more or less.',
     stepLabels: ['What you keep', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 4,
     shape: 'multi',
+    job: 'save',
   },
   {
     id: 'cancel_5',
-    title: 'What you keep → Entry offer → Why they’re leaving → One save → Confirm',
-    posture: 'Save-aggressive',
+    title: 'Ask twice',
+    posture: 'For high-value accounts',
     why: 'Lead with an entry offer, then survey, then a second save offer before confirmation. Use this when the account is high value and you are willing to ask twice. Heavier than most merchants need — pick it on purpose, not by habit.',
     stepLabels: ['What you keep', 'Entry offer', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
     shape: 'multi',
+    job: 'save',
   },
   {
     id: 'cancel_plan_change',
-    title: 'What you keep → Why they’re leaving → Choose a plan → Checkout → Confirm',
-    posture: 'Plan change to save',
+    title: 'Offer a cheaper plan',
+    posture: 'Keep them as a subscriber',
     why: 'Keep them as a subscriber by letting them pick a cheaper plan, then hand off to hosted checkout. They can still confirm and leave — this is a save mechanic on a cancel path, not acquiring a new subscriber.',
     stepLabels: ['What you keep', 'Why they’re leaving', 'Choose a plan', 'Checkout', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
     shape: 'in_app',
+    job: 'save',
   },
   {
     id: 'acquire_2',

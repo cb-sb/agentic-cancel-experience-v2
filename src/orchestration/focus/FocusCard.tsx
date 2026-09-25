@@ -1,4 +1,4 @@
-import type { PointerEvent } from 'react'
+import type { PointerEvent, ReactNode } from 'react'
 import { compactStepLabel } from '../../lib/stepLabels'
 import { DEVICE_WIDTHS } from '../../render/DeviceFrame'
 import { useExperience } from '../../store/useExperience'
@@ -15,7 +15,16 @@ import type { FocusSession } from './useFocusSession'
  * is what keeps its text editable in place rather than drawn through a
  * transform — `scripts/focus-audit.ts` asserts exactly that.
  */
-export function FocusCard({ session, padX = 80 }: { session: FocusSession; padX?: number }) {
+export function FocusCard({
+  session,
+  padX = 80,
+  chrome,
+}: {
+  session: FocusSession
+  padX?: number
+  /** Controls that travel with the card, sitting directly above it. */
+  chrome?: ReactNode
+}) {
   const device = useExperience((s) => s.device)
   const annotateMode = useOrchestration((s) => s.annotateMode)
   const openAnnotation = useOrchestration((s) => s.openAnnotation)
@@ -51,29 +60,33 @@ export function FocusCard({ session, padX = 80 }: { session: FocusSession; padX?
         className="flex min-h-full items-center justify-center py-10"
         style={{ paddingLeft: padX, paddingRight: padX }}
       >
-        <div
-          data-focus-card={DEVICE_WIDTHS[device]}
-          className={`relative rounded-[28px] ${
-            annotateMode
-              ? annotating
-                ? 'ring-2 ring-sky-500 ring-offset-2 ring-offset-slate-100'
-                : 'cursor-crosshair hover:ring-2 hover:ring-sky-400/80'
-              : ''
-          }`}
-          onPointerDownCapture={onAnnotateDown}
-        >
-          <CanvasStep
-            step={step}
-            index={position.index}
-            total={position.total}
-            width={DEVICE_WIDTHS[device]}
-            experienceId={experience.id}
-          />
-          {annotating && annotationTarget && (
-            <div className="absolute right-3 top-3 z-20" data-annotation-composer>
-              <AnnotationComposer target={annotationTarget} />
-            </div>
-          )}
+        <div className="flex w-full max-w-full flex-col items-center gap-3">
+          {chrome}
+          <div
+            data-focus-card={DEVICE_WIDTHS[device]}
+            style={{ width: DEVICE_WIDTHS[device] }}
+            className={`relative rounded-[28px] ${
+              annotateMode
+                ? annotating
+                  ? 'ring-2 ring-sky-500 ring-offset-2 ring-offset-slate-100'
+                  : 'cursor-crosshair hover:ring-2 hover:ring-sky-400/80'
+                : ''
+            }`}
+            onPointerDownCapture={onAnnotateDown}
+          >
+            <CanvasStep
+              step={step}
+              index={position.index}
+              total={position.total}
+              width={DEVICE_WIDTHS[device]}
+              experienceId={experience.id}
+            />
+            {annotating && annotationTarget && (
+              <div className="absolute right-3 top-3 z-20" data-annotation-composer>
+                <AnnotationComposer target={annotationTarget} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

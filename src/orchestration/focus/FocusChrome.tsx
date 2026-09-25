@@ -18,11 +18,17 @@ export function FocusChrome({
   session,
   dense = false,
   reserveClose = false,
+  embedded = false,
+  floating = false,
 }: {
   session: FocusSession
   dense?: boolean
   /** Room for the overlay's top-right close button. */
   reserveClose?: boolean
+  /** The editor is the page. There is no canvas underneath to go back to. */
+  embedded?: boolean
+  /** Sit on the card, the same width, instead of a full-width bar. */
+  floating?: boolean
 }) {
   const device = useExperience((s) => s.device)
   const setDevice = useExperience((s) => s.setDevice)
@@ -30,27 +36,33 @@ export function FocusChrome({
 
   return (
     <div
-      className={`flex h-14 flex-none items-center gap-2 border-b border-slate-200 bg-white/85 pl-3 backdrop-blur-sm ${
-        reserveClose ? 'pr-16' : 'pr-3'
-      }`}
+      className={
+        floating
+          ? 'flex w-max max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm'
+          : `flex h-14 flex-none items-center gap-2 border-b border-slate-200 bg-white pl-3 ${
+              reserveClose && !embedded ? 'pr-16' : 'pr-3'
+            }`
+      }
     >
-      <button
-        type="button"
-        onClick={exit}
-        title="Back to the play (Esc)"
-        aria-label="Back to the play"
-        className="group flex h-8 flex-none items-center gap-1.5 rounded-lg pl-1.5 pr-2 text-[12px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
-      >
-        <svg {...iconProps} width={15} height={15}>
-          <path d="M19 12H5m0 0 6-6m-6 6 6 6" />
-        </svg>
-        {dense ? 'Back' : 'Back to play'}
-        <kbd className="rounded border border-slate-200 px-1 font-sans text-[9px] font-semibold text-slate-400 transition-colors group-hover:border-slate-300">
-          esc
-        </kbd>
-      </button>
+      {!embedded && (
+        <button
+          type="button"
+          onClick={exit}
+          title="Back to the play (Esc)"
+          aria-label="Back to the play"
+          className="group flex h-8 flex-none items-center gap-1.5 rounded-lg pl-1.5 pr-2 text-[12px] font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+        >
+          <svg {...iconProps} width={15} height={15}>
+            <path d="M19 12H5m0 0 6-6m-6 6 6 6" />
+          </svg>
+          {dense ? 'Back' : 'Back to play'}
+          <kbd className="rounded border border-slate-200 px-1 font-sans text-[9px] font-semibold text-slate-400 transition-colors group-hover:border-slate-300">
+            esc
+          </kbd>
+        </button>
+      )}
 
-      <span className="h-6 w-px flex-none bg-slate-200" aria-hidden />
+      {!embedded && <span className="h-6 w-px flex-none bg-slate-200" aria-hidden />}
 
       {dense ? (
         <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
@@ -70,19 +82,21 @@ export function FocusChrome({
       ) : (
         <nav
           aria-label="Steps in this experience"
-          className="no-scrollbar min-w-0 flex-1 overflow-x-auto py-1"
+          className={`no-scrollbar min-w-0 overflow-x-auto py-1 ${floating ? '' : 'flex-1'}`}
         >
           <StepSwitcher experience={experience} />
         </nav>
       )}
 
-      <span className="h-6 w-px flex-none bg-slate-200" aria-hidden />
+      {!floating && <span className="h-6 w-px flex-none bg-slate-200" aria-hidden />}
 
-      <DevicePicker
-        value={device}
-        onChange={setDevice}
-        label={(kind) => `Preview at ${kind} width`}
-      />
+      {!floating && (
+        <DevicePicker
+          value={device}
+          onChange={setDevice}
+          label={(kind) => `Preview at ${kind} width`}
+        />
+      )}
     </div>
   )
 }

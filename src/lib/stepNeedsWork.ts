@@ -18,7 +18,24 @@ export function stepNeedsWorkReasons(step: Step, file: JourneyFile): string[] {
 }
 
 export function stepNeedsWork(step: Step, file: JourneyFile): boolean {
-  return stepNeedsWorkReasons(step, file).length > 0
+  return stepReadiness(step, file).ready === false
+}
+
+/**
+ * System readiness for one screen. The merchant does not tick this.
+ * Confirmation and outcome screens are ready by being on the path.
+ */
+export function stepReadiness(step: Step, file: JourneyFile): { ready: boolean; reason: string } {
+  const reasons = stepNeedsWorkReasons(step, file)
+  const la = step.components.find((c) => c.kind === 'loss_aversion')
+  if (la && la.kind === 'loss_aversion') {
+    const bullets = (la.keepItems?.length ?? 0) + (la.loseItems?.length ?? 0) + (la.stats?.length ?? 0)
+    const headline = (step.title ?? '').trim() || (la.message ?? '').trim()
+    if (!headline) reasons.push('Needs a headline')
+    if (la.cardType !== 'message' && bullets === 0) reasons.push('Needs at least one point')
+  }
+  if (reasons.length === 0) return { ready: true, reason: 'Ready' }
+  return { ready: false, reason: reasons[0] }
 }
 
 export function anyStepNeedsWork(steps: Step[], file: JourneyFile): boolean {

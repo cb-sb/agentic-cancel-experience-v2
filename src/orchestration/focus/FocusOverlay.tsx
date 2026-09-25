@@ -1,3 +1,5 @@
+import { DevicePicker } from '../../render/DevicePicker'
+import { useExperience } from '../../store/useExperience'
 import { iconProps } from '../flow/icons'
 import { FocusCard } from './FocusCard'
 import { FocusChrome } from './FocusChrome'
@@ -15,9 +17,38 @@ import type { FocusSession } from './useFocusSession'
  * toolbar rather than from seeing the flow. Whether that is enough is the thing
  * the drawer variant exists to test.
  */
-export function FocusOverlay({ session, open }: { session: FocusSession; open: boolean }) {
+export function FocusOverlay({
+  session,
+  open,
+  embedded = false,
+}: {
+  session: FocusSession
+  open: boolean
+  /** Fill the editor column. No scrim, no close — the step tabs are the navigation. */
+  embedded?: boolean
+}) {
   const { rightInset } = useFocusGeometry()
   const { order, at, go } = session
+
+  if (embedded) {
+    return (
+      <div data-focus-overlay className="flex h-full min-h-0 flex-col bg-slate-100">
+        <div className="relative min-h-0 flex-1">
+          <FocusCard
+            session={session}
+            chrome={
+              <>
+                <EditorDevicePicker />
+                <FocusChrome session={session} embedded floating />
+              </>
+            }
+          />
+          <StepArrow side="left" disabled={at <= 0} onClick={() => go(-1)} />
+          <StepArrow side="right" disabled={at < 0 || at >= order.length - 1} onClick={() => go(1)} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -54,6 +85,18 @@ export function FocusOverlay({ session, open }: { session: FocusSession; open: b
         <StepArrow side="right" disabled={at < 0 || at >= order.length - 1} onClick={() => go(1)} />
       </div>
     </div>
+  )
+}
+
+function EditorDevicePicker() {
+  const device = useExperience((s) => s.device)
+  const setDevice = useExperience((s) => s.setDevice)
+  return (
+    <DevicePicker
+      value={device}
+      onChange={setDevice}
+      label={(kind) => `Preview at ${kind} width`}
+    />
   )
 }
 

@@ -178,7 +178,7 @@ function insertIndexFromX(
 export function StepStrip({
   onAccept,
   onReject,
-  acceptLabel = 'Looks right — open the canvas',
+  acceptLabel = 'Looks right — open the editor',
   rejectLabel = 'Pick a different job',
   includeOutcomes = false,
   footerHint,

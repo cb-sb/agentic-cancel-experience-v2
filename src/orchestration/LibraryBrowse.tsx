@@ -3,33 +3,33 @@ import { SButton, STabs } from '@chargebee/sting-react'
 import {
   LIBRARY,
   type LibraryEntry,
+  type LibraryJob,
   type LibraryKind,
-  type LibraryShape,
 } from '../journey/templates'
 import { useJourney } from '../store/useJourney'
 import { SectionLabel } from './CopilotHomeSetup'
 import { TemplatePreviewStrip } from './TemplatePreviewStrip'
 
 type Filter = 'all' | LibraryKind
-type ShapeFilter = 'all' | LibraryShape
+type JobFilter = 'all' | LibraryJob
 
-const SHAPE_PILLS: { id: ShapeFilter; label: string }[] = [
+const JOB_PILLS: { id: JobFilter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'single', label: 'Single step' },
-  { id: 'multi', label: 'Multi-step' },
-  { id: 'in_app', label: 'In-app' },
+  { id: 'comply', label: 'Comply' },
+  { id: 'learn', label: 'Learn' },
+  { id: 'save', label: 'Save' },
 ]
 
-const SHAPE_GROUPS: { id: LibraryShape; label: string }[] = [
-  { id: 'single', label: 'Single step' },
-  { id: 'multi', label: 'Multi-step' },
-  { id: 'in_app', label: 'In-app' },
+const JOB_GROUPS: { id: LibraryJob; label: string }[] = [
+  { id: 'comply', label: 'Comply' },
+  { id: 'learn', label: 'Learn' },
+  { id: 'save', label: 'Save' },
 ]
 
-function shapeLabel(shape: LibraryShape | undefined): string | null {
-  if (shape === 'single') return 'Single step'
-  if (shape === 'multi') return 'Multi-step'
-  if (shape === 'in_app') return 'In-app'
+function jobLabel(job: LibraryJob | undefined): string | null {
+  if (job === 'comply') return 'Comply'
+  if (job === 'learn') return 'Learn'
+  if (job === 'save') return 'Save'
   return null
 }
 
@@ -53,7 +53,7 @@ function LibraryCard({
   const brand = useJourney((s) => s.file.brand)
   const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
   const stepMeta = `${entry.stepCount} screen${entry.stepCount === 1 ? '' : 's'} · ${kindLabel}`
-  const badge = shapeLabel(entry.shape)
+  const badge = jobLabel(entry.job)
   return (
     <article className="group w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:border-slate-300/80 hover:shadow-[0_12px_32px_-16px_rgba(15,23,42,0.28)]">
       <div className="px-[18px] pb-[14px] pt-[16px]">
@@ -69,6 +69,7 @@ function LibraryCard({
           {entry.posture} · {stepMeta}
         </div>
         <p className="mt-[8px] line-clamp-2 text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+        <p className="mt-[6px] text-[12px] leading-snug text-slate-400">{entry.stepLabels.join(' → ')}</p>
         <button
           type="button"
           onClick={onPick}
@@ -94,7 +95,7 @@ function TemplateConfirm({
 }) {
   const brand = useJourney((s) => s.file.brand)
   const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
-  const badge = shapeLabel(entry.shape)
+  const badge = jobLabel(entry.job)
   return (
     <div className="flex flex-col gap-[12px]">
       <button
@@ -118,6 +119,7 @@ function TemplateConfirm({
             {entry.posture} · {entry.stepCount} screen{entry.stepCount === 1 ? '' : 's'} · {kindLabel}
           </p>
           <p className="text-[13px] leading-relaxed text-slate-600">{entry.why}</p>
+          <p className="text-[12px] leading-snug text-slate-400">{entry.stepLabels.join(' → ')}</p>
           <div className="flex flex-wrap items-center justify-start gap-[8px] pt-[4px]">
             <SButton size="small" variant="neutral-outline" className="w-auto shrink-0" onClick={onBack}>
               Back
@@ -142,15 +144,15 @@ export function LibraryBrowse({
   onApply: (id: LibraryEntry['id']) => void
 }) {
   const [cat, setCat] = useState<Filter>('cancel')
-  const [shape, setShape] = useState<ShapeFilter>('all')
+  const [job, setJob] = useState<JobFilter>('all')
   const [query, setQuery] = useState('')
   const [pending, setPending] = useState<LibraryEntry | null>(null)
 
   const cancelCatalog = useMemo(() => LIBRARY.filter((e) => e.kind === 'cancel'), [])
-  const shapeCounts = useMemo(() => {
-    const counts: Record<LibraryShape, number> = { single: 0, multi: 0, in_app: 0 }
+  const jobCounts = useMemo(() => {
+    const counts: Record<LibraryJob, number> = { comply: 0, learn: 0, save: 0 }
     cancelCatalog.forEach((e) => {
-      if (e.shape) counts[e.shape] += 1
+      if (e.job) counts[e.job] += 1
     })
     return counts
   }, [cancelCatalog])
@@ -159,16 +161,16 @@ export function LibraryBrowse({
     const q = query.trim().toLowerCase()
     return LIBRARY.filter((e) => {
       if (cat !== 'all' && e.kind !== cat) return false
-      if (cat === 'cancel' && shape !== 'all' && e.shape !== shape) return false
+      if (cat === 'cancel' && job !== 'all' && e.job !== job) return false
       return matchesQuery(e, q)
     })
-  }, [cat, query, shape])
+  }, [cat, query, job])
 
   const grouped =
-    cat === 'cancel' && shape === 'all'
-      ? SHAPE_GROUPS.map((g) => ({
+    cat === 'cancel' && job === 'all'
+      ? JOB_GROUPS.map((g) => ({
           ...g,
-          entries: rows.filter((e) => e.shape === g.id),
+          entries: rows.filter((e) => e.job === g.id),
         })).filter((g) => g.entries.length > 0)
       : null
 
@@ -199,7 +201,7 @@ export function LibraryBrowse({
           value={cat}
           onValueChange={(id) => {
             setCat(id as Filter)
-            setShape('all')
+            setJob('all')
           }}
           variant="underline"
           size="sm"
@@ -216,22 +218,22 @@ export function LibraryBrowse({
             compact ? '' : 'sticky top-0 z-10 bg-white px-6 pt-3'
           }`}
         >
-          <SectionLabel>Path type</SectionLabel>
+          <SectionLabel>Job</SectionLabel>
           <div
             role="group"
-            aria-label="Path type"
+            aria-label="Job"
             className="inline-flex w-fit max-w-full flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-[3px]"
           >
-            {SHAPE_PILLS.map((pill) => {
+            {JOB_PILLS.map((pill) => {
               const count =
-                pill.id === 'all' ? cancelCatalog.length : shapeCounts[pill.id]
-              const selected = shape === pill.id
+                pill.id === 'all' ? cancelCatalog.length : jobCounts[pill.id]
+              const selected = job === pill.id
               return (
                 <button
                   key={pill.id}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => setShape(pill.id)}
+                  onClick={() => setJob(pill.id)}
                   className={`rounded-md px-[10px] py-[5px] text-[12px] font-medium ${
                     selected
                       ? 'bg-white text-slate-900'

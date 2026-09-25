@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { uid } from '../lib/id'
 import type { JourneyTemplate } from '../journey/types'
-import { seedPlay } from '../lib/orchestrationSeed'
+import { PRIMARY_EXPERIENCE_ID, seedPlay } from '../lib/orchestrationSeed'
 import type { LibraryTab, SetupDoor } from '../orchestration/copilotStage'
 import type { ConfirmedSetup, SetupItemId } from '../orchestration/setupTracker'
 import {
@@ -220,6 +220,8 @@ interface OrchestrationState {
   copilotDocked: boolean
   /** Copilot has shown the step strip; required to leave center stage. */
   stepStripShown: boolean
+  /** Right-hand surface once a journey has landed. Canvas is the big-picture view. */
+  workSurface: 'editor' | 'canvas'
   /** Beats the merchant confirmed — defaults do not count until this is set. */
   confirmedSetup: ConfirmedSetup
   /** Growth is connected to Billing and the snippet is installed (prerequisite). */
@@ -272,6 +274,9 @@ interface OrchestrationState {
   /** Peel center Copilot to a 50vw right rail over the dotted canvas. */
   dockCopilot: () => void
   markStepStripShown: () => void
+  setWorkSurface: (surface: 'editor' | 'canvas') => void
+  /** Land in Copilot + the step editor, on the first screen when nothing is open yet. */
+  enterWorkEditor: () => void
   setInstallConnected: (value: boolean) => void
   confirmSetupItem: (id: SetupItemId) => void
   setWalkedOrSkipped: (value: boolean) => void
@@ -343,6 +348,7 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   setupDoorConsumed: false,
   copilotDocked: false,
   stepStripShown: false,
+  workSurface: 'editor',
   confirmedSetup: {},
   installConnected: false,
   walkedOrSkipped: false,
@@ -419,7 +425,6 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
     // launcher would leave the merchant without the pane that replaced the
     // old side inspector. Preview is the exception: it takes the surface, so
     // Copilot folds away for the duration.
-    if (!open && get().focusTarget && useExperience.getState().mode !== 'play') return
     set({ assistantOpen: open })
   },
   setCopilotRailExpanded: (expanded) => set({ copilotRailExpanded: expanded }),
@@ -440,13 +445,14 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   focusStep: (target) => {
     useExperience.getState().setActiveExperience(target.experienceId)
     useExperience.getState().setActiveStep(target.stepId)
-    // Focusing a step opens Copilot beside the 1:1 card, but annotate mode is
-    // never auto-enabled — it stays off until the user clicks Annotate.
+    // A step click leaves the big-picture canvas for the editor. Annotate stays
+    // off until the merchant turns it on.
     set({
       focusTarget: target,
       annotationTarget: null,
       assistantOpen: true,
       annotateMode: false,
+      workSurface: 'editor',
     })
   },
   exitFocus: () => set({ focusTarget: null }),
@@ -465,6 +471,28 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
   consumeSetupDoor: () => set({ setupDoorConsumed: true }),
   dockCopilot: () => set({ copilotDocked: true, assistantOpen: true }),
   markStepStripShown: () => set({ stepStripShown: true }),
+  setWorkSurface: (workSurface) => set({ workSurface }),
+  enterWorkEditor: () => {
+    const exp = useExperience.getState().experiences[PRIMARY_EXPERIENCE_ID]
+    const step = exp?.steps.find((s) => !s.disabled) ?? exp?.steps[0]
+    const hasFocus = Boolean(get().focusTarget)
+    set({
+      stepStripShown: true,
+      workSurface: 'editor',
+      assistantOpen: true,
+      ...(!hasFocus && step && exp
+        ? {
+            focusTarget: { experienceId: exp.id, stepId: step.id },
+            annotationTarget: null,
+            annotateMode: false,
+          }
+        : {}),
+    })
+    if (!hasFocus && step && exp) {
+      useExperience.getState().setActiveExperience(exp.id)
+      useExperience.getState().setActiveStep(step.id)
+    }
+  },
   setInstallConnected: (installConnected) => set({ installConnected }),
   confirmSetupItem: (id) =>
     set((s) => ({ confirmedSetup: { ...s.confirmedSetup, [id]: true } })),
@@ -505,6 +533,8 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       setupDoorConsumed: false,
       copilotDocked: false,
       stepStripShown: false,
+      workSurface: 'editor',
+      focusTarget: null,
       confirmedSetup: {},
       installConnected: false,
       walkedOrSkipped: false,

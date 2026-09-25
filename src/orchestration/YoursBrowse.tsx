@@ -223,7 +223,7 @@ export function YoursBrowse({
             {pendingJourney.stepLabels.join(' → ')} · {kindLabelText}
           </div>
           <p className="mt-[10px] text-[13px] leading-relaxed text-slate-600">
-            This will open the canvas on this path. You can still edit screens after.
+            This starts the editor on this path. You can still edit screens after.
           </p>
           <div className="mt-[16px] flex flex-wrap items-center justify-end gap-[8px]">
             <SButton

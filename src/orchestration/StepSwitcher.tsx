@@ -6,7 +6,9 @@ import {
   type AlternativeKind,
   type StepColumn,
 } from '../lib/stepColumns'
+import { stepReadiness } from '../lib/stepNeedsWork'
 import { stepLabel, tabLabel } from '../lib/stepLabels'
+import { useJourney } from '../store/useJourney'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
 import type { Experience, Step } from '../types/experience'
@@ -202,6 +204,7 @@ function AlternativesTab({
             {GROUP_LABEL[kind]}:
           </span>
           <span className="max-w-[120px] truncate">{tabLabel(current)}</span>
+          <ReadinessMark step={current} />
         </button>
         <button
           type="button"
@@ -309,6 +312,19 @@ function Tab({
       >
         {tabLabel(step)}
       </span>
+      <ReadinessMark step={step} />
     </button>
+  )
+}
+
+function ReadinessMark({ step }: { step: Step }) {
+  const file = useJourney((s) => s.file)
+  const { ready, reason } = stepReadiness(step, file)
+  return (
+    <span
+      title={reason}
+      aria-label={reason}
+      className={`h-1.5 w-1.5 flex-none rounded-full ${ready ? 'bg-emerald-500' : 'bg-amber-500'}`}
+    />
   )
 }

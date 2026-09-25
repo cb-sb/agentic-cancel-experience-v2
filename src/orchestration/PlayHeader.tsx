@@ -9,51 +9,58 @@ import { useSetupProgress } from './JourneySetupChrome'
 import { SpotlightFrame } from './SpotlightFrame'
 
 /**
- * The play's mode switch, and nothing else.
- *
- * Audience and Targeting were here, which put two settings decided once beside
- * the switch used constantly, and made them reachable from a preview where they
- * mean nothing at all. They are now a rail on the canvas edge, next to the play
- * they configure, and this is one radio group again: two buttons, one true.
+ * Editor is the working surface. Canvas is the big picture. Preview opens on top.
  */
-function PlayToolbar() {
+function SurfaceSwitch() {
+  const surface = useOrchestration((s) => s.workSurface)
+  const setWorkSurface = useOrchestration((s) => s.setWorkSurface)
   const mode = useExperience((s) => s.mode)
   const setMode = useExperience((s) => s.setMode)
   const previewing = mode === 'play'
 
+  const go = (next: 'editor' | 'canvas' | 'preview') => {
+    if (next === 'preview') {
+      useOrchestration.getState().setWalkedOrSkipped(true)
+      setMode('play')
+      return
+    }
+    setMode('compose')
+    setWorkSurface(next)
+  }
+
+  const item = (id: 'editor' | 'canvas' | 'preview', label: string) => {
+    const pressed = id === 'preview' ? previewing : !previewing && surface === id
+    const button = (
+      <button
+        type="button"
+        role="radio"
+        aria-checked={pressed}
+        onClick={() => go(id)}
+        className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+          pressed ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+        }`}
+      >
+        {label}
+      </button>
+    )
+    return id === 'preview' ? (
+      <SpotlightFrame key={id} id="walk" label="">
+        {button}
+      </SpotlightFrame>
+    ) : (
+      <span key={id}>{button}</span>
+    )
+  }
+
   return (
     <div
       role="radiogroup"
-      aria-label="Mode"
+      aria-label="Surface"
       className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1"
     >
-      {(['compose', 'play'] as const).map((m) => {
-        const button = (
-          <button
-            type="button"
-            role="radio"
-            onClick={() => {
-              if (m === 'play') useOrchestration.getState().setWalkedOrSkipped(true)
-              setMode(m)
-            }}
-            aria-checked={previewing === (m === 'play')}
-            className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
-              previewing === (m === 'play')
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {m === 'compose' ? 'Build' : 'Preview'}
-          </button>
-        )
-        return m === 'play' ? (
-          <SpotlightFrame key={m} id="walk" label="">
-            {button}
-          </SpotlightFrame>
-        ) : (
-          <span key={m}>{button}</span>
-        )
-      })}
+      {item('editor', 'Editor')}
+      {item('preview', 'Preview')}
+      {item('canvas', 'Canvas')}
     </div>
   )
 }
@@ -162,22 +169,18 @@ export function PlayIdentity() {
 }
 
 /**
- * The header while building: mode and lifecycle, nothing else.
+ * The header on the right-hand surface: which view is open, and publish.
  *
- * Preview is a wash over the canvas rather than a second header. Close lives
- * on that wash; this bar stays the play's — identity, mode, and publish.
+ * Preview covers that surface. Close lives on the wash.
  */
 export function PlayHeader() {
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
   const openRemap = useUpload((s) => s.openRemap)
 
   return (
-    // Mode switch is centered on the canvas (the middle track). It only stays
-    // put across Build/Preview because the canvas width no longer changes
-    // between them — Preview keeps the Copilot rail instead of folding it.
     <header className="grid h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-slate-200 bg-white px-5">
       <PlayIdentity />
-      <PlayToolbar />
+      <SurfaceSwitch />
       <div className="flex min-w-0 items-center justify-end gap-[12px]">
         {uploaded && (
           <SButton size="small" variant="neutral-ghost" onClick={openRemap}>

@@ -3,7 +3,7 @@ import { useJourney } from '../store/useJourney'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { useOrchestration } from '../store/useOrchestration'
 import { savedToLibraryCopy } from '../library/review'
-import { planIntro, planProposeIntro, type PlanBeat } from './JourneyPlan'
+import { planIntro, type PlanBeat } from './JourneyPlan'
 import { spotlightForWidget, type SpotlightId } from './spotlight'
 
 export type PromptTurn = 'kind' | 'guide' | 'propose' | 'plan' | 'done' | 'library' | 'upload'
@@ -44,7 +44,7 @@ interface CopilotThread {
 
 let n = 0
 
-/** Recap after an upload confirm — propose first unless the canvas is already open. */
+/** Recap after an upload confirm — open the editor on the first screen. */
 export function landUploadedPlan() {
   const live = useJourney.getState().file
   const saved = live.artifact
@@ -56,15 +56,10 @@ export function landUploadedPlan() {
     useOrchestration.setState({ setupDoor: 'upload', setupDoorConsumed: true, assistantOpen: true })
   }
   const savedLine = savedToLibraryCopy(saved?.name ?? live.name, saved?.stepLabels ?? [])
-  if (orch.stepStripShown) {
-    say('bot', [savedLine, planIntro(live)].join('\n\n'), { widget: 'plan' })
-    orch.markStepStripShown()
-    setTurn('plan')
-    setBeat('walk')
-    return
-  }
-  say('bot', [savedLine, planProposeIntro(live)].join('\n\n'), { widget: 'steps' })
-  setTurn('propose')
+  say('bot', [savedLine, planIntro(live)].join('\n\n'), { widget: 'plan' })
+  orch.enterWorkEditor()
+  setTurn('plan')
+  setBeat('walk')
 }
 
 export const useCopilotThread = create<CopilotThread>((set) => ({

@@ -51,17 +51,17 @@ export function LibraryPanel() {
           <p className="text-[12px] text-slate-500">
             {libraryTab === 'yours'
               ? 'Loss-aversion cards, survey reasons, and offers you can reuse, plus anything you uploaded.'
-              : 'Chargebee postures. Copilot takes it from there.'}
+              : 'A short list of cancel jobs. Pick one and edit it beside Growth Copilot.'}
           </p>
         </div>
         <button
           type="button"
           onClick={closeTemplates}
-          aria-label="Back to Copilot"
+          aria-label="Close"
           className="inline-flex items-center gap-[6px] rounded-lg px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         >
           <CollapseIcon />
-          Back to Copilot
+          Close
         </button>
       </div>
       <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[20px] py-[10px]">

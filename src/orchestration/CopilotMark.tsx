@@ -1,6 +1,6 @@
 export const COPILOT_ICON_SRC = '/copilot-icon.png'
 
-/** Chargebee Copilot mark — the collapsed launcher, and the empty-state hero. */
+/** Growth Copilot mark — the collapsed launcher, and the empty-state hero. */
 export function CopilotMark({
   size = 48,
   className = '',

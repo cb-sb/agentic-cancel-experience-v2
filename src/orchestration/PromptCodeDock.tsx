@@ -7,6 +7,7 @@ import { startFromTemplate, templateLabel, withLive } from '../journey/templates
 import { EXAMPLE_PROMPTS, GOAL_CHOICES, interpret } from '../journey/intake'
 import { compileBrand } from '../brand/theme'
 import { isBrandIntent, isBrandMatched, matchMerchantBrand } from '../brand/matchSite'
+import { ActivityTab } from './ActivityTab'
 import { ContextEditor } from './ContextEditor'
 import {
   PlanBeatCard,
@@ -257,6 +258,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const setBeat = useCopilotThread((s) => s.setBeat)
   const [draft, setDraft] = useState('')
   const [goalAsk, setGoalAsk] = useState(false)
+  const [planPane, setPlanPane] = useState<'map' | 'versions'>('map')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const emptyHome =
@@ -321,7 +323,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
     say('bot', planIntro(live), { widget: 'plan' })
-    useOrchestration.getState().markStepStripShown()
+    useOrchestration.getState().enterWorkEditor()
     beginPostCanvas()
   }
 
@@ -335,9 +337,9 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }
 
   const approveProposedPlan = () => {
-    say('you', 'Looks right — open the canvas')
+    say('you', 'Looks right — open the editor')
     say('bot', planCanvasIntro())
-    useOrchestration.getState().markStepStripShown()
+    useOrchestration.getState().enterWorkEditor()
     beginPostCanvas()
   }
 
@@ -607,7 +609,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     say('you', 'Looks good — I’m done for now')
     say(
       'bot',
-      'File is the source of truth. Reopen the plan to reconfigure, switch to Context to edit it, or walk it as a subscriber.',
+      'File is the source of truth. Reopen the plan to reconfigure, switch to Plan to edit it, or walk it as a subscriber.',
     )
     setTurn('done')
   }
@@ -654,7 +656,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
     if (read.changed) replaceFile(read.file)
     if (read.rebuilt && read.file.steps.length > 0) {
       saySoon(read.reply, { widget: 'plan' })
-      useOrchestration.getState().markStepStripShown()
+      useOrchestration.getState().enterWorkEditor()
       beginPostCanvas()
       return
     }
@@ -761,7 +763,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   const subtitle = emptyHome
     ? 'New Conversation'
     : dockMode === 'code'
-      ? 'Journey context'
+      ? 'The plan'
       : file.name && (file.template !== 'none' || file.source === 'uploaded' || file.steps.length > 0)
         ? file.name
         : 'New Conversation'
@@ -781,7 +783,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               className="truncate text-[17px] font-bold leading-tight tracking-tight"
               style={{ color: COPILOT_UI.title }}
             >
-              Chargebee Copilot
+              Growth Copilot
             </h2>
             <p className="truncate text-[13px] leading-tight" style={{ color: COPILOT_UI.muted }}>
               {subtitle}
@@ -822,7 +824,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           {(
             [
               { id: 'prompt' as const, label: 'Prompt' },
-              { id: 'code' as const, label: 'Context' },
+              { id: 'code' as const, label: 'Plan' },
             ] as const
           ).map(({ id, label }) => (
             <button
@@ -849,7 +851,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
           )}
           {!focusing && !compact && !copilotDocked && (
             <HeaderIconButton label="Collapse Copilot" onClick={() => setAssistantOpen(false)}>
-              <SIcon name="panel-right" size={16} />
+              <SIcon name="panel-left" size={16} />
             </HeaderIconButton>
           )}
           {(compact || copilotDocked) && (
@@ -862,11 +864,41 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
 
       {dockMode === 'code' ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <p className="flex-none border-b border-slate-100 px-3 py-2 text-[11.5px] leading-relaxed text-slate-500">
-            The complete workflow map. Edit any component — offers, surveys, loss aversion — and the
-            canvas follows. No need to rebuild through chat.
-          </p>
-          <ContextEditor />
+          <div className="flex flex-none items-center gap-[6px] border-b border-slate-100 px-3 py-2">
+            {(
+              [
+                { id: 'map' as const, label: 'Map' },
+                { id: 'versions' as const, label: 'Versions' },
+              ] as const
+            ).map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPlanPane(id)}
+                className={`rounded-[8px] px-[8px] py-[4px] text-[12px] font-semibold ${
+                  planPane === id ? 'bg-[#e7f1fe] text-slate-900' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {planPane === 'versions' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <p className="px-4 pt-3 text-[12px] leading-relaxed text-slate-500">
+                Restore an earlier version of this plan.
+              </p>
+              <ActivityTab />
+            </div>
+          ) : (
+            <>
+              <p className="flex-none border-b border-slate-100 px-3 py-2 text-[11.5px] leading-relaxed text-slate-500">
+                The plan for this cancel. Edit any component — offers, surveys, loss aversion — and the
+                editor follows.
+              </p>
+              <ContextEditor />
+            </>
+          )}
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -900,7 +932,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                         <StepStrip
                           onAccept={turn === 'propose' ? approveProposedPlan : undefined}
                           onReject={turn === 'propose' ? rejectProposedPlan : undefined}
-                          acceptLabel="Looks right — open the canvas"
+                          acceptLabel="Looks right — open the editor"
                           rejectLabel="Pick a different job"
                           includeOutcomes
                           footerHint={
@@ -949,7 +981,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                 </div>
               )}
               <p className="mt-[8px] px-[4px] text-center text-[11px] leading-snug text-[#9aa3b2]">
-                By using Chargebee Copilot, you accept our third-party AI terms.
+                By using Growth Copilot, you accept our third-party AI terms.
               </p>
             </div>
           </div>

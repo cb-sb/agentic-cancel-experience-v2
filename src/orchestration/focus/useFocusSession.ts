@@ -66,6 +66,8 @@ export function useFocusSession(): FocusSession | null {
           orch.closeAnnotation()
           return
         }
+        // The editor is the page. Esc must not blank it; Canvas is the way out.
+        if (orch.workSurface === 'editor' && orch.stepStripShown) return
         exitFocus()
         return
       }

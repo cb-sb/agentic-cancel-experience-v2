@@ -84,7 +84,7 @@ export function jumpSetupItem(id: SetupItemId) {
       if (hasSteps) {
         orch.setSpotlight('journey')
       } else {
-        orch.markStepStripShown()
+        orch.enterWorkEditor()
         thread.say('bot', 'This is the chain a subscriber walks. Drag if the order is wrong.', {
           widget: 'steps',
         })
