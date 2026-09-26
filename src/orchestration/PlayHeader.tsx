@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { SButton } from '@chargebee/sting-react'
 import { useExperience } from '../store/useExperience'
 import { saveDraft } from '../store/draft'
@@ -173,24 +174,33 @@ export function PlayIdentity() {
  *
  * Preview covers that surface. Close lives on the wash.
  */
-export function PlayHeader() {
-  const uploaded = useJourney((s) => s.file.source === 'uploaded')
-  const openRemap = useUpload((s) => s.openRemap)
-
+export function PlayHeader({ trailing }: { trailing?: ReactNode } = {}) {
   return (
     <header className="grid h-14 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-slate-200 bg-white px-5">
       <PlayIdentity />
       <SurfaceSwitch />
       <div className="flex min-w-0 items-center justify-end gap-[12px]">
-        {uploaded && (
-          <SButton size="small" variant="neutral-ghost" onClick={openRemap}>
-            Remap slots
-          </SButton>
-        )}
-        <SaveDraft />
-        <span className="h-5 w-px flex-none bg-slate-200" aria-hidden />
-        <PublishControls />
+        <PlayActions />
+        {trailing}
       </div>
     </header>
+  )
+}
+
+/** Remap, save, and publish: the right end of every work-surface header. */
+export function PlayActions() {
+  const uploaded = useJourney((s) => s.file.source === 'uploaded')
+  const openRemap = useUpload((s) => s.openRemap)
+  return (
+    <>
+      {uploaded && (
+        <SButton size="small" variant="neutral-ghost" onClick={openRemap}>
+          Remap slots
+        </SButton>
+      )}
+      <SaveDraft />
+      <span className="h-5 w-px flex-none bg-slate-200" aria-hidden />
+      <PublishControls />
+    </>
   )
 }

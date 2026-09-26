@@ -76,7 +76,7 @@ function CenterOverlay({
   )
 }
 
-function EditorPane() {
+export function EditorPane() {
   const session = useFocusSession()
   if (!session) {
     return (

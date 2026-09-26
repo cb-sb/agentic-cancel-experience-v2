@@ -38,6 +38,8 @@ import { scanReviewCopy } from '../library/review'
 import { clearDraft } from '../store/draft'
 import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
+import { newThread } from '../workspace/useWorkspace'
+import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
 
 function scrollSpotlightInto(container: HTMLElement): boolean {
@@ -219,7 +221,17 @@ function ChatLine({ line, children }: { line: CopilotLine; children?: ReactNode 
     </div>
   )
 }
-export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
+export function PromptCodeDock({
+  compact = false,
+  centered = false,
+}: {
+  compact?: boolean
+  /** Threads and tabs layouts: the chat is the middle column beside the experience list. */
+  centered?: boolean
+}) {
+  const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
+  const setSidebarOpen = useWorkspaceUi((s) => s.setSidebarOpen)
+  const brandAsk = useWorkspaceUi((s) => s.brandAsk)
   const dockMode = useJourney((s) => s.dockMode)
   const setDockMode = useJourney((s) => s.setDockMode)
   const file = useJourney((s) => s.file)
@@ -567,6 +579,13 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
   }, [turn, uploadPhase, uploadChecklist, uploadManifest, uploadArtifact])
 
   useEffect(() => {
+    if (!brandAsk) return
+    setDockMode('prompt')
+    jumpPlan('brand')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandAsk])
+
+  useEffect(() => {
     if (!pendingCopilotGuide) return
     useOrchestration.getState().consumeCopilotGuide()
     if (turn === 'kind' && lines.length === 0) startGuide()
@@ -775,7 +794,11 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
         style={{ background: COPILOT_UI.header, borderBottom: `1px solid ${COPILOT_UI.hairline}` }}
       >
         <div className="flex min-w-0 items-center gap-[10px]">
-          <HeaderIconButton label="Conversations">
+          <HeaderIconButton
+            label="Conversations"
+            pressed={centered && sidebarOpen}
+            onClick={centered ? () => setSidebarOpen(!sidebarOpen) : undefined}
+          >
             <SIcon name="menu" size={18} />
           </HeaderIconButton>
           <div className="min-w-0">
@@ -840,7 +863,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               {label}
             </button>
           ))}
-          {!compact && !copilotDocked && (
+          {!compact && !copilotDocked && !centered && (
             <HeaderIconButton
               label={copilotRailExpanded ? 'Reduce Copilot width' : 'Expand Copilot width'}
               pressed={copilotRailExpanded}
@@ -849,7 +872,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
               <SIcon name={copilotRailExpanded ? 'chevrons-right' : 'chevrons-left'} size={16} />
             </HeaderIconButton>
           )}
-          {!focusing && !compact && !copilotDocked && (
+          {!focusing && !compact && !copilotDocked && !centered && (
             <HeaderIconButton label="Collapse Copilot" onClick={() => setAssistantOpen(false)}>
               <SIcon name="panel-left" size={16} />
             </HeaderIconButton>
@@ -908,7 +931,7 @@ export function PromptCodeDock({ compact = false }: { compact?: boolean }) {
                 <SIcon name="arrow-left" size={16} />
               </HeaderIconButton>
             ) : (
-              <HeaderIconButton label="New conversation" onClick={reset}>
+              <HeaderIconButton label={centered ? 'New experience' : 'New conversation'} onClick={centered ? newThread : reset}>
                 <SIcon name="pencil" size={16} />
               </HeaderIconButton>
             )}

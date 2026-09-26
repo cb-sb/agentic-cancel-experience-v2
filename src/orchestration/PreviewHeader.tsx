@@ -27,12 +27,76 @@ const PREVIEW_OUT_MS = 220
  * distraction without hiding the play around the device. Close lives on the
  * wash — a circular X on the right — rather than in the play toolbar.
  */
-export function PreviewOverlay() {
+function DeviceButtons({ tone }: { tone: 'frost' | 'plain' }) {
+  const device = useExperience((s) => s.device)
+  const setDevice = useExperience((s) => s.setDevice)
+  return (
+    <div className="flex items-center gap-0.5 p-0.5">
+      {DEVICE_KINDS.map((kind) => (
+        <button
+          key={kind}
+          type="button"
+          onClick={() => setDevice(kind)}
+          title={`Preview on ${kind}`}
+          aria-label={`Preview on ${kind}`}
+          aria-pressed={device === kind}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
+            device === kind
+              ? tone === 'frost'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'bg-slate-900 text-white'
+              : tone === 'frost'
+                ? 'text-slate-600 hover:bg-white/50 hover:text-slate-900'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <DeviceIcon kind={kind} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Preview living inside a right-pane tab: no frost, no close. Closing the tab ends it. */
+function PreviewTab() {
+  const resetSession = useExperience((s) => s.resetSession)
+  const device = useExperience((s) => s.device)
+  const brandName = useExperience((s) => s.experience.branding.merchantName)
+  const shell = useExperience((s) => s.experience.shell)
+  const uploaded = useJourney((s) => s.file.source === 'uploaded')
+  return (
+    <div className="absolute inset-0 flex flex-col bg-slate-100">
+      <div className="flex flex-none justify-center pt-4">
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+          <DeviceButtons tone="plain" />
+          <SButton size="small" variant="neutral-outline" onClick={resetSession}>
+            Restart
+          </SButton>
+        </div>
+      </div>
+      <div className="relative min-h-0 flex-1 px-10 pb-8 pt-4">
+        <DeviceChrome device={device} brandName={brandName} fullBleed={uploaded || shell !== 'modal'}>
+          <PlayerShell />
+        </DeviceChrome>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * `pane` covers the V5 right-hand surface. `screen` covers the whole app (threads layout).
+ * `tab` sits inside a right-pane tab (tabs layout).
+ */
+export function PreviewOverlay({ variant = 'pane' }: { variant?: 'pane' | 'screen' | 'tab' }) {
   const previewing = useExperience((s) => s.mode === 'play')
+  if (variant === 'tab') return previewing ? <PreviewTab /> : null
+  return <PreviewStage previewing={previewing} screen={variant === 'screen'} />
+}
+
+function PreviewStage({ previewing, screen }: { previewing: boolean; screen: boolean }) {
   const setMode = useExperience((s) => s.setMode)
   const resetSession = useExperience((s) => s.resetSession)
   const device = useExperience((s) => s.device)
-  const setDevice = useExperience((s) => s.setDevice)
   const brandName = useExperience((s) => s.experience.branding.merchantName)
   const shell = useExperience((s) => s.experience.shell)
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
@@ -47,7 +111,7 @@ export function PreviewOverlay() {
 
   return (
     <div
-      className="absolute inset-0 z-50 overflow-hidden"
+      className={`${screen ? 'fixed z-[70]' : 'absolute z-50'} inset-0 overflow-hidden`}
       style={{ pointerEvents: previewing ? 'auto' : 'none' }}
     >
       <div
@@ -61,25 +125,7 @@ export function PreviewOverlay() {
         style={{ opacity: open ? 1 : 0, transform: `translateY(${open ? 0 : -8}px)`, transition: rise }}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/50 bg-white/35 px-1.5 py-1 shadow-sm backdrop-blur-[2px]">
-          <div className="flex items-center gap-0.5 p-0.5">
-            {DEVICE_KINDS.map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => setDevice(kind)}
-                title={`Preview on ${kind}`}
-                aria-label={`Preview on ${kind}`}
-                aria-pressed={device === kind}
-                className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${
-                  device === kind
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:bg-white/50 hover:text-slate-900'
-                }`}
-              >
-                <DeviceIcon kind={kind} />
-              </button>
-            ))}
-          </div>
+          <DeviceButtons tone="frost" />
           <SButton size="small" variant="neutral-outline" onClick={resetSession}>
             Restart
           </SButton>

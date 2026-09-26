@@ -28,7 +28,7 @@ export interface DraftPayload {
   setup?: SetupFlags
 }
 
-interface Draft extends DraftPayload {
+export interface Draft extends DraftPayload {
   v: 2
   savedAt: number
   setup: SetupFlags
@@ -70,13 +70,23 @@ export function applyDraftPayload(p: DraftPayload): void {
   })
 }
 
-export function saveDraft(): void {
-  const synced = useMerchantLibrary.getState().syncJourney(useJourney.getState().file)
-  if (synced !== useJourney.getState().file) useJourney.getState().replaceFile(synced)
+/** Where drafts go instead of the single V5 key (the threads workspace). */
+export interface DraftSink {
+  save(draft: Draft): boolean
+  clear(): void
+}
+
+let sink: DraftSink | null = null
+
+export function setDraftSink(next: DraftSink | null): void {
+  sink = next
+}
+
+/** Everything a saved draft holds, read off the stores right now. */
+export function captureDraft(savedAt: number): Draft {
   const orch = useOrchestration.getState()
   const exp = useExperience.getState()
-  const savedAt = Date.now()
-  const draft: Draft = {
+  return {
     v: 2,
     savedAt,
     play: orch.play,
@@ -86,10 +96,21 @@ export function saveDraft(): void {
     setup: readFlags(),
     history: useHistory.getState().entries,
   }
-  try {
-    localStorage.setItem(KEY, JSON.stringify(draft))
-  } catch {
-    return
+}
+
+export function saveDraft(): void {
+  const synced = useMerchantLibrary.getState().syncJourney(useJourney.getState().file)
+  if (synced !== useJourney.getState().file) useJourney.getState().replaceFile(synced)
+  const savedAt = Date.now()
+  const draft = captureDraft(savedAt)
+  if (sink) {
+    if (!sink.save(draft)) return
+  } else {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(draft))
+    } catch {
+      return
+    }
   }
   useOrchestration.setState({ savedAt, dirty: false })
 }
@@ -128,10 +149,14 @@ export function loadDraft(): void {
 }
 
 export function clearDraft() {
-  try {
-    localStorage.removeItem(KEY)
-  } catch {
-    /* nothing to clear */
+  if (sink) {
+    sink.clear()
+  } else {
+    try {
+      localStorage.removeItem(KEY)
+    } catch {
+      /* nothing to clear */
+    }
   }
   useHistory.getState().clear()
 }

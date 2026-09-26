@@ -3,6 +3,8 @@ import { EASE_ENTER } from '../lib/motion'
 import { NAV_FOLDED_W, NAV_W } from '../orchestration/paneTokens'
 import { OrchestrationCanvas } from '../orchestration/OrchestrationCanvas'
 import { Composer } from '../composer/Composer'
+import { USES_THREADS } from '../layout/layoutMode'
+import { ThreadWorkspace } from '../layout/ThreadWorkspace'
 import { useOrchestration } from '../store/useOrchestration'
 import { GrowthHome } from './GrowthHome'
 import { GrowthNav } from './GrowthNav'
@@ -47,7 +49,7 @@ export function PrototypeApp() {
   }
   return (
     <div className="h-full min-h-0">
-      <OrchestrationCanvas />
+      {USES_THREADS ? <ThreadWorkspace /> : <OrchestrationCanvas />}
     </div>
   )
 }
