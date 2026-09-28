@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { PlanBeat } from '../orchestration/JourneyPlan'
 
-/** `canvas` is shown as Targeting in the v7 layout. */
-export type PaneTab = 'editor' | 'canvas' | 'preview' | 'plan'
+/** `targeting` and `plan` are v7 only. */
+export type PaneTab = 'editor' | 'canvas' | 'targeting' | 'preview' | 'plan'
 
 /** The right-pane tabs one experience keeps open (tabs layout). At most one of each. */
 export interface ThreadTabs {

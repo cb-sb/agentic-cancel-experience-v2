@@ -14,12 +14,18 @@ const ROW_TAB: Partial<Record<SetupItemId, PaneTab>> = {
   offers: 'editor',
   confirmation: 'editor',
   stepConfig: 'editor',
-  audience: 'canvas',
-  experiment: 'canvas',
+  audience: 'targeting',
+  experiment: 'targeting',
   walk: 'preview',
 }
 
-const TAB_NAME: Record<PaneTab, string> = { editor: 'Editor', canvas: 'Targeting', preview: 'Preview', plan: 'Plan' }
+const TAB_NAME: Record<PaneTab, string> = {
+  editor: 'Editor',
+  canvas: 'Canvas',
+  targeting: 'Targeting',
+  preview: 'Preview',
+  plan: 'Plan',
+}
 
 function goTo(id: SetupItemId) {
   if (id === 'holdout') {

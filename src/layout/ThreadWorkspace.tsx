@@ -13,7 +13,7 @@ import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { TemplatesModal } from '../orchestration/TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
 import { closeTab, openTab } from '../workspace/paneTabs'
-import { useWorkspaceUi, type PaneTab } from '../workspace/useWorkspaceUi'
+import { useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
 import { PlanTab } from '../orchestration/PlanTab'
 import { TargetingTab } from '../orchestration/TargetingTab'
 import { LAYOUT, STUDIO, TABBED } from './layoutMode'
@@ -21,11 +21,14 @@ import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
 
 const TAB_LABEL: Record<PaneTab, string> = {
   editor: 'Editor',
-  canvas: STUDIO ? 'Targeting' : 'Canvas',
+  canvas: 'Canvas',
+  targeting: 'Targeting',
   preview: 'Preview',
   plan: 'Plan',
 }
-const TAB_ORDER: PaneTab[] = STUDIO ? ['editor', 'preview', 'canvas', 'plan'] : ['editor', 'preview', 'canvas']
+const TAB_ORDER: PaneTab[] = STUDIO
+  ? ['editor', 'preview', 'targeting', 'canvas', 'plan']
+  : ['editor', 'preview', 'canvas']
 
 export function usePaneShown(): boolean {
   const stage = useCopilotStage()
@@ -78,7 +81,8 @@ function WorkPane() {
   )
 }
 
-function AddTabMenu({ missing }: { missing: PaneTab[] }) {
+/** v7 lists every view; one that is already open offers to switch to it, as Chrome does. */
+function AddTabMenu({ tabs }: { tabs: ThreadTabs }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -89,27 +93,46 @@ function AddTabMenu({ missing }: { missing: PaneTab[] }) {
     window.addEventListener('mousedown', onDown)
     return () => window.removeEventListener('mousedown', onDown)
   }, [open])
-  if (missing.length === 0) return null
+  const options = STUDIO ? TAB_ORDER : TAB_ORDER.filter((id) => !tabs.open.includes(id))
+  if (options.length === 0) return null
   return (
-    <div ref={ref} className="relative self-center">
+    <div ref={ref} className="relative flex h-[42px] flex-none items-center self-end">
       <IconButton label="Open a tab" onClick={() => setOpen((v) => !v)}>
         <SIcon name="plus" size={15} />
       </IconButton>
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-1 w-[160px] rounded-xl border border-slate-200 bg-white p-1 shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
-          {missing.map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setOpen(false)
-                openTab(id)
-              }}
-              className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-slate-700 hover:bg-slate-100"
-            >
-              {TAB_LABEL[id]}
-            </button>
-          ))}
+        <div
+          className={`absolute left-0 top-full z-40 mt-1 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_12px_40px_rgba(15,23,42,0.16)] ${
+            STUDIO ? 'w-[260px]' : 'w-[160px]'
+          }`}
+        >
+          {options.map((id) => {
+            const isOpen = tabs.open.includes(id)
+            const current = tabs.active === id
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  openTab(id)
+                }}
+                className="flex w-full items-center gap-[8px] rounded-lg px-3 py-1.5 text-left text-[13px] text-slate-700 hover:bg-slate-100"
+              >
+                <span className="min-w-0 flex-1 truncate">{TAB_LABEL[id]}</span>
+                {current ? (
+                  <span className="flex-none text-[11.5px] text-slate-400">Current tab</span>
+                ) : (
+                  isOpen && (
+                    <span className="flex flex-none items-center gap-[4px] rounded-full border border-slate-200 px-[8px] py-[2px] text-[11.5px] font-medium text-slate-600">
+                      Switch to this tab
+                      <SIcon name="arrow-right" size={11} />
+                    </span>
+                  )
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -119,7 +142,6 @@ function AddTabMenu({ missing }: { missing: PaneTab[] }) {
 /** Tabs layout: one tab of each kind at most, opened by Copilot or the + menu. */
 export function TabbedPane() {
   const tabs = useWorkspaceUi((s) => s.tabs)
-  const missing = TAB_ORDER.filter((id) => !tabs.open.includes(id))
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-slate-100">
       <div className="flex h-[60px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
@@ -151,13 +173,14 @@ export function TabbedPane() {
             )
           })}
         </div>
-        <AddTabMenu missing={missing} />
+        <AddTabMenu tabs={tabs} />
         <div className="ml-auto flex min-w-0 items-center gap-[12px] self-center">
           <PlayActions />
         </div>
       </div>
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
-        {tabs.active === 'canvas' && (STUDIO ? <TargetingTab /> : <CanvasPane />)}
+        {tabs.active === 'canvas' && <CanvasPane />}
+        {tabs.active === 'targeting' && <TargetingTab />}
         {tabs.active === 'plan' && <PlanTab />}
         {tabs.active === 'editor' && <EditorPane />}
         {tabs.active === 'preview' && <PreviewOverlay variant="tab" />}

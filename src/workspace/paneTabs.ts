@@ -26,7 +26,7 @@ function showTab(id: PaneTab) {
     return
   }
   if (mode === 'play') useExperience.getState().setMode('compose')
-  if (id === 'plan') return
+  if (id === 'plan' || id === 'targeting') return
   if (useOrchestration.getState().workSurface !== id) useOrchestration.getState().setWorkSurface(id)
 }
 
@@ -95,6 +95,6 @@ export function startPaneSync() {
     if (s.beat === beat) return
     beat = s.beat
     if (paused || s.turn !== 'plan') return
-    if (beat === 'audience' || beat === 'experiment') openTab('canvas')
+    if (beat === 'audience' || beat === 'experiment') openTab('targeting')
   })
 }

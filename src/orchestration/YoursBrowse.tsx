@@ -17,6 +17,9 @@ type KindFilter = 'all' | CbKind
 type JourneyFilter = 'all' | string
 type SortMode = 'kind' | 'newest' | 'journey'
 
+const JOURNEY_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-[12px]'
+const PIECE_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-[12px]'
+
 function kindLabel(kind: string) {
   return CB_KIND_LABELS[kind as CbKind] ?? kind
 }
@@ -262,11 +265,13 @@ export function YoursBrowse({
             <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
               Your journeys
             </p>
-            <div className="space-y-[10px]">
+            <div className={compact ? 'space-y-[10px]' : JOURNEY_GRID}>
               {journeys.map((journey) => (
                 <div
                   key={journey.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white p-[16px]"
+                  className={`rounded-2xl border border-slate-200/90 bg-white p-[16px] ${
+                    compact ? '' : 'flex min-h-[150px] flex-col'
+                  }`}
                 >
                   <div className="text-[14px] font-bold text-slate-900">{journey.name}</div>
                   <div className="mt-[4px] text-[12px] text-slate-500">
@@ -277,7 +282,9 @@ export function YoursBrowse({
                   <button
                     type="button"
                     onClick={() => openJourney(journey)}
-                    className="mt-[12px] text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700"
+                    className={`text-left text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700 ${
+                      compact ? 'mt-[12px]' : 'mt-auto pt-[12px]'
+                    }`}
                   >
                     Open this journey →
                   </button>
@@ -293,17 +300,19 @@ export function YoursBrowse({
           journeys={journeys}
           onOffer={useOffer}
           onCard={useCard}
+          compact={compact}
         />
         {templates.length > 0 && (
           <section>
             <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
               Journeys
             </p>
-            <div className="space-y-[10px]">
+            <div className={compact ? 'space-y-[10px]' : JOURNEY_GRID}>
               {templates.map((t) => (
                 <JourneyCard
                   key={t.id}
                   template={t}
+                  compact={compact}
                   onPick={() => setPendingJourney(t)}
                   onRemove={() => removeTemplate(t.id)}
                 />
@@ -390,7 +399,7 @@ export function YoursBrowse({
                       <span className="ml-[6px] font-normal text-slate-400">{group.rows.length}</span>
                     </p>
                   )}
-                  <div className="grid grid-cols-1 gap-[8px] sm:grid-cols-2">
+                  <div className={compact ? 'grid grid-cols-1 gap-[8px] sm:grid-cols-2' : PIECE_GRID}>
                     {group.rows.map((c) => (
                       <ComponentCard
                         key={c.id}
@@ -490,12 +499,14 @@ function PieceCard({
   description,
   used,
   action,
+  compact,
   onClick,
 }: {
   name: string
   description: string
   used: string
   action: 'add' | 'show' | 'start' | 'blocked'
+  compact?: boolean
   onClick: () => void
 }) {
   const label =
@@ -505,11 +516,17 @@ function PieceCard({
         ? 'Start a journey with this'
         : 'Add to this journey'
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white p-[14px]">
+    <div
+      className={`rounded-2xl border border-slate-200/90 bg-white p-[14px] ${
+        compact ? '' : 'flex aspect-[4/3] min-h-0 flex-col overflow-hidden'
+      }`}
+    >
       <div className="text-[13px] font-bold text-slate-900">{name}</div>
-      <p className="mt-[4px] line-clamp-2 text-[12.5px] leading-snug text-slate-500">{description}</p>
-      <div className="mt-[6px] text-[12px] text-slate-500">{used}</div>
-      <div className="mt-[12px]">
+      <p className={`mt-[4px] text-[12.5px] leading-snug text-slate-500 ${compact ? 'line-clamp-2' : 'line-clamp-3'}`}>
+        {description}
+      </p>
+      <div className={`text-[12px] text-slate-500 ${compact ? 'mt-[6px]' : 'mt-auto truncate pt-[8px]'}`}>{used}</div>
+      <div className={compact ? 'mt-[12px]' : 'mt-[8px]'}>
         {action === 'blocked' ? (
           <p className="text-[12.5px] text-slate-500">This journey already has a survey.</p>
         ) : (
@@ -529,6 +546,7 @@ function SavedPieces({
   journeys,
   onOffer,
   onCard,
+  compact,
 }: {
   file: ReturnType<typeof useJourney.getState>['file']
   offers: SharedOffer[]
@@ -536,6 +554,7 @@ function SavedPieces({
   journeys: SavedJourney[]
   onOffer: (offer: SharedOffer) => void
   onCard: (card: SharedCard) => void
+  compact?: boolean
 }) {
   const loss = cards.filter((card) => card.kind === 'loss_aversion')
   const surveys = cards.filter((card) => card.kind === 'survey')
@@ -595,7 +614,7 @@ function SavedPieces({
             <p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
               {group.title}
             </p>
-            <div className="grid grid-cols-1 gap-[8px]">
+            <div className={compact ? 'grid grid-cols-1 gap-[8px]' : PIECE_GRID}>
               {group.rows.map((row) => (
                 <PieceCard
                   key={row.id}
@@ -603,6 +622,7 @@ function SavedPieces({
                   description={row.description}
                   used={row.used}
                   action={row.action}
+                  compact={compact}
                   onClick={row.onClick}
                 />
               ))}
@@ -615,16 +635,22 @@ function SavedPieces({
 
 function JourneyCard({
   template,
+  compact,
   onPick,
   onRemove,
 }: {
   template: MerchantTemplate
+  compact?: boolean
   onPick: () => void
   onRemove: () => void
 }) {
   const kindLabelText = template.kind === 'acquisition' ? 'Acquire' : 'Cancel'
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white p-[16px] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div
+      className={`rounded-2xl border border-slate-200/90 bg-white p-[16px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${
+        compact ? '' : 'flex min-h-[150px] flex-col'
+      }`}
+    >
       <div className="flex items-start justify-between gap-[12px]">
         <div>
           <div className="text-[14px] font-bold text-slate-900">{template.name}</div>
@@ -643,7 +669,9 @@ function JourneyCard({
       <button
         type="button"
         onClick={onPick}
-        className="mt-[12px] text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700"
+        className={`text-left text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-700 ${
+          compact ? 'mt-[12px]' : 'mt-auto pt-[12px]'
+        }`}
       >
         Use this template →
       </button>

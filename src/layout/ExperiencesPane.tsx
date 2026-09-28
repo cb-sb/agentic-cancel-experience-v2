@@ -61,12 +61,19 @@ export function ExperiencesPane() {
   const setPage = useWorkspaceUi((s) => s.setPage)
   const threads = useWorkspace((s) => s.threads)
   const activeId = useWorkspace((s) => s.activeId)
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const libraryTab = useOrchestration((s) => s.libraryTab)
   const [brandOpen, setBrandOpen] = useState(false)
   const folded = !open
+  const libraryShown = page === 'thread' && templatesOpen
 
   const create = () => {
     setPage('thread')
     newThread()
+  }
+  const openIndex = () => {
+    useOrchestration.getState().closeTemplates()
+    setPage('index')
   }
 
   return (
@@ -82,7 +89,7 @@ export function ExperiencesPane() {
           <>
             <SettingRow icon="search" label="Search" folded onClick={() => setSearchOpen(true)} />
             <SettingRow icon="plus" label="New experience" folded onClick={create} />
-            <SettingRow icon="layers" label="Experiences" folded active={page === 'index'} onClick={() => setPage('index')} />
+            <SettingRow icon="layers" label="Experiences" folded active={page === 'index'} onClick={openIndex} />
           </>
         ) : (
           <div
@@ -92,7 +99,7 @@ export function ExperiencesPane() {
           >
             <button
               type="button"
-              onClick={() => setPage('index')}
+              onClick={openIndex}
               className="flex h-full min-w-0 flex-1 items-center gap-[10px] px-[10px] text-left text-[13px] font-medium text-slate-700 hover:text-slate-900"
             >
               <SIcon name="layers" size={16} className="flex-none text-slate-500" />
@@ -113,6 +120,7 @@ export function ExperiencesPane() {
           icon="layout-template"
           label="Templates"
           folded={folded}
+          active={libraryShown && libraryTab === 'ours'}
           onClick={() => {
             setPage('thread')
             openTemplatePicker('ours')
@@ -122,6 +130,7 @@ export function ExperiencesPane() {
           icon="puzzle"
           label="Saved components"
           folded={folded}
+          active={libraryShown && libraryTab === 'yours'}
           onClick={() => {
             setPage('thread')
             useOrchestration.getState().openTemplates('yours')

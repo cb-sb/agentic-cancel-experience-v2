@@ -7,7 +7,7 @@ import { BlankJourneyDoors } from '../orchestration/BlankJourneyDoors'
 import { useCopilotStage } from '../orchestration/copilotStage'
 import { DoorsBackdrop } from '../orchestration/OrchestrationCanvas'
 import { PromptCodeDock } from '../orchestration/PromptCodeDock'
-import { TemplatesModal } from '../orchestration/TemplatesModal'
+import { LibraryPanel } from '../orchestration/TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { CancelPageSettings } from './CancelPageSettings'
@@ -22,11 +22,19 @@ function ThreadView() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const paneShown = usePaneShown()
 
+  if (templatesOpen) {
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-1">
+        <LibraryPanel page />
+      </div>
+    )
+  }
+
   if (stage === 'doors') {
     return (
       <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-100">
         <DoorsBackdrop />
-        {!templatesOpen && <BlankJourneyDoors />}
+        <BlankJourneyDoors />
       </div>
     )
   }
@@ -56,14 +64,14 @@ export function StudioWorkspace() {
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
   const page = useWorkspaceUi((s) => s.page)
   const beatAsk = useWorkspaceUi((s) => s.beatAsk)
-  const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const focusTarget = useOrchestration((s) => s.focusTarget)
   const activeTab = useWorkspaceUi((s) => s.tabs.active)
   const stepCount = useExperience((s) => s.experiences[PRIMARY_EXPERIENCE_ID]?.steps.length ?? 0)
   const stage = useCopilotStage()
   const paneShown = usePaneShown()
-  const editorShown = page === 'thread' && paneShown && activeTab === 'editor'
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const editorShown = page === 'thread' && !templatesOpen && paneShown && activeTab === 'editor'
 
   useEffect(() => {
     if (stage === 'rail') setAssistantOpen(true)
@@ -96,7 +104,6 @@ export function StudioWorkspace() {
           <ThreadView />
         )}
       </div>
-      {templatesOpen && <TemplatesModal />}
       <UploadFlow />
       <CancelPageSettings />
       <SearchDialog />

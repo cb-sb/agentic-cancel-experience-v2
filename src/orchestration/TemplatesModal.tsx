@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { SIcon } from '@chargebee/sting-react'
 import { LibraryBrowse } from './LibraryBrowse'
 import { YoursBrowse } from './YoursBrowse'
 import { useOrchestration } from '../store/useOrchestration'
@@ -20,7 +21,8 @@ function CollapseIcon() {
   )
 }
 
-export function LibraryPanel() {
+/** `page`: v7 shows the library in the main column, left with Back. */
+export function LibraryPanel({ page = false }: { page?: boolean }) {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const applyLibraryTemplate = useOrchestration((s) => s.applyLibraryTemplate)
   const applyMerchantTemplate = useOrchestration((s) => s.applyMerchantTemplate)
@@ -45,24 +47,45 @@ export function LibraryPanel() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
-      <div className="flex flex-none items-center justify-between border-b border-slate-100 px-[20px] py-[14px]">
-        <div>
-          <h2 className="text-[15px] font-bold text-slate-900">Template library</h2>
-          <p className="text-[12px] text-slate-500">
-            {libraryTab === 'yours'
-              ? 'Loss-aversion cards, survey reasons, and offers you can reuse, plus anything you uploaded.'
-              : 'A short list of cancel jobs. Pick one and edit it beside Growth Copilot.'}
-          </p>
+      <div
+        className={`flex flex-none items-center justify-between border-b border-slate-100 px-[20px] ${
+          page ? 'h-[60px]' : 'py-[14px]'
+        }`}
+      >
+        <div className={page ? 'flex min-w-0 items-center gap-[10px]' : undefined}>
+          {page && (
+            <button
+              type="button"
+              onClick={closeTemplates}
+              aria-label="Back"
+              title="Back"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            >
+              <SIcon name="arrow-left" size={16} />
+            </button>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-bold text-slate-900">
+              {page ? (libraryTab === 'yours' ? 'Saved components' : 'Templates') : 'Template library'}
+            </h2>
+            <p className="text-[12px] text-slate-500">
+              {libraryTab === 'yours'
+                ? 'Loss-aversion cards, survey reasons, and offers you can reuse, plus anything you uploaded.'
+                : 'A short list of cancel jobs. Pick one and edit it beside Growth Copilot.'}
+            </p>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={closeTemplates}
-          aria-label="Close"
-          className="inline-flex items-center gap-[6px] rounded-lg px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-        >
-          <CollapseIcon />
-          Close
-        </button>
+        {!page && (
+          <button
+            type="button"
+            onClick={closeTemplates}
+            aria-label="Close"
+            className="inline-flex items-center gap-[6px] rounded-lg px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          >
+            <CollapseIcon />
+            Close
+          </button>
+        )}
       </div>
       <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[20px] py-[10px]">
         {(['ours', 'yours'] as const).map((id) => (

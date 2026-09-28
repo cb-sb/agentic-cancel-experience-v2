@@ -31,7 +31,7 @@ export function VariantBar({ experienceId }: { experienceId: string }) {
       <span className="min-w-0 truncate text-slate-500">{current.share}</span>
       <button
         type="button"
-        onClick={() => openTab('canvas')}
+        onClick={() => openTab('targeting')}
         className="ml-auto flex-none text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-800"
       >
         Targeting
