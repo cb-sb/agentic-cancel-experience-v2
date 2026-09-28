@@ -39,7 +39,7 @@ import { clearDraft } from '../store/draft'
 import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
 import { STUDIO } from '../layout/layoutMode'
-import { newThread } from '../workspace/useWorkspace'
+import { newChat, newThread, useWorkspace } from '../workspace/useWorkspace'
 import { openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
@@ -272,6 +272,11 @@ export function PromptCodeDock({
   const setBeat = useCopilotThread((s) => s.setBeat)
   const [draft, setDraft] = useState('')
   const [goalAsk, setGoalAsk] = useState(false)
+  const chatKey = useWorkspace((s) => `${s.activeId}:${s.threads.find((t) => t.id === s.activeId)?.activeChatId ?? ''}`)
+  useEffect(() => {
+    setGoalAsk(false)
+    setDraft('')
+  }, [chatKey])
   const [planPane, setPlanPane] = useState<'map' | 'versions'>('map')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -816,20 +821,22 @@ export function PromptCodeDock({
           </div>
         </div>
         <div className="flex items-center gap-[2px]">
-          <HeaderIconButton
-            label="Templates"
-            pressed={templatesOpen || turn === 'library'}
-            onClick={() => {
-              if (stage === 'center') {
-                if (turn === 'library') {
-                  if (templatesOpen) closeTemplates()
-                  else openTemplates()
-                } else startLibrary()
-              } else openTemplates()
-            }}
-          >
-            <SIcon name="layout-template" size={16} />
-          </HeaderIconButton>
+          {!STUDIO && (
+            <HeaderIconButton
+              label="Templates"
+              pressed={templatesOpen || turn === 'library'}
+              onClick={() => {
+                if (stage === 'center') {
+                  if (turn === 'library') {
+                    if (templatesOpen) closeTemplates()
+                    else openTemplates()
+                  } else startLibrary()
+                } else openTemplates()
+              }}
+            >
+              <SIcon name="layout-template" size={16} />
+            </HeaderIconButton>
+          )}
           <HeaderIconButton
             label={annotateMode ? 'Exit design mode' : 'Annotate'}
             pressed={annotateMode}
@@ -933,7 +940,10 @@ export function PromptCodeDock({
                 <SIcon name="arrow-left" size={16} />
               </HeaderIconButton>
             ) : (
-              <HeaderIconButton label={centered ? 'New experience' : 'New conversation'} onClick={centered ? newThread : reset}>
+              <HeaderIconButton
+                label={STUDIO ? 'New chat' : centered ? 'New experience' : 'New conversation'}
+                onClick={STUDIO ? () => newChat() : centered ? newThread : reset}
+              >
                 <SIcon name="pencil" size={16} />
               </HeaderIconButton>
             )}

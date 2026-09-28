@@ -36,6 +36,13 @@ export interface ThreadSnapshot extends Draft {
   surface: 'editor' | 'canvas'
 }
 
+/** One Copilot conversation inside an experience. They all edit the same journey. */
+export interface ChatThread {
+  id: string
+  updatedAt: number
+  chat: ThreadChat
+}
+
 export interface ExperienceThread {
   id: string
   title: string
@@ -44,7 +51,11 @@ export interface ExperienceThread {
   sample?: boolean
   /** Sample that hasn't been opened yet: built from this template on first open. */
   seed?: JourneyTemplate
+  /** `snapshot.chat` mirrors the active chat. */
   snapshot?: ThreadSnapshot
+  /** v7. Older threads have none and are read as one chat. */
+  chats?: ChatThread[]
+  activeChatId?: string
 }
 
 interface WorkspaceState {
@@ -76,10 +87,29 @@ export function titleFor(file: JourneyFile): string {
   return file.name && file.name !== EMPTY_JOURNEY.name ? file.name : 'Cancel experience'
 }
 
+const EMPTY_CHAT: ThreadChat = { lines: [], turn: 'kind', beat: 'walk' }
+
+/** Every chat of an experience, oldest first. A thread saved before chats existed reads as one. */
+export function chatsOf(t: ExperienceThread): ChatThread[] {
+  if (t.chats?.length) return t.chats
+  return [{ id: `${t.id}-c0`, updatedAt: t.updatedAt, chat: t.snapshot?.chat ?? EMPTY_CHAT }]
+}
+
+export function activeChatOf(t: ExperienceThread): string {
+  const chats = chatsOf(t)
+  return chats.some((c) => c.id === t.activeChatId) ? t.activeChatId! : chats[chats.length - 1].id
+}
+
+/** The first thing the merchant asked, or "New chat". */
+export function chatTitle(lines: CopilotLine[]): string {
+  const first = lines.find((l) => l.from === 'you')?.text.trim()
+  return first || 'New chat'
+}
+
 function isBlank(t: ExperienceThread): boolean {
   if (t.seed) return false
   if (!t.snapshot) return true
-  return t.snapshot.journey.steps.length === 0 && t.snapshot.chat.lines.length === 0
+  return t.snapshot.journey.steps.length === 0 && chatsOf(t).every((c) => c.chat.lines.length === 0)
 }
 
 function persist(): boolean {
@@ -152,8 +182,67 @@ function storeActive(draft?: Draft) {
     snapshot,
     seed: undefined,
     title: titleFor(snapshot.journey),
+    ...storeChat(thread, snapshot.chat),
     ...(touched ? { updatedAt: Date.now(), sample: false } : {}),
   })
+}
+
+/** Write the open conversation back into its chat entry. */
+function storeChat(thread: ExperienceThread, chat: ThreadChat): Pick<ExperienceThread, 'chats' | 'activeChatId'> {
+  const activeChatId = activeChatOf(thread)
+  const chats = chatsOf(thread).map((c) =>
+    c.id === activeChatId
+      ? { ...c, chat, updatedAt: c.chat.lines.length === chat.lines.length ? c.updatedAt : Date.now() }
+      : c,
+  )
+  return { chats, activeChatId }
+}
+
+function loadChat(chat: ThreadChat) {
+  useOrchestration.getState().setSpotlight(null)
+  useCopilotThread.setState({ lines: chat.lines, turn: chat.turn, beat: chat.beat })
+}
+
+/** Open another conversation on the same experience. The journey and tabs stay as they are. */
+export function switchChat(threadId: string, chatId: string) {
+  const { activeId } = useWorkspace.getState()
+  if (threadId !== activeId) {
+    const target = useWorkspace.getState().threads.find((t) => t.id === threadId)
+    if (target) patchThread(threadId, { activeChatId: chatId })
+    switchThread(threadId)
+    return
+  }
+  storeActive()
+  const thread = useWorkspace.getState().threads.find((t) => t.id === activeId)
+  const next = thread && chatsOf(thread).find((c) => c.id === chatId)
+  if (!thread || !next || activeChatOf(thread) === chatId) return
+  patchThread(activeId, { activeChatId: chatId, snapshot: thread.snapshot && { ...thread.snapshot, chat: next.chat } })
+  loadChat(next.chat)
+  persist()
+}
+
+/** A fresh conversation on this experience. Nothing to do while the open chat is still empty. */
+export function newChat(threadId?: string) {
+  const { activeId } = useWorkspace.getState()
+  if (threadId && threadId !== activeId) switchThread(threadId)
+  if (useCopilotThread.getState().lines.length === 0) return
+  storeActive()
+  const id = useWorkspace.getState().activeId
+  const thread = useWorkspace.getState().threads.find((t) => t.id === id)
+  if (!thread) return
+  const chat: ThreadChat = {
+    lines: [],
+    turn: useJourney.getState().file.steps.length > 0 ? 'done' : 'kind',
+    beat: 'walk',
+  }
+  const entry: ChatThread = { id: newId(), updatedAt: Date.now(), chat }
+  patchThread(id, {
+    chats: [...chatsOf(thread), entry],
+    activeChatId: entry.id,
+    snapshot: thread.snapshot && { ...thread.snapshot, chat },
+  })
+  loadChat(chat)
+  persist()
 }
 
 function prepStores() {
@@ -214,8 +303,12 @@ function openThreadNow(id: string) {
   const thread = useWorkspace.getState().threads.find((t) => t.id === id)
   if (!thread) return
   prepStores()
-  if (thread.snapshot) openSnapshot(thread.snapshot)
-  else if (thread.seed) openSample(thread.seed)
+  if (thread.snapshot) {
+    openSnapshot(thread.snapshot)
+    const id = activeChatOf(thread)
+    const chat = thread.chats?.find((c) => c.id === id)?.chat
+    if (chat) loadChat(chat)
+  } else if (thread.seed) openSample(thread.seed)
   else openBlank()
   const snap = thread.snapshot
   useOrchestration.setState({
@@ -314,6 +407,8 @@ export function loadWorkspace() {
       patchThread(useWorkspace.getState().activeId, {
         snapshot: undefined,
         seed: undefined,
+        chats: undefined,
+        activeChatId: undefined,
         sample: false,
         title: 'New experience',
         updatedAt: Date.now(),

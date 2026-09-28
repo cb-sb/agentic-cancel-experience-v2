@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SIcon } from '@chargebee/sting-react'
+import { useCopilotThread } from '../orchestration/copilotThread'
 import { useOrchestration } from '../store/useOrchestration'
 import {
+  activeChatOf,
+  chatsOf,
+  chatTitle,
+  newChat,
   newThread,
   openTemplatePicker,
   orderedThreads,
+  switchChat,
   switchThread,
   threadIsLive,
   useWorkspace,
@@ -28,27 +34,108 @@ function HeaderButton({ label, icon, onClick }: { label: string; icon: 'search' 
   )
 }
 
-function ThreadRow({ thread, active, onClick }: { thread: ExperienceThread; active: boolean; onClick: () => void }) {
+/** One experience as a folder: its name and status, then every Copilot chat on it. */
+function ExperienceFolder({
+  thread,
+  open,
+  current,
+  onToggle,
+}: {
+  thread: ExperienceThread
+  open: boolean
+  current: boolean
+  onToggle: () => void
+}) {
   const dirty = useOrchestration((s) => s.dirty)
   const activeLive = useOrchestration((s) => s.play.publishState === 'live')
   const activeId = useWorkspace((s) => s.activeId)
+  const liveLines = useCopilotThread((s) => s.lines)
+  const isActive = thread.id === activeId
+  const chats = chatsOf(thread)
+  const activeChat = activeChatOf(thread)
+
+  const openExperience = () => {
+    useWorkspaceUi.getState().setPage('thread')
+    switchThread(thread.id)
+    if (!open) onToggle()
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? 'true' : undefined}
-      className={`flex w-full flex-col gap-[2px] rounded-lg px-[10px] py-[7px] text-left transition-colors ${
-        active ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
-      }`}
-    >
-      <span className="flex w-full items-center gap-[8px]">
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+    <div>
+      <div
+        className={`group flex h-8 items-center gap-[2px] rounded-lg pr-[4px] transition-colors ${
+          current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={open ? `Collapse ${thread.title}` : `Expand ${thread.title}`}
+          aria-expanded={open}
+          className="flex h-8 w-6 flex-none items-center justify-center text-slate-400 hover:text-slate-700"
+        >
+          <SIcon name="chevron-right" size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+        </button>
+        <button
+          type="button"
+          onClick={openExperience}
+          className={`min-w-0 flex-1 truncate text-left text-[13px] ${
+            current ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'
+          }`}
+        >
           {thread.title}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            useWorkspaceUi.getState().setPage('thread')
+            newChat(thread.id)
+            if (!open) onToggle()
+          }}
+          title="New chat"
+          aria-label={`New chat in ${thread.title}`}
+          className="hidden h-6 w-6 flex-none items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900 group-hover:flex"
+        >
+          <SIcon name="plus" size={13} />
+        </button>
+        <span className="flex-none group-hover:hidden">
+          <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
         </span>
-        <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
-      </span>
-      <span className="text-[11.5px] text-slate-500">{active && dirty ? 'Unsaved changes' : ago(thread.updatedAt)}</span>
-    </button>
+      </div>
+      {open && (
+        <div className="ml-[15px] flex flex-col gap-[1px] border-l border-slate-200 py-[2px] pl-[6px]">
+          {[...chats].reverse().map((c) => {
+            const selected = current && c.id === activeChat
+            const lines = isActive && c.id === activeChat ? liveLines : c.chat.lines
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  useWorkspaceUi.getState().setPage('thread')
+                  switchChat(thread.id, c.id)
+                }}
+                aria-current={selected ? 'true' : undefined}
+                className={`flex w-full items-center gap-[8px] rounded-lg px-[8px] py-[5px] text-left transition-colors ${
+                  selected
+                    ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200'
+                    : 'hover:bg-slate-200/50'
+                }`}
+              >
+                <span
+                  className={`min-w-0 flex-1 truncate text-[12.5px] ${selected ? 'font-medium text-slate-900' : 'text-slate-600'}`}
+                >
+                  {lines.length === 0 && thread.seed ? thread.title : chatTitle(lines)}
+                </span>
+                <span className="flex-none text-[11px] text-slate-400">
+                  {selected && dirty ? 'Unsaved' : ago(c.updatedAt)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -66,6 +153,19 @@ export function ExperiencesPane() {
   const [brandOpen, setBrandOpen] = useState(false)
   const folded = !open
   const libraryShown = page === 'thread' && templatesOpen
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeId ? [activeId] : []))
+
+  useEffect(() => {
+    if (activeId) setExpanded((s) => (s.has(activeId) ? s : new Set(s).add(activeId)))
+  }, [activeId])
+
+  const toggle = (id: string) =>
+    setExpanded((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const create = () => {
     setPage('thread')
@@ -146,14 +246,12 @@ export function ExperiencesPane() {
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200 px-[10px] pb-[10px] pt-[14px]">
           <div className="flex flex-col gap-[2px]">
             {orderedThreads(threads).map((t) => (
-              <ThreadRow
+              <ExperienceFolder
                 key={t.id}
                 thread={t}
-                active={page === 'thread' && t.id === activeId}
-                onClick={() => {
-                  setPage('thread')
-                  switchThread(t.id)
-                }}
+                open={expanded.has(t.id)}
+                current={page === 'thread' && !libraryShown && t.id === activeId}
+                onToggle={() => toggle(t.id)}
               />
             ))}
           </div>
