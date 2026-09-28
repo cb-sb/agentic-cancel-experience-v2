@@ -261,11 +261,9 @@ export function setWorkspaceInstall(connected: boolean) {
   persist()
 }
 
-/** Real threads first, newest on top; samples after. */
+/** Newest on top. Seeded threads carry older times, so new work lands above them. */
 export function orderedThreads(threads: ExperienceThread[]): ExperienceThread[] {
-  const real = threads.filter((t) => !t.sample).sort((a, b) => b.updatedAt - a.updatedAt)
-  const samples = threads.filter((t) => t.sample).sort((a, b) => b.updatedAt - a.updatedAt)
-  return [...real, ...samples]
+  return [...threads].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 function watchActiveThread() {

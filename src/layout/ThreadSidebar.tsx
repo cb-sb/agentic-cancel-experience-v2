@@ -117,18 +117,11 @@ function ThreadRow({ thread, active, onClick }: { thread: ExperienceThread; acti
         active ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
       }`}
     >
-      <span className="flex w-full items-center gap-[6px]">
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
-          {thread.title}
-        </span>
-        {thread.sample && (
-          <span className="flex-none rounded-full bg-slate-200 px-[6px] py-[1px] text-[10.5px] font-semibold text-slate-600">
-            Sample
-          </span>
-        )}
+      <span className={`w-full truncate text-[13px] ${active ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+        {thread.title}
       </span>
       <span className="text-[11.5px] text-slate-500">
-        {active && dirty ? 'Unsaved changes' : thread.sample ? 'Chargebee template' : ago(thread.updatedAt)}
+        {active && dirty ? 'Unsaved changes' : ago(thread.updatedAt)}
       </span>
     </button>
   )
@@ -149,8 +142,6 @@ export function ThreadSidebar() {
 
   const query = search.trim().toLowerCase()
   const shown = orderedThreads(threads).filter((t) => !query || t.title.toLowerCase().includes(query))
-  const real = shown.filter((t) => !t.sample)
-  const samples = shown.filter((t) => t.sample)
 
   const openSearch = () => {
     if (folded) setOpen(true)
@@ -239,22 +230,12 @@ export function ThreadSidebar() {
       </div>
 
       {!folded && (
-        <div className="min-h-0 flex-1 overflow-y-auto px-[10px] py-[10px]">
-          {real.length > 0 && (
-            <section className="mb-[12px]">
-              <h3 className="px-[10px] pb-[4px] text-[11px] font-semibold uppercase tracking-wide text-slate-400">Your experiences</h3>
-              <div className="flex flex-col gap-[2px]">
-                {real.map((t) => (
-                  <ThreadRow key={t.id} thread={t} active={t.id === activeId} onClick={() => switchThread(t.id)} />
-                ))}
-              </div>
-            </section>
-          )}
-          {samples.length > 0 && (
+        <div className="min-h-0 flex-1 overflow-y-auto px-[10px] pb-[10px] pt-[20px]">
+          {shown.length > 0 && (
             <section>
-              <h3 className="px-[10px] pb-[4px] text-[11px] font-semibold uppercase tracking-wide text-slate-400">Samples</h3>
+              <h3 className="px-[10px] pb-[6px] text-[11px] font-semibold uppercase tracking-wide text-slate-400">Your experiences</h3>
               <div className="flex flex-col gap-[2px]">
-                {samples.map((t) => (
+                {shown.map((t) => (
                   <ThreadRow key={t.id} thread={t} active={t.id === activeId} onClick={() => switchThread(t.id)} />
                 ))}
               </div>

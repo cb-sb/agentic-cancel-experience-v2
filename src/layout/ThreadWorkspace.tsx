@@ -169,7 +169,7 @@ function ReopenPane() {
     <button
       type="button"
       onClick={reopen}
-      className="absolute right-4 top-[14px] z-10 flex items-center gap-[6px] rounded-lg border border-slate-200 bg-white px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+      className="absolute right-4 top-[72px] z-10 flex items-center gap-[6px] rounded-lg border border-slate-200 bg-white px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
     >
       <SIcon name="panel-left" size={14} className="rotate-180" />
       {label}
@@ -218,7 +218,7 @@ export function ThreadWorkspace() {
             paneShown ? 'w-[clamp(360px,32%,500px)] flex-none border-r border-slate-200' : 'min-w-0 flex-1'
           }`}
         >
-          <div className={paneShown ? 'flex h-full min-h-0' : 'mx-auto flex h-full min-h-0 w-full max-w-[860px] border-x border-slate-100'}>
+          <div className="flex h-full min-h-0">
             <PromptCodeDock centered />
           </div>
           {!paneShown && <ReopenPane />}
