@@ -28,7 +28,7 @@ import { useCopilotStage } from './copilotStage'
 
 const COPILOT_MORPH_MS = 380
 
-function DoorsBackdrop() {
+export function DoorsBackdrop() {
   return (
     <div
       aria-hidden

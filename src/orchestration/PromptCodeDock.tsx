@@ -38,7 +38,9 @@ import { scanReviewCopy } from '../library/review'
 import { clearDraft } from '../store/draft'
 import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
+import { STUDIO } from '../layout/layoutMode'
 import { newThread } from '../workspace/useWorkspace'
+import { openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
 
@@ -231,7 +233,7 @@ export function PromptCodeDock({
 }) {
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
   const setSidebarOpen = useWorkspaceUi((s) => s.setSidebarOpen)
-  const brandAsk = useWorkspaceUi((s) => s.brandAsk)
+  const beatAsk = useWorkspaceUi((s) => s.beatAsk)
   const dockMode = useJourney((s) => s.dockMode)
   const setDockMode = useJourney((s) => s.setDockMode)
   const file = useJourney((s) => s.file)
@@ -579,11 +581,11 @@ export function PromptCodeDock({
   }, [turn, uploadPhase, uploadChecklist, uploadManifest, uploadArtifact])
 
   useEffect(() => {
-    if (!brandAsk) return
+    if (!beatAsk) return
     setDockMode('prompt')
-    jumpPlan('brand')
+    jumpPlan(beatAsk.beat)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandAsk])
+  }, [beatAsk])
 
   useEffect(() => {
     if (!pendingCopilotGuide) return
@@ -947,6 +949,7 @@ export function PromptCodeDock({
                           beat={turn === 'plan' ? beat : undefined}
                           onJump={jumpPlan}
                           readonly={turn === 'propose'}
+                          onOpenTab={STUDIO && turn !== 'propose' ? () => openTab('plan') : undefined}
                         />
                       </SpotlightFrame>
                     )}

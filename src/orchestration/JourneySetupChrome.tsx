@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 import { SButton, SIcon, SProgressBar } from '@chargebee/sting-react'
 import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
+import { STUDIO } from '../layout/layoutMode'
 import { useExperience } from '../store/useExperience'
+import { useCancelSettings } from '../workspace/useCancelSettings'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { ActivityTab } from './ActivityTab'
@@ -22,6 +24,7 @@ export function useSetupProgress() {
   const walkedOrSkipped = useOrchestration((s) => s.walkedOrSkipped)
   const stepStripShown = useOrchestration((s) => s.stepStripShown)
   const dismissedStepNeedsWork = useOrchestration((s) => s.dismissedStepNeedsWork)
+  const globalControl = useCancelSettings((s) => s.globalControl)
   return setupProgress({
     file,
     play,
@@ -31,6 +34,7 @@ export function useSetupProgress() {
     walkedOrSkipped,
     stepStripShown,
     dismissedStepNeedsWork,
+    globalControl: STUDIO ? globalControl : undefined,
   })
 }
 

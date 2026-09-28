@@ -1,0 +1,105 @@
+import { useEffect } from 'react'
+import { EASE_ENTER, PANEL_MS } from '../lib/motion'
+import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
+import { useExperience } from '../store/useExperience'
+import { useOrchestration } from '../store/useOrchestration'
+import { BlankJourneyDoors } from '../orchestration/BlankJourneyDoors'
+import { useCopilotStage } from '../orchestration/copilotStage'
+import { DoorsBackdrop } from '../orchestration/OrchestrationCanvas'
+import { PromptCodeDock } from '../orchestration/PromptCodeDock'
+import { TemplatesModal } from '../orchestration/TemplatesModal'
+import { UploadFlow } from '../upload/UploadFlow'
+import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
+import { CancelPageSettings } from './CancelPageSettings'
+import { ExperiencesIndex } from './ExperiencesIndex'
+import { ExperiencesPane } from './ExperiencesPane'
+import { SearchDialog } from './SearchDialog'
+import { SIDEBAR_FOLDED_W, SIDEBAR_W } from './ThreadSidebar'
+import { ReopenPane, TabbedPane, usePaneShown } from './ThreadWorkspace'
+
+function ThreadView() {
+  const stage = useCopilotStage()
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const paneShown = usePaneShown()
+
+  if (stage === 'doors') {
+    return (
+      <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-100">
+        <DoorsBackdrop />
+        {!templatesOpen && <BlankJourneyDoors />}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-1">
+      <div
+        className={`relative flex min-h-0 flex-col bg-white ${
+          paneShown ? 'w-[clamp(360px,32%,500px)] flex-none border-r border-slate-200' : 'min-w-0 flex-1'
+        }`}
+      >
+        <div className="flex h-full min-h-0">
+          <PromptCodeDock centered />
+        </div>
+        {!paneShown && <ReopenPane />}
+      </div>
+      {paneShown && <TabbedPane />}
+    </div>
+  )
+}
+
+/**
+ * V7: the Growth nav, then this experience's pane, then either the Experiences
+ * page or the open experience (doors, then Copilot with tabs on the right).
+ */
+export function StudioWorkspace() {
+  const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
+  const page = useWorkspaceUi((s) => s.page)
+  const beatAsk = useWorkspaceUi((s) => s.beatAsk)
+  const templatesOpen = useOrchestration((s) => s.templatesOpen)
+  const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
+  const focusTarget = useOrchestration((s) => s.focusTarget)
+  const activeTab = useWorkspaceUi((s) => s.tabs.active)
+  const stepCount = useExperience((s) => s.experiences[PRIMARY_EXPERIENCE_ID]?.steps.length ?? 0)
+  const stage = useCopilotStage()
+  const paneShown = usePaneShown()
+  const editorShown = page === 'thread' && paneShown && activeTab === 'editor'
+
+  useEffect(() => {
+    if (stage === 'rail') setAssistantOpen(true)
+  }, [stage, setAssistantOpen])
+
+  useEffect(() => {
+    if (!editorShown || focusTarget || stepCount === 0) return
+    useOrchestration.getState().enterWorkEditor()
+  }, [editorShown, focusTarget, stepCount])
+
+  useEffect(() => {
+    if (beatAsk) useWorkspaceUi.getState().setPage('thread')
+  }, [beatAsk])
+
+  return (
+    <div
+      className="grid h-full min-h-0 bg-white motion-reduce:transition-none"
+      style={{
+        gridTemplateColumns: `${sidebarOpen ? SIDEBAR_W : SIDEBAR_FOLDED_W}px minmax(0,1fr)`,
+        transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
+      }}
+    >
+      <ExperiencesPane />
+      <div className="flex min-h-0 min-w-0">
+        {page === 'index' ? (
+          <div className="min-w-0 flex-1">
+            <ExperiencesIndex />
+          </div>
+        ) : (
+          <ThreadView />
+        )}
+      </div>
+      {templatesOpen && <TemplatesModal />}
+      <UploadFlow />
+      <CancelPageSettings />
+      <SearchDialog />
+    </div>
+  )
+}

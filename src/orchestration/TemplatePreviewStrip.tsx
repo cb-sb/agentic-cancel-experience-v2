@@ -117,7 +117,7 @@ function FlowChevron({ offset }: { offset: number }) {
   )
 }
 
-function TemplateStepThumb({
+export function TemplateStepThumb({
   step,
   index,
   total,

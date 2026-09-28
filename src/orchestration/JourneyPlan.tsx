@@ -11,7 +11,9 @@ import type {
   JourneyFile,
   OfferKey,
 } from '../journey/types'
+import { STUDIO } from '../layout/layoutMode'
 import { audienceLabel, useJourney } from '../store/useJourney'
+import { useCancelSettings } from '../workspace/useCancelSettings'
 import type { ShellLayout } from '../types/experience'
 
 function CtaPair({
@@ -93,6 +95,9 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
     case 'shell':
       return 'A modal sits on your site. A full page is the hosted cancel URL. Keep the overlay unless you already host a cancel page.'
     case 'holdout':
+      if (STUDIO) {
+        return 'Cancel pages have no control group of their own. Chargebee holds out one share of everyone who clicks Cancel, across all cancel experiences, called Global control. You set it once in the cancel page settings on the Experiences page.'
+      }
       return 'A holdout is a slice that skips this experience so you can measure lift. Leave it at none until you are ready to experiment.'
     case 'cancel':
       return 'How should the cancel be handled once someone goes through? Pick how it’s processed and when it takes effect. Return URLs are optional.'
@@ -156,7 +161,7 @@ function beatHint(beat: PlanBeat): string | null {
     case 'shell':
       return 'Most merchants start with a modal overlay on the account page.'
     case 'holdout':
-      return 'Skip this until you want a control group. Zero means everyone sees the experience.'
+      return STUDIO ? null : 'Skip this until you want a control group. Zero means everyone sees the experience.'
     case 'brand':
       return null
     default:
@@ -183,12 +188,15 @@ export function PlanSummary({
   beat,
   onJump,
   readonly = false,
+  onOpenTab,
 }: {
   beat?: PlanBeat
   onJump: (beat: PlanBeat) => void
   readonly?: boolean
+  onOpenTab?: () => void
 }) {
   const file = useJourney((s) => s.file)
+  const globalControl = useCancelSettings((s) => s.globalControl)
   const hasOffers = file.steps.some((s) => s.kind === 'offer')
 
   const rows: { beat: PlanBeat | null; label: string; value: string }[] = [
@@ -196,16 +204,31 @@ export function PlanSummary({
     ...(hasOffers ? [{ beat: 'offers' as const, label: 'Offers', value: offerLine(file) || '—' }] : []),
     { beat: 'audience', label: 'Audience', value: audienceLabel(file.audience) },
     { beat: 'shell', label: 'Shell', value: shellLabel(file.shell) },
-    {
-      beat: 'holdout',
-      label: 'Holdout',
-      value: file.holdout === 0 ? 'Everyone in treatment' : `${file.holdout}% see nothing`,
-    },
+    STUDIO
+      ? {
+          beat: 'holdout',
+          label: 'Control',
+          value: globalControl === 0 ? 'Global control is off' : `Global control, ${globalControl}% see nothing`,
+        }
+      : {
+          beat: 'holdout',
+          label: 'Holdout',
+          value: file.holdout === 0 ? 'Everyone in treatment' : `${file.holdout}% see nothing`,
+        },
   ]
 
   return (
     <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-3 py-2">
+      <div className="relative border-b border-slate-100 px-3 py-2">
+        {onOpenTab && (
+          <button
+            type="button"
+            onClick={onOpenTab}
+            className="absolute right-3 top-2 rounded-md px-[6px] py-[2px] text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50"
+          >
+            Open as tab
+          </button>
+        )}
         <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Draft plan</div>
         <div className="mt-0.5 text-[13px] font-bold text-slate-900">{file.name}</div>
         <div className="text-[11px] text-slate-500">
@@ -352,7 +375,9 @@ export function PlanBeatCard({
         </div>
       )}
 
-      {beat === 'holdout' && (
+      {beat === 'holdout' && STUDIO && <GlobalControlNote onContinue={onContinue} />}
+
+      {beat === 'holdout' && !STUDIO && (
         <div>
           <div className="flex items-baseline justify-between">
             <span className="text-[12px] text-slate-600">Holdout</span>
@@ -458,6 +483,7 @@ export function PlanBeatCard({
       )}
 
       {beat !== 'audience' &&
+        !(beat === 'holdout' && STUDIO) &&
         beat !== 'shell' &&
         beat !== 'brand' &&
         beat !== 'cancel' &&
@@ -488,6 +514,30 @@ export function PlanBeatCard({
           </SButton>
         </div>
       )}
+    </div>
+  )
+}
+
+function GlobalControlNote({ onContinue }: { onContinue: (said: string) => void }) {
+  const globalControl = useCancelSettings((s) => s.globalControl)
+  const openSettings = useCancelSettings((s) => s.setSettingsOpen)
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-[12px] text-slate-600">Global control</span>
+        <span className="text-[11px] tabular-nums text-slate-400">{globalControl === 0 ? 'Off' : `${globalControl}%`}</span>
+      </div>
+      <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+        {globalControl === 0
+          ? 'Everyone who clicks Cancel can get a cancel page.'
+          : `${globalControl}% of everyone who clicks Cancel gets no cancel page, in every cancel experience.`}
+      </p>
+      <div className="mt-3">
+        <CtaPair
+          primary={{ label: 'Continue', onClick: () => onContinue('Keep Global control as it is') }}
+          secondary={{ label: 'Open cancel page settings', onClick: () => openSettings(true) }}
+        />
+      </div>
     </div>
   )
 }

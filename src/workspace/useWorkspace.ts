@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { LAYOUT } from '../layout/layoutMode'
+import { STUDIO, TABBED } from '../layout/layoutMode'
 import { LIBRARY, startFromTemplate, withLive } from '../journey/templates'
 import {
   DEFAULT_JOURNEY_BRAND,
@@ -19,8 +19,8 @@ import { useUpload } from '../upload/useUpload'
 import { startPaneSync, whilePaused } from './paneTabs'
 import { NO_TABS, useWorkspaceUi, type ThreadTabs } from './useWorkspaceUi'
 
-/** Separate from the V5 draft key, so the two never overwrite each other. */
-const KEY = 'cancel-experience:workspace:v1'
+/** Separate from the V5 draft key, so the two never overwrite each other. V7 tabs differ, so it keeps its own. */
+const KEY = STUDIO ? 'cancel-experience:workspace:v7' : 'cancel-experience:workspace:v1'
 
 export interface ThreadChat {
   lines: CopilotLine[]
@@ -197,13 +197,13 @@ function openSnapshot(s: ThreadSnapshot) {
   useCopilotThread.setState({ lines: s.chat.lines, turn: s.chat.turn, beat: s.chat.beat })
   const tabs = s.tabs ?? NO_TABS
   useWorkspaceUi.setState({ tabs })
-  const fromTab = LAYOUT === 'tabs' && (tabs.active === 'editor' || tabs.active === 'canvas') ? tabs.active : null
+  const fromTab = TABBED && (tabs.active === 'editor' || tabs.active === 'canvas') ? tabs.active : null
   const surface = fromTab ?? (s.surface === 'canvas' ? 'canvas' : 'editor')
   useOrchestration.setState({
     stepStripShown: s.journey.steps.length > 0,
     workSurface: surface,
   })
-  if (LAYOUT === 'tabs' && tabs.active === 'preview') useExperience.getState().setMode('play')
+  if (TABBED && tabs.active === 'preview') useExperience.getState().setMode('play')
 }
 
 function openThread(id: string) {
@@ -221,9 +221,9 @@ function openThreadNow(id: string) {
   useOrchestration.setState({
     savedAt: snap && snap.savedAt ? snap.savedAt : null,
     dirty: snap ? snap.dirty : false,
-    installConnected: useWorkspace.getState().installConnected,
+    installConnected: STUDIO || useWorkspace.getState().installConnected,
   })
-  useWorkspaceUi.setState({ paneHidden: false })
+  useWorkspaceUi.setState({ paneHidden: false, previewAs: '' })
   resetHistoryBaseline()
 }
 
@@ -237,9 +237,7 @@ export function switchThread(id: string) {
 }
 
 export function newThread() {
-  const emptyNow =
-    useJourney.getState().file.steps.length === 0 && useCopilotThread.getState().lines.length === 0
-  if (emptyNow) {
+  if (isEmptyNow()) {
     useWorkspaceUi.setState({ search: '' })
     return
   }
@@ -253,6 +251,32 @@ export function newThread() {
   useWorkspace.setState((s) => ({ threads: [thread, ...s.threads], activeId: thread.id }))
   openThread(thread.id)
   persist()
+}
+
+function isEmptyNow(): boolean {
+  return useJourney.getState().file.steps.length === 0 && useCopilotThread.getState().lines.length === 0
+}
+
+/** Templates start a new experience, unless the open one is still empty. */
+export function openTemplatePicker(tab: 'ours' | 'yours' = 'ours') {
+  if (!isEmptyNow()) newThread()
+  useOrchestration.getState().openTemplates(tab)
+}
+
+export function startFromLibrary(id: Exclude<JourneyTemplate, 'none'>) {
+  if (!isEmptyNow()) newThread()
+  useOrchestration.getState().applyLibraryTemplate(id)
+}
+
+export function startFromSaved(id: string) {
+  if (!isEmptyNow()) newThread()
+  useOrchestration.getState().applyMerchantTemplate(id)
+}
+
+/** Live when its play is published. The open thread reads the live store. */
+export function threadIsLive(thread: ExperienceThread, activeId: string, activeLive: boolean): boolean {
+  if (thread.id === activeId) return activeLive
+  return thread.snapshot?.play.publishState === 'live'
 }
 
 export function setWorkspaceInstall(connected: boolean) {

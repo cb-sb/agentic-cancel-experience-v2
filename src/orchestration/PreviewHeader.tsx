@@ -6,6 +6,8 @@ import { EASE_ENTER, EASE_LEAVE } from '../lib/motion'
 import { usePresence } from '../lib/usePresence'
 import { useExperience } from '../store/useExperience'
 import { useJourney } from '../store/useJourney'
+import { STUDIO } from '../layout/layoutMode'
+import { PreviewAsPicker, usePreviewOutcome } from './PreviewAs'
 
 /**
  * Arrival/exit for the preview.
@@ -66,20 +68,59 @@ function PreviewTab() {
   const uploaded = useJourney((s) => s.file.source === 'uploaded')
   return (
     <div className="absolute inset-0 flex flex-col bg-slate-100">
-      <div className="flex flex-none justify-center pt-4">
+      <div className="flex flex-none flex-col items-center gap-[6px] pt-4">
         <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-1.5 py-1 shadow-sm">
+          {STUDIO && <PreviewAsPicker />}
           <DeviceButtons tone="plain" />
           <SButton size="small" variant="neutral-outline" onClick={resetSession}>
             Restart
           </SButton>
         </div>
+        {STUDIO && <PreviewNote />}
       </div>
       <div className="relative min-h-0 flex-1 px-10 pb-8 pt-4">
-        <DeviceChrome device={device} brandName={brandName} fullBleed={uploaded || shell !== 'modal'}>
-          <PlayerShell />
-        </DeviceChrome>
+        {STUDIO ? (
+          <StudioStage device={device} brandName={brandName} fullBleed={uploaded || shell !== 'modal'} />
+        ) : (
+          <DeviceChrome device={device} brandName={brandName} fullBleed={uploaded || shell !== 'modal'}>
+            <PlayerShell />
+          </DeviceChrome>
+        )}
       </div>
     </div>
+  )
+}
+
+function PreviewNote() {
+  const outcome = usePreviewOutcome()
+  if (outcome.show !== 'page' || !outcome.note) return null
+  return <p className="text-[12px] text-slate-500">{outcome.note}</p>
+}
+
+function StudioStage({
+  device,
+  brandName,
+  fullBleed,
+}: {
+  device: ReturnType<typeof useExperience.getState>['device']
+  brandName: string
+  fullBleed: boolean
+}) {
+  const outcome = usePreviewOutcome()
+  if (outcome.show === 'message') {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="max-w-[420px] rounded-2xl border border-slate-200 bg-white px-[24px] py-[20px] text-center shadow-sm">
+          <p className="text-[15px] font-semibold text-slate-900">{outcome.title}</p>
+          <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">{outcome.body}</p>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <DeviceChrome device={device} brandName={brandName} fullBleed={fullBleed}>
+      <PlayerShell />
+    </DeviceChrome>
   )
 }
 

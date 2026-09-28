@@ -151,6 +151,8 @@ export function setupProgress(args: {
   walkedOrSkipped: boolean
   stepStripShown: boolean
   dismissedStepNeedsWork: boolean
+  /** v7: cancel pages use the account's Global control, and billing is set up outside this flow. */
+  globalControl?: number
 }): SetupProgress {
   const {
     file,
@@ -161,7 +163,9 @@ export function setupProgress(args: {
     walkedOrSkipped,
     stepStripShown,
     dismissedStepNeedsWork,
+    globalControl,
   } = args
+  const studio = globalControl !== undefined
 
   const hasOffers = file.steps.some((s) => s.kind === 'offer')
   const hasSurvey = file.steps.some((s) => s.kind === 'survey')
@@ -173,7 +177,7 @@ export function setupProgress(args: {
   const items: SetupItem[] = []
 
   // Connect — the prerequisite plane.
-  items.push({
+  if (!studio) items.push({
     id: 'connect',
     group: 'connect',
     label: 'Billing and install',
@@ -260,13 +264,24 @@ export function setupProgress(args: {
       done: Boolean(confirmed.experiment),
     })
   }
-  items.push({
-    id: 'holdout',
-    group: 'play',
-    label: 'Control (holdout)',
-    hint: 'A no-offer slice to measure lift',
-    done: Boolean(confirmed.holdout) || file.holdout !== 0 || playHasHoldout(play),
-  })
+  if (studio) {
+    items.push({
+      id: 'holdout',
+      group: 'play',
+      label: 'Global control',
+      hint: globalControl === 0 ? 'Off for all cancel pages' : `${globalControl}% of all cancel traffic sees no cancel page`,
+      done: true,
+      info: true,
+    })
+  } else {
+    items.push({
+      id: 'holdout',
+      group: 'play',
+      label: 'Control (holdout)',
+      hint: 'A no-offer slice to measure lift',
+      done: Boolean(confirmed.holdout) || file.holdout !== 0 || playHasHoldout(play),
+    })
+  }
 
   // Launch — walk it, publish it, then watch it.
   items.push({

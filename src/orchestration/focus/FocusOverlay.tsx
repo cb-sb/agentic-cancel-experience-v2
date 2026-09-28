@@ -1,3 +1,4 @@
+import { STUDIO } from '../../layout/layoutMode'
 import { DevicePicker } from '../../render/DevicePicker'
 import { useExperience } from '../../store/useExperience'
 import { iconProps } from '../flow/icons'
@@ -5,6 +6,7 @@ import { FocusCard } from './FocusCard'
 import { FocusChrome } from './FocusChrome'
 import { DRAWER_IN_MS, DRAWER_OUT_MS, EASE_ENTER, EASE_LEAVE } from './tokens'
 import { useFocusGeometry } from './useFocusGeometry'
+import { VariantBar } from './VariantBar'
 import type { FocusSession } from './useFocusSession'
 
 /**
@@ -33,6 +35,7 @@ export function FocusOverlay({
   if (embedded) {
     return (
       <div data-focus-overlay className="flex h-full min-h-0 flex-col bg-slate-100">
+        {STUDIO && <VariantBar experienceId={session.experience.id} />}
         <div className="relative min-h-0 flex-1">
           <FocusCard
             session={session}

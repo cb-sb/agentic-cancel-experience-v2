@@ -17,7 +17,7 @@ type IconName = Parameters<typeof SIcon>[0]['name']
 export const SIDEBAR_W = 272
 export const SIDEBAR_FOLDED_W = 56
 
-function ago(at: number): string {
+export function ago(at: number): string {
   const mins = Math.round((Date.now() - at) / 60000)
   if (mins < 1) return 'Just now'
   if (mins < 60) return `${mins} min ago`
@@ -27,7 +27,7 @@ function ago(at: number): string {
   return days === 1 ? 'Yesterday' : `${days} days ago`
 }
 
-function SettingRow({
+export function SettingRow({
   icon,
   label,
   folded,
@@ -59,7 +59,7 @@ function SettingRow({
   )
 }
 
-function BrandPopover({ onClose }: { onClose: () => void }) {
+export function BrandPopover({ onClose }: { onClose: () => void }) {
   const brand = useWorkspace((s) => s.brand) ?? DEFAULT_JOURNEY_BRAND
   const askBrand = useWorkspaceUi((s) => s.askBrand)
   const ref = useRef<HTMLDivElement>(null)

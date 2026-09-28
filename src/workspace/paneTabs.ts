@@ -1,4 +1,5 @@
-import { LAYOUT } from '../layout/layoutMode'
+import { LAYOUT, STUDIO, TABBED } from '../layout/layoutMode'
+import { useCopilotThread } from '../orchestration/copilotThread'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
 import { useWorkspaceUi, type PaneTab } from './useWorkspaceUi'
@@ -25,6 +26,7 @@ function showTab(id: PaneTab) {
     return
   }
   if (mode === 'play') useExperience.getState().setMode('compose')
+  if (id === 'plan') return
   if (useOrchestration.getState().workSurface !== id) useOrchestration.getState().setWorkSurface(id)
 }
 
@@ -51,14 +53,14 @@ export function closeTab(id: PaneTab) {
 
 /**
  * Copilot and the step strip drive the same stores V5 uses. These watchers turn
- * that into the layout's language: a tab (tabs) or an un-hidden pane (threads).
+ * that into the layout's language: a tab (tabs, v7) or an un-hidden pane (threads).
  */
 export function startPaneSync() {
   let mode = useExperience.getState().mode
   useExperience.subscribe((s) => {
     if (s.mode === mode) return
     mode = s.mode
-    if (paused || LAYOUT !== 'tabs') return
+    if (paused || !TABBED) return
     const { tabs, setTabs } = useWorkspaceUi.getState()
     if (s.mode === 'play') markOpen('preview')
     else if (tabs.active === 'preview') {
@@ -85,5 +87,14 @@ export function startPaneSync() {
     if (useExperience.getState().mode === 'play' && !surfaceChanged) return
     markOpen(s.workSurface)
     if (useExperience.getState().mode === 'play') useExperience.getState().setMode('compose')
+  })
+
+  if (!STUDIO) return
+  let beat = useCopilotThread.getState().beat
+  useCopilotThread.subscribe((s) => {
+    if (s.beat === beat) return
+    beat = s.beat
+    if (paused || s.turn !== 'plan') return
+    if (beat === 'audience' || beat === 'experiment') openTab('canvas')
   })
 }

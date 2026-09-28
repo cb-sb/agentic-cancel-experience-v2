@@ -14,18 +14,25 @@ import { TemplatesModal } from '../orchestration/TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
 import { closeTab, openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi, type PaneTab } from '../workspace/useWorkspaceUi'
-import { LAYOUT } from './layoutMode'
+import { PlanTab } from '../orchestration/PlanTab'
+import { TargetingTab } from '../orchestration/TargetingTab'
+import { LAYOUT, STUDIO, TABBED } from './layoutMode'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
 
-const TAB_LABEL: Record<PaneTab, string> = { editor: 'Editor', canvas: 'Canvas', preview: 'Preview' }
-const TAB_ORDER: PaneTab[] = ['editor', 'preview', 'canvas']
+const TAB_LABEL: Record<PaneTab, string> = {
+  editor: 'Editor',
+  canvas: STUDIO ? 'Targeting' : 'Canvas',
+  preview: 'Preview',
+  plan: 'Plan',
+}
+const TAB_ORDER: PaneTab[] = STUDIO ? ['editor', 'preview', 'canvas', 'plan'] : ['editor', 'preview', 'canvas']
 
-function usePaneShown(): boolean {
+export function usePaneShown(): boolean {
   const stage = useCopilotStage()
   const paneHidden = useWorkspaceUi((s) => s.paneHidden)
   const tabCount = useWorkspaceUi((s) => s.tabs.open.length)
   if (stage !== 'rail') return false
-  return LAYOUT === 'tabs' ? tabCount > 0 : !paneHidden
+  return TABBED ? tabCount > 0 : !paneHidden
 }
 
 function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
@@ -109,8 +116,8 @@ function AddTabMenu({ missing }: { missing: PaneTab[] }) {
   )
 }
 
-/** Tabs layout: one Editor, one Canvas, one Preview at most, opened by Copilot or the + menu. */
-function TabbedPane() {
+/** Tabs layout: one tab of each kind at most, opened by Copilot or the + menu. */
+export function TabbedPane() {
   const tabs = useWorkspaceUi((s) => s.tabs)
   const missing = TAB_ORDER.filter((id) => !tabs.open.includes(id))
   return (
@@ -150,7 +157,8 @@ function TabbedPane() {
         </div>
       </div>
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
-        {tabs.active === 'canvas' && <CanvasPane />}
+        {tabs.active === 'canvas' && (STUDIO ? <TargetingTab /> : <CanvasPane />)}
+        {tabs.active === 'plan' && <PlanTab />}
         {tabs.active === 'editor' && <EditorPane />}
         {tabs.active === 'preview' && <PreviewOverlay variant="tab" />}
       </div>
@@ -158,12 +166,12 @@ function TabbedPane() {
   )
 }
 
-function ReopenPane() {
+export function ReopenPane() {
   const stage = useCopilotStage()
   const setPaneHidden = useWorkspaceUi((s) => s.setPaneHidden)
   const workSurface = useOrchestration((s) => s.workSurface)
   if (stage !== 'rail') return null
-  const reopen = () => (LAYOUT === 'tabs' ? openTab('editor') : setPaneHidden(false))
+  const reopen = () => (TABBED ? openTab('editor') : setPaneHidden(false))
   const label = LAYOUT === 'threads' && workSurface === 'canvas' ? 'Open canvas' : 'Open editor'
   return (
     <button
@@ -192,7 +200,7 @@ export function ThreadWorkspace() {
   const stepCount = useExperience((s) => s.experiences[PRIMARY_EXPERIENCE_ID]?.steps.length ?? 0)
   const stage = useCopilotStage()
   const paneShown = usePaneShown()
-  const editorShown = paneShown && (LAYOUT === 'tabs' ? activeTab === 'editor' : !previewing && workSurface === 'editor')
+  const editorShown = paneShown && (TABBED ? activeTab === 'editor' : !previewing && workSurface === 'editor')
 
   useEffect(() => {
     if (stage === 'rail') setAssistantOpen(true)
@@ -223,7 +231,7 @@ export function ThreadWorkspace() {
           </div>
           {!paneShown && <ReopenPane />}
         </div>
-        {paneShown && (LAYOUT === 'tabs' ? <TabbedPane /> : <WorkPane />)}
+        {paneShown && (TABBED ? <TabbedPane /> : <WorkPane />)}
       </div>
       {LAYOUT === 'threads' && <PreviewOverlay variant="screen" />}
       {templatesOpen && <TemplatesModal />}
