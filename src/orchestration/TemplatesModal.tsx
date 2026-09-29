@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { SIcon } from '@chargebee/sting-react'
+import type { JourneyKind } from '../journey/types'
 import { LibraryBrowse } from './LibraryBrowse'
 import { YoursBrowse } from './YoursBrowse'
 import { V8 } from '../layout/layoutMode'
+import { BackButton } from '../shell/BackButton'
+import { goBack } from '../shell/navHistory'
 import { useOrchestration } from '../store/useOrchestration'
 import { startFromLibrary, startFromSaved } from '../workspace/useWorkspace'
 import { useCopilotStage, type LibraryTab } from './copilotStage'
@@ -36,16 +39,20 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeTemplates()
+      if (e.key !== 'Escape') return
+      if (page && V8) goBack(closeTemplates)
+      else closeTemplates()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closeTemplates])
+  }, [closeTemplates, page])
 
   const startNew = () => {
     closeTemplates()
     chooseDoor('upload')
   }
+
+  if (page && V8) return <GrowthLibraryPage onUpload={startNew} />
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
@@ -110,6 +117,96 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <LibraryBrowse onApply={(id) => (V8 ? startFromLibrary(id) : applyLibraryTemplate(id))} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+type GrowthArea = 'acquisition' | 'expansion' | 'retention'
+
+const GROWTH_AREAS: { id: GrowthArea; label: string; kind: JourneyKind | null }[] = [
+  { id: 'acquisition', label: 'Acquisition', kind: 'acquisition' },
+  { id: 'expansion', label: 'Expansion', kind: null },
+  { id: 'retention', label: 'Retention', kind: 'cancel' },
+]
+
+/** v8: growth area tabs on top, Templates and Saved components under each. */
+function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
+  const closeTemplates = useOrchestration((s) => s.closeTemplates)
+  const applyMerchantComponents = useOrchestration((s) => s.applyMerchantComponents)
+  const finishMerchantComponents = useOrchestration((s) => s.finishMerchantComponents)
+  const libraryTab = useOrchestration((s) => s.libraryTab)
+  const setLibraryTab = useOrchestration((s) => s.setLibraryTab)
+  const [area, setArea] = useState<GrowthArea>('retention')
+  const [query, setQuery] = useState('')
+  const kind = GROWTH_AREAS.find((a) => a.id === area)?.kind ?? null
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+      <div className="flex h-[60px] flex-none items-center gap-[10px] border-b border-slate-100 px-[20px]">
+        <BackButton fallback={closeTemplates} />
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-bold text-slate-900">Templates and components</h2>
+          <p className="text-[12px] text-slate-500">Start from a template, or reuse screens and offers you saved.</p>
+        </div>
+      </div>
+      <div className="flex flex-none items-center justify-between gap-[16px] border-b border-slate-200 px-[20px]">
+        <div role="tablist" aria-label="Growth area" className="flex gap-[20px]">
+          {GROWTH_AREAS.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              role="tab"
+              aria-selected={area === a.id}
+              onClick={() => setArea(a.id)}
+              className={`-mb-px border-b-2 py-[12px] text-[13px] font-semibold ${
+                area === a.id
+                  ? 'border-indigo-600 text-slate-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex w-[240px] flex-none items-center gap-[8px] rounded-lg border border-slate-200 bg-slate-50/80 px-[10px] py-[6px]">
+          <SIcon name="search" size={14} className="flex-none text-slate-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={libraryTab === 'yours' ? 'Search saved components' : 'Search templates'}
+            aria-label="Search"
+            className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-800 outline-none placeholder:text-slate-400"
+          />
+        </div>
+      </div>
+      <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[20px] py-[10px]">
+        {(['ours', 'yours'] as const).map((id) => (
+          <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
+        ))}
+      </div>
+      {kind === null ? (
+        <div className="px-6 py-10">
+          <p className="text-[14px] font-semibold text-slate-800">
+            {libraryTab === 'yours' ? 'Nothing saved for expansion yet' : 'No expansion templates yet'}
+          </p>
+          <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">
+            Upgrade and add-on experiences will show here.
+          </p>
+        </div>
+      ) : libraryTab === 'yours' ? (
+        <YoursBrowse
+          kind={kind}
+          query={query}
+          onApplyJourney={(id) => startFromSaved(id)}
+          onApplyComponents={(ids) => applyMerchantComponents(ids)}
+          onDone={() => finishMerchantComponents()}
+          onUpload={onUpload}
+        />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <LibraryBrowse kind={kind} query={query} onApply={(id) => startFromLibrary(id)} />
         </div>
       )}
     </div>

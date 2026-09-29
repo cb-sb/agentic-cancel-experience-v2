@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { SIcon } from '@chargebee/sting-react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { SButton, SIcon } from '@chargebee/sting-react'
 import { useJourney } from '../store/useJourney'
 import { useExperience } from '../store/useExperience'
 import { patchBrandShortcuts } from '../brand/theme'
@@ -53,6 +53,66 @@ const KIND_META: Record<JourneyStepKind, { label: string; hint: string }> = {
   outcome_cancelled: { label: 'Cancelled outcome', hint: 'They left' },
 }
 
+/** `apply` may return false to back out (for example a declined shared-offer warning). */
+type ConfirmEdit = (what: string, apply: () => void | boolean) => Promise<boolean>
+
+interface EditGate {
+  confirming: boolean
+  confirm: ConfirmEdit
+}
+
+const EditGateCtx = createContext<EditGate>({
+  confirming: false,
+  confirm: (_what, apply) => Promise.resolve(apply() !== false),
+})
+
+type CommitResult = void | false | Promise<boolean>
+
+/** Puts the field back when the edit was refused or cancelled in the dialog. */
+function settle(result: CommitResult, revert: () => void) {
+  if (result === false) revert()
+  else if (result instanceof Promise) void result.then((ok) => !ok && revert())
+}
+
+function ConfirmDialog({ what, onCancel, onSave }: { what: string; onCancel: () => void; onSave: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-[16px]">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onCancel} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-edit-title"
+        className="relative w-full max-w-[400px] rounded-2xl bg-white p-[20px] shadow-2xl"
+      >
+        <h3 id="confirm-edit-title" className="text-[15px] font-bold text-slate-900">
+          Save this change?
+        </h3>
+        <p className="mt-[6px] text-[13px] leading-relaxed text-slate-600">{what}</p>
+        <div className="mt-[18px] flex justify-end gap-[8px]">
+          <SButton size="small" variant="neutral-outline" className="w-auto" onClick={onCancel}>
+            Cancel
+          </SButton>
+          <SButton size="small" variant="primary" className="w-auto" onClick={onSave}>
+            Save
+          </SButton>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function quoted(v: string, max = 48) {
+  const t = v.trim()
+  return `“${t.length > max ? `${t.slice(0, max - 1)}…` : t}”`
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
@@ -76,7 +136,7 @@ function TextField({
 }: {
   label: string
   value: string
-  onCommit: (v: string) => void | false
+  onCommit: (v: string) => CommitResult
   multiline?: boolean
   placeholder?: string
 }) {
@@ -86,7 +146,7 @@ function TextField({
   }, [value])
   const commit = () => {
     if (v === value) return
-    if (onCommit(v) === false) setV(value)
+    settle(onCommit(v), () => setV(value))
   }
   return (
     <Field label={label}>
@@ -150,14 +210,18 @@ function ListField({
 }: {
   label: string
   items: string[]
-  onCommit: (next: string[]) => void
+  onCommit: (next: string[]) => CommitResult
   addLabel: string
 }) {
   const [rows, setRows] = useState(items)
   useEffect(() => {
     setRows(items)
   }, [items])
-  const commit = (next: string[]) => onCommit(next.map((r) => r.trim()).filter(Boolean))
+  const commit = (next: string[]) => {
+    const clean = next.map((r) => r.trim()).filter(Boolean)
+    if (clean.length === items.length && clean.every((r, i) => r === items[i])) return
+    settle(onCommit(clean), () => setRows(items))
+  }
   const setAt = (i: number, val: string) => setRows((r) => r.map((x, j) => (j === i ? val : x)))
   const removeAt = (i: number) => {
     const next = rows.filter((_, j) => j !== i)
@@ -203,6 +267,95 @@ function ListField({
   )
 }
 
+/** Saves on every change normally; on blur when each edit is confirmed, so the dialog opens once. */
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onCommit,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onCommit: (v: number) => CommitResult
+}) {
+  const { confirming } = useContext(EditGateCtx)
+  const [v, setV] = useState(String(value))
+  useEffect(() => {
+    setV(String(value))
+  }, [value])
+  const clamp = (raw: string) => Math.max(min, Math.min(max, Number(raw) || 0))
+  const commit = (raw: string) => {
+    const next = clamp(raw)
+    if (next === value) {
+      setV(String(value))
+      return
+    }
+    settle(onCommit(next), () => setV(String(value)))
+  }
+  return (
+    <Field label={label}>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={v}
+        onChange={(e) => {
+          setV(e.target.value)
+          if (!confirming) commit(e.target.value)
+        }}
+        onBlur={() => confirming && commit(v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+        }}
+        className={inputCls}
+      />
+    </Field>
+  )
+}
+
+function ColorField({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => CommitResult }) {
+  const { confirming } = useContext(EditGateCtx)
+  const [v, setV] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    setV(value)
+  }, [value])
+  const commit = (next: string) => {
+    if (next === value) return
+    settle(onCommit(next), () => setV(value))
+  }
+  const commitRef = useRef(commit)
+  commitRef.current = commit
+  // React's onChange fires while dragging in the picker; the native change event fires once it closes.
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !confirming) return
+    const onDone = () => commitRef.current(el.value)
+    el.addEventListener('change', onDone)
+    return () => el.removeEventListener('change', onDone)
+  }, [confirming])
+  return (
+    <Field label={label}>
+      <div className="flex items-center gap-[8px]">
+        <input
+          ref={ref}
+          type="color"
+          value={v}
+          onChange={(e) => {
+            setV(e.target.value)
+            if (!confirming) commit(e.target.value)
+          }}
+          className="h-[32px] w-[40px] flex-none cursor-pointer rounded-[8px] border border-slate-200 bg-white p-[2px]"
+        />
+        <span className="text-[13px] uppercase text-slate-500">{v}</span>
+      </div>
+    </Field>
+  )
+}
+
 function Section({
   title,
   hint,
@@ -243,19 +396,40 @@ function comp<K extends string>(step: Step | undefined, kind: K) {
 }
 
 /** Kind-specific editor for one step, reading live values from the compiled step. */
-function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compiled: Step | undefined }) {
-  const updateStep = useJourney((s) => s.updateStep)
+function StepEditor({
+  fileStep,
+  compiled,
+  title,
+}: {
+  fileStep: JourneyStepFile
+  compiled: Step | undefined
+  title: string
+}) {
+  const rawUpdateStep = useJourney((s) => s.updateStep)
   const file = useJourney((s) => s.file)
   const offers = useMerchantLibrary((s) => s.offers)
   const journeys = useMerchantLibrary((s) => s.journeys)
+  const { confirm, confirming } = useContext(EditGateCtx)
   const id = fileStep.id
-  const setHeadline = (v: string) => updateStep(id, { headline: v.trim() || undefined })
-  const setBody = (v: string) => updateStep(id, { body: v.trim() || undefined })
+  const edit = (what: string, patch: Partial<JourneyStepFile>) =>
+    confirm(`${what} on ${title}.`, () => rawUpdateStep(id, patch))
+  const updateStep = rawUpdateStep
+  const setHeadline = (v: string) =>
+    edit(v.trim() ? `Set the headline to ${quoted(v)}` : 'Clear the headline', { headline: v.trim() || undefined })
+  const setBody = (v: string) =>
+    edit(v.trim() ? `Set the text to ${quoted(v)}` : 'Clear the text', { body: v.trim() || undefined })
+  const setList = (what: string, content: JourneyStepFile['content']) =>
+    edit(`Update ${what}`, { content })
   const shared = offers.find((o) => o.id === fileStep.sharedOfferId)
   const used = fileStep.sharedOfferId ? journeysUsing(fileStep.sharedOfferId, journeys, file) : []
 
+  const sharedNote =
+    fileStep.sharedOfferId && used.length > 1
+      ? ` This offer is used in ${used.length} experiences, so all of them change.`
+      : ''
+
   const keepOffer = (step: JourneyStepFile): boolean => {
-    if (fileStep.sharedOfferId && used.length > 1) {
+    if (fileStep.sharedOfferId && used.length > 1 && !confirming) {
       const ok = window.confirm(
         `This offer is used in ${used.length} experiences. Keeping this change updates all of them.`,
       )
@@ -283,13 +457,13 @@ function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compile
             label="What they'll keep"
             items={(c?.keepItems ?? []).map((i) => i.label)}
             addLabel="Add a benefit"
-            onCommit={(keepItems) => updateStep(id, { content: { keepItems } })}
+            onCommit={(keepItems) => setList('what they keep', { keepItems })}
           />
           <ListField
             label="What they'll lose"
             items={(c?.loseItems ?? []).map((i) => i.label)}
             addLabel="Add a loss"
-            onCommit={(loseItems) => updateStep(id, { content: { loseItems } })}
+            onCommit={(loseItems) => setList('what they lose', { loseItems })}
           />
         </>
       )
@@ -304,12 +478,16 @@ function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compile
             label="Reasons"
             items={(c?.options ?? []).map((o) => o.label)}
             addLabel="Add a reason"
-            onCommit={(surveyReasons) => updateStep(id, { content: { surveyReasons } })}
+            onCommit={(surveyReasons) => setList('the reasons', { surveyReasons })}
           />
           <TextField
             label="Free-text prompt"
             value={c?.freeTextPrompt ?? ''}
-            onCommit={(v) => updateStep(id, { content: { surveyPrompt: v.trim() || undefined } })}
+            onCommit={(v) =>
+              edit(v.trim() ? `Set the free-text prompt to ${quoted(v)}` : 'Clear the free-text prompt', {
+                content: { surveyPrompt: v.trim() || undefined },
+              })
+            }
           />
         </>
       )
@@ -328,12 +506,17 @@ function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compile
             ]}
             onChange={(picked) => {
               if (!picked) {
-                updateStep(id, { sharedOfferId: undefined, offer: 'discount', headline: undefined, body: undefined })
+                void edit('Start a new offer', {
+                  sharedOfferId: undefined,
+                  offer: 'discount',
+                  headline: undefined,
+                  body: undefined,
+                })
                 return
               }
               const existing = offers.find((o) => o.id === picked)
               if (!existing) return
-              updateStep(id, {
+              void edit(`Use the saved offer ${quoted(existing.name)}`, {
                 sharedOfferId: existing.id,
                 offer: existing.offer,
                 headline: existing.title,
@@ -353,40 +536,51 @@ function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compile
             options={OFFER_OPTIONS}
             onChange={(offer) => {
               const patch = offerVariantPatch(offer)
-              keepOffer({
-                ...fileStep,
-                offer,
-                headline: patch.title,
-                body: patch.description,
-              })
+              const label = OFFER_OPTIONS.find((o) => o.id === offer)?.label ?? offer
+              void confirm(`Change the offer type to ${label} on ${title}.${sharedNote}`, () =>
+                keepOffer({
+                  ...fileStep,
+                  offer,
+                  headline: patch.title,
+                  body: patch.description,
+                }),
+              )
             }}
           />
           <TextField
             label="Headline"
             value={c?.title ?? ''}
             onCommit={(v) => {
-              const title = v.trim()
-              if (!title) return false
-              return keepOffer({ ...fileStep, headline: title }) ? undefined : false
+              const headline = v.trim()
+              if (!headline) return false
+              return confirm(`Set the headline to ${quoted(headline)} on ${title}.${sharedNote}`, () =>
+                keepOffer({ ...fileStep, headline }),
+              )
             }}
           />
           <TextField
             label="Description"
             value={c?.description ?? ''}
-            onCommit={(v) => keepOffer({ ...fileStep, body: v.trim() }) ? undefined : false}
+            onCommit={(v) =>
+              confirm(`Set the text to ${quoted(v)} on ${title}.${sharedNote}`, () =>
+                keepOffer({ ...fileStep, body: v.trim() }),
+              )
+            }
             multiline
           />
           {fileStep.sharedOfferId && (
             <button
               type="button"
               onClick={() => {
-                const copy = useMerchantLibrary.getState().duplicateOffer(fileStep.sharedOfferId!)
-                if (!copy) return
-                updateStep(id, {
-                  sharedOfferId: copy.id,
-                  offer: copy.offer,
-                  headline: copy.title,
-                  body: copy.description,
+                void confirm(`Make a separate copy of this offer for ${title}. Other experiences keep the original.`, () => {
+                  const copy = useMerchantLibrary.getState().duplicateOffer(fileStep.sharedOfferId!)
+                  if (!copy) return false
+                  updateStep(id, {
+                    sharedOfferId: copy.id,
+                    offer: copy.offer,
+                    headline: copy.title,
+                    body: copy.description,
+                  })
                 })
               }}
               className="text-[12.5px] font-semibold text-slate-600 hover:text-slate-900"
@@ -430,138 +624,180 @@ function StepEditor({ fileStep, compiled }: { fileStep: JourneyStepFile; compile
   }
 }
 
+interface PendingEdit {
+  what: string
+  apply: () => void | boolean
+  resolve: (ok: boolean) => void
+}
+
 /**
  * Structured Context surface — a complete map of the growth workflow. Each step
  * is an expandable component editor; global sections cover who sees it and how
  * it's dressed. Every edit writes to the JourneyFile and recompiles the canvas.
+ * `confirmEdits` asks before each edit is saved; `page` lays it out for a full tab.
  */
-export function ContextEditor() {
+export function ContextEditor({ confirmEdits = false, page = false }: { confirmEdits?: boolean; page?: boolean }) {
   const file = useJourney((s) => s.file)
-  const patchFile = useJourney((s) => s.patchFile)
+  const rawPatchFile = useJourney((s) => s.patchFile)
   const compiledSteps = useExperience((s) => s.experience.steps)
   const uploaded = file.source === 'uploaded'
+  const [pending, setPending] = useState<PendingEdit | null>(null)
+
+  const gate: EditGate = confirmEdits
+    ? {
+        confirming: true,
+        confirm: (what, apply) => new Promise<boolean>((resolve) => setPending({ what, apply, resolve })),
+      }
+    : { confirming: false, confirm: (_what, apply) => Promise.resolve(apply() !== false) }
+
+  const patch = (what: string, next: Parameters<typeof rawPatchFile>[0]) => gate.confirm(what, () => rawPatchFile(next))
+
+  const cancelPending = () => {
+    pending?.resolve(false)
+    setPending(null)
+  }
+  const savePending = () => {
+    if (!pending) return
+    const ok = pending.apply() !== false
+    pending.resolve(ok)
+    setPending(null)
+  }
 
   if (file.steps.length === 0) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center px-[24px] text-center">
+      <div className="flex min-h-0 flex-1 items-center justify-center px-[24px] py-[48px] text-center">
         <p className="max-w-[260px] text-[13px] leading-relaxed text-slate-400">
-          No flow yet. Ask Copilot to start a cancel or acquisition journey — then edit every component here.
+          {page
+            ? 'No flow yet. Start from a template or upload your pages, and the plan shows up here.'
+            : 'No flow yet. Ask Copilot to start a cancel or acquisition journey — then edit every component here.'}
         </p>
       </div>
     )
   }
 
   const editableSteps = uploaded ? file.steps.filter((s) => s.kind === 'offer') : file.steps
+  const audienceLabel = (id: AudienceKey) => AUDIENCE_OPTIONS.find((o) => o.id === id)?.label ?? id
+  const shellLabel = (id: ShellLayout) => SHELL_OPTIONS.find((o) => o.id === id)?.label ?? id
 
   return (
-    <div className="min-h-0 flex-1 space-y-[16px] overflow-y-auto px-[14px] pb-[24px] pt-[12px]">
-      {/* Journey header */}
-      <div className="space-y-[10px]">
-        <TextField label="Journey name" value={file.name} onCommit={(name) => patchFile({ name })} />
-        <div className="rounded-[10px] bg-slate-50 px-[12px] py-[10px]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Flow</p>
-          <p className="mt-[2px] text-[12.5px] leading-snug text-slate-600">
-            {uploaded ? uploadedScreenChain(file) : templateLabel(file.template)}
-          </p>
+    <EditGateCtx.Provider value={gate}>
+      <div
+        className={
+          page
+            ? 'space-y-[20px]'
+            : 'min-h-0 flex-1 space-y-[16px] overflow-y-auto px-[14px] pb-[24px] pt-[12px]'
+        }
+      >
+        {/* Journey header */}
+        <div className="space-y-[10px]">
+          <TextField
+            label="Journey name"
+            value={file.name}
+            onCommit={(name) => (name.trim() ? patch(`Rename the journey to ${quoted(name)}.`, { name }) : false)}
+          />
+          <div className={`rounded-[10px] px-[12px] py-[10px] ${page ? 'border border-slate-200 bg-white' : 'bg-slate-50'}`}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Flow</p>
+            <p className="mt-[2px] text-[12.5px] leading-snug text-slate-600">
+              {uploaded ? uploadedScreenChain(file) : templateLabel(file.template)}
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Steps */}
-      <div className="space-y-[8px]">
-        <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
-          Steps
-        </p>
-        {uploaded && (
-          <p className="rounded-[10px] bg-amber-50 px-[12px] py-[8px] text-[11.5px] leading-relaxed text-amber-700">
-            Screens come from your uploaded file. You can still edit who sees it, the shell, holdout,
-            brand, and the save offer below.
+        {/* Steps */}
+        <div className="space-y-[8px]">
+          <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
+            Steps
           </p>
-        )}
-        {editableSteps.map((step, i) => {
-          const meta = KIND_META[step.kind]
-          const compiled = compiledSteps.find((c) => c.id === step.id)
-          const idx = file.steps.indexOf(step) + 1
-          const label = step.kind === 'offer' && step.id === 'entry' ? 'Entry offer' : meta.label
-          return (
-            <Section key={step.id} title={`${idx}. ${label}`} hint={meta.hint} defaultOpen={i === 0 && !uploaded}>
-              <StepEditor fileStep={step} compiled={compiled} />
-            </Section>
-          )
-        })}
-      </div>
+          {uploaded && (
+            <p className="rounded-[10px] bg-amber-50 px-[12px] py-[8px] text-[11.5px] leading-relaxed text-amber-700">
+              Screens come from your uploaded file. You can still edit who sees it, the shell, holdout,
+              brand, and the save offer below.
+            </p>
+          )}
+          {editableSteps.map((step, i) => {
+            const meta = KIND_META[step.kind]
+            const compiled = compiledSteps.find((c) => c.id === step.id)
+            const idx = file.steps.indexOf(step) + 1
+            const label = step.kind === 'offer' && step.id === 'entry' ? 'Entry offer' : meta.label
+            const title = `${idx}. ${label}`
+            return (
+              <Section key={step.id} title={title} hint={meta.hint} defaultOpen={i === 0 && !uploaded}>
+                <StepEditor fileStep={step} compiled={compiled} title={`step ${idx} (${label})`} />
+              </Section>
+            )
+          })}
+        </div>
 
-      {/* Global knobs */}
-      <div className="space-y-[8px]">
-        <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
-          Targeting &amp; presentation
-        </p>
-        <Section title="Audience" hint="Who enters this experience">
-          <SelectField
-            label="Audience"
-            value={file.audience}
-            options={AUDIENCE_OPTIONS}
-            onChange={(audience) => patchFile({ audience })}
-          />
-        </Section>
-        <Section title="Shell" hint="How it's presented">
-          <SelectField
-            label="Shell"
-            value={file.shell}
-            options={SHELL_OPTIONS}
-            onChange={(shell) => patchFile({ shell })}
-          />
-        </Section>
-        <Section title="Holdout" hint="Share that sees no treatment">
-          <Field label="Holdout %">
-            <input
-              type="number"
+        {/* Global knobs */}
+        <div className="space-y-[8px]">
+          <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
+            Targeting &amp; presentation
+          </p>
+          <Section title="Audience" hint="Who enters this experience">
+            <SelectField
+              label="Audience"
+              value={file.audience}
+              options={AUDIENCE_OPTIONS}
+              onChange={(audience) => void patch(`Show this experience to ${audienceLabel(audience)}.`, { audience })}
+            />
+          </Section>
+          <Section title="Shell" hint="How it's presented">
+            <SelectField
+              label="Shell"
+              value={file.shell}
+              options={SHELL_OPTIONS}
+              onChange={(shell) => void patch(`Present it as: ${shellLabel(shell)}.`, { shell })}
+            />
+          </Section>
+          <Section title="Holdout" hint="Share that sees no treatment">
+            <NumberField
+              label="Holdout %"
+              value={file.holdout}
               min={0}
               max={50}
-              value={file.holdout}
-              onChange={(e) =>
-                patchFile({ holdout: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })
+              onCommit={(holdout) =>
+                patch(
+                  holdout === 0 ? 'Turn off the holdout.' : `Set the holdout to ${holdout}%. That share sees no cancel page.`,
+                  { holdout },
+                )
               }
-              className={inputCls}
             />
-          </Field>
-        </Section>
-        <Section title="Brand" hint="Look of the subscriber UI">
-          <TextField
-            label="Merchant"
-            value={file.brand.merchant}
-            onCommit={(merchant) => patchFile({ brand: patchBrandShortcuts(file.brand, { merchant }) })}
-          />
-          <Field label="Primary color">
-            <div className="flex items-center gap-[8px]">
-              <input
-                type="color"
-                value={file.brand.primary}
-                onChange={(e) =>
-                  patchFile({ brand: patchBrandShortcuts(file.brand, { primary: e.target.value }) })
-                }
-                className="h-[32px] w-[40px] flex-none cursor-pointer rounded-[8px] border border-slate-200 bg-white p-[2px]"
-              />
-              <span className="text-[13px] uppercase text-slate-500">{file.brand.primary}</span>
-            </div>
-          </Field>
-          <Field label="Corner radius (px)">
-            <input
-              type="number"
-              min={0}
-              max={40}
-              value={file.brand.corners}
-              onChange={(e) =>
-                patchFile({
-                  brand: patchBrandShortcuts(file.brand, {
-                    corners: Math.max(0, Math.min(40, Number(e.target.value) || 0)),
-                  }),
+          </Section>
+          <Section title="Brand" hint="Look of the subscriber UI">
+            <TextField
+              label="Merchant"
+              value={file.brand.merchant}
+              onCommit={(merchant) =>
+                patch(`Change the brand name to ${quoted(merchant)}.`, {
+                  brand: patchBrandShortcuts(file.brand, { merchant }),
                 })
               }
-              className={inputCls}
             />
-          </Field>
-        </Section>
+            <ColorField
+              label="Primary color"
+              value={file.brand.primary}
+              onCommit={(primary) =>
+                patch(`Change the primary color to ${primary.toUpperCase()}.`, {
+                  brand: patchBrandShortcuts(file.brand, { primary }),
+                })
+              }
+            />
+            <NumberField
+              label="Corner radius (px)"
+              value={file.brand.corners}
+              min={0}
+              max={40}
+              onCommit={(corners) =>
+                patch(`Set the corner radius to ${corners}px.`, {
+                  brand: patchBrandShortcuts(file.brand, { corners }),
+                })
+              }
+            />
+          </Section>
+        </div>
       </div>
-    </div>
+      {pending && <ConfirmDialog what={pending.what} onCancel={cancelPending} onSave={savePending} />}
+    </EditGateCtx.Provider>
   )
 }
+

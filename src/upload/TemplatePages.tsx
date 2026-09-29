@@ -1,5 +1,6 @@
 import { SButton, SIcon } from '@chargebee/sting-react'
 import { useJourney } from '../store/useJourney'
+import { BackButton, backToHome } from '../shell/BackButton'
 import { CANCEL_ROUTE } from '../shell/nav'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useUpload } from './useUpload'
@@ -22,11 +23,14 @@ export function TemplatePages() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <header className="flex flex-none items-center justify-between border-b border-slate-100 px-6 py-4">
-        <div>
-          <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Pages</h1>
-          <p className="mt-0.5 text-[13px] text-slate-500">
-            Host a cancel UI the merchant designed. Growth still owns targeting, offers, and reporting.
-          </p>
+        <div className="flex items-start gap-2">
+          <BackButton fallback={backToHome} className="-ml-2" />
+          <div>
+            <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Pages</h1>
+            <p className="mt-0.5 text-[13px] text-slate-500">
+              Host a cancel UI the merchant designed. Growth still owns targeting, offers, and reporting.
+            </p>
+          </div>
         </div>
         <SButton size="small" variant="primary" onClick={() => start(false)}>
           Upload template

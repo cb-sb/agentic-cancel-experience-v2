@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { USES_THREADS } from './layout/layoutMode'
+import { startNavHistory } from './shell/navHistory'
 import { loadDraft, watchForChanges } from './store/draft'
 import { startHistoryWatch } from './store/useHistory'
 import { loadWorkspace } from './workspace/useWorkspace'
@@ -14,6 +15,7 @@ if (USES_THREADS) loadWorkspace()
 else loadDraft()
 watchForChanges()
 startHistoryWatch()
+startNavHistory()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

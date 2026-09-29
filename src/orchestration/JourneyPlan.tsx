@@ -144,6 +144,16 @@ export function nextBeat(file: JourneyFile, current: PlanBeat): PlanBeat | null 
   return rest.find((b) => b !== 'brand' || !isBrandMatched(file.brand)) ?? null
 }
 
+export function prevBeat(file: JourneyFile, current: PlanBeat): PlanBeat | null {
+  const beats = planBeats(file)
+  const i = beats.indexOf(current)
+  if (i <= 0) return null
+  return beats
+    .slice(0, i)
+    .reverse()
+    .find((b) => b !== 'brand' || !isBrandMatched(file.brand)) ?? null
+}
+
 export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
   const v8 = V8 ? v8Prompt(beat, file) : null
   if (v8) return v8

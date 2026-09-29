@@ -12,6 +12,7 @@ import type { SavedJourney, SharedCard, SharedOffer } from '../library/types'
 import { CB_KIND_LABELS, CB_KINDS, type CbKind } from '../upload/contract'
 import { ChromeThumb } from '../upload/ChromeThumb'
 import type { MerchantComponent, MerchantTemplate } from '../library/types'
+import type { JourneyKind } from '../journey/types'
 
 type KindFilter = 'all' | CbKind
 type JourneyFilter = 'all' | string
@@ -44,18 +45,45 @@ export function YoursBrowse({
   onDone,
   onUpload,
   compact,
+  kind,
+  query = '',
 }: {
   onApplyJourney: (id: string) => void
   onApplyComponents: (ids: string[]) => void
   onDone: () => void
   onUpload: () => void
   compact?: boolean
+  /** Only show what was saved for this kind of experience. Offers and cards are cancel pieces. */
+  kind?: JourneyKind
+  query?: string
 }) {
-  const templates = useMerchantLibrary((s) => s.templates)
-  const components = useMerchantLibrary((s) => s.components)
-  const offers = useMerchantLibrary((s) => s.offers)
-  const cards = useMerchantLibrary((s) => s.cards)
-  const journeys = useMerchantLibrary((s) => s.journeys)
+  const allTemplates = useMerchantLibrary((s) => s.templates)
+  const allComponents = useMerchantLibrary((s) => s.components)
+  const allOffers = useMerchantLibrary((s) => s.offers)
+  const allCards = useMerchantLibrary((s) => s.cards)
+  const allJourneys = useMerchantLibrary((s) => s.journeys)
+  const q = query.trim().toLowerCase()
+  const hit = (...text: string[]) => !q || text.some((t) => t.toLowerCase().includes(q))
+  const templates = allTemplates.filter((t) => (!kind || t.kind === kind) && hit(t.name, ...t.stepLabels))
+  const journeys = allJourneys.filter((j) => (!kind || (j.file.kind ?? 'cancel') === kind) && hit(j.name))
+  const offers = kind && kind !== 'cancel' ? [] : allOffers.filter((o) => hit('offers', o.name, o.title, o.description))
+  const cards =
+    kind && kind !== 'cancel'
+      ? []
+      : allCards.filter((c) =>
+          hit(c.kind === 'survey' ? 'survey reasons' : 'loss aversion', c.name, c.title, c.description, ...c.surveyReasons),
+        )
+  const components = allComponents.filter((c) => {
+    const from = journeysFor(c, allTemplates)
+    const fits = !kind || (from.length === 0 ? kind === 'cancel' : from.some((t) => t.kind === kind))
+    return fits && hit(kindLabel(c.kind), c.label, ...from.map((t) => t.name))
+  })
+  const libraryEmpty =
+    allTemplates.length === 0 &&
+    allComponents.length === 0 &&
+    allOffers.length === 0 &&
+    allCards.length === 0 &&
+    allJourneys.length === 0
   const removeTemplate = useMerchantLibrary((s) => s.removeTemplate)
   const syncJourney = useMerchantLibrary((s) => s.syncJourney)
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
@@ -191,7 +219,25 @@ export function YoursBrowse({
     setSelected([])
   }
 
-  if (templates.length === 0 && components.length === 0 && offers.length === 0 && cards.length === 0 && journeys.length === 0) {
+  const nothingShown =
+    templates.length === 0 && components.length === 0 && offers.length === 0 && cards.length === 0 && journeys.length === 0
+
+  if (nothingShown && !libraryEmpty && !pendingJourney) {
+    return (
+      <div className={compact ? 'px-[4px] py-[16px]' : 'px-6 py-10'}>
+        <p className="text-[14px] font-semibold text-slate-800">
+          {q ? 'Nothing matches that search.' : 'Nothing saved here yet'}
+        </p>
+        {!q && (
+          <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">
+            Upload a template for this kind of experience and its screens land here.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (nothingShown) {
     return (
       <div className={compact ? 'px-[4px] py-[16px]' : 'px-6 py-10'}>
         <p className="text-[14px] font-semibold text-slate-800">No saved templates yet</p>

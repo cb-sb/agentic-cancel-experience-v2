@@ -20,6 +20,7 @@ import type { ConfirmationComponent } from '../types/experience'
 import type { PlaySession } from '../store/useExperience'
 import { useExperience } from '../store/useExperience'
 import { useJourney } from '../store/useJourney'
+import { BackButton, backToHome } from '../shell/BackButton'
 import { CANCEL_ROUTE, useGrowthShell } from '../shell/useGrowthShell'
 
 function idleSession(): PlaySession {
@@ -75,13 +76,16 @@ export function BrandingStudio() {
     <div className="flex h-full min-h-0 bg-white">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex flex-none items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
-          <div>
-            <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Branding</h1>
-            <p className="mt-1 max-w-lg text-[13px] text-slate-500">
-              Every cancel and pricing-table experience uses this look. Native look is applied
-              here — sample the live site, then tokens, then scoped CSS when a token cannot
-              express the shape. The UI stays isolated from the host page.
-            </p>
+          <div className="flex items-start gap-2">
+            <BackButton fallback={backToHome} className="-ml-2" />
+            <div>
+              <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Branding</h1>
+              <p className="mt-1 max-w-lg text-[13px] text-slate-500">
+                Every cancel and pricing-table experience uses this look. Native look is applied
+                here — sample the live site, then tokens, then scoped CSS when a token cannot
+                express the shape. The UI stays isolated from the host page.
+              </p>
+            </div>
           </div>
           <SButton size="small" variant="neutral-outline" onClick={() => go(CANCEL_ROUTE)}>
             Open cancel experience

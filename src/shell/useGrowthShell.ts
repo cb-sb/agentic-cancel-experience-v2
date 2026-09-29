@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import {
   CANCEL_ROUTE,
   DEFAULT_ROUTE,
-  hashFor,
   routeFromHash,
   type NavGroupId,
   type NavLeafId,
@@ -24,11 +23,6 @@ interface GrowthShellState {
   openGroup: (id: NavGroupId) => void
 }
 
-function applyHash(route: NavLeafId) {
-  const next = hashFor(route)
-  if (window.location.hash !== next) window.location.hash = next
-}
-
 const COLLAPSED_GROUPS: Record<NavGroupId, boolean> = {
   plays: false,
   offers: false,
@@ -44,10 +38,10 @@ export const useGrowthShell = create<GrowthShellState>((set, get) => ({
   navOpen: !isExperience(initial),
   openGroups: { ...COLLAPSED_GROUPS },
 
+  // The URL follows in navHistory, which records each move as one browser history step.
   go: (route) => {
     const experience = isExperience(route)
     const leavingExperience = isExperience(get().route) && !experience
-    applyHash(route)
     set((s) => ({
       route,
       navOpen: experience ? false : leavingExperience ? true : s.navOpen,

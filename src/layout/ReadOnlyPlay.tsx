@@ -1,4 +1,5 @@
 import { SIcon } from '@chargebee/sting-react'
+import { goBack } from '../shell/navHistory'
 import { OTHER_PLAYS } from '../workspace/sampleNonCancel'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { StatusChip } from './StatusChip'
@@ -22,7 +23,7 @@ export function ReadOnlyPlay({ id }: { id: string }) {
       <div className="mx-auto max-w-[760px] px-[32px] py-[32px]">
         <button
           type="button"
-          onClick={() => setReadOnlyId(null)}
+          onClick={() => goBack(() => setReadOnlyId(null))}
           className="mb-[20px] flex items-center gap-[6px] text-[13px] font-medium text-slate-500 hover:text-slate-900"
         >
           <SIcon name="arrow-left" size={14} />

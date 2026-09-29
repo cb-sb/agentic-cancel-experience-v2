@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SButton, SIcon, SSwitch } from '@chargebee/sting-react'
+import { BackButton } from './BackButton'
 import { CANCEL_ROUTE, useGrowthShell } from './useGrowthShell'
 import { useOrchestration } from '../store/useOrchestration'
 
@@ -40,6 +41,7 @@ export function AcquisitionPlays() {
     <div className="flex h-full min-h-0 flex-col bg-white">
       <header className="flex flex-none items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
         <div className="flex items-center gap-2">
+          <BackButton className="-ml-2" />
           <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Acquisition plays</h1>
           <SIcon name="info" size={16} className="text-slate-400" />
         </div>

@@ -8,6 +8,8 @@ import { useCopilotStage } from '../orchestration/copilotStage'
 import { DoorsBackdrop } from '../orchestration/OrchestrationCanvas'
 import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { LibraryPanel } from '../orchestration/TemplatesModal'
+import { V8 } from './layoutMode'
+import { BackButton, backToExperiences } from '../shell/BackButton'
 import { UploadFlow } from '../upload/UploadFlow'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { CancelPageSettings } from './CancelPageSettings'
@@ -35,6 +37,9 @@ function ThreadView() {
       <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-100">
         <DoorsBackdrop />
         <BlankJourneyDoors />
+        <div className="absolute left-[16px] top-[14px] z-30">
+          <BackButton fallback={backToExperiences} />
+        </div>
       </div>
     )
   }
@@ -72,10 +77,17 @@ export function StudioWorkspace() {
   const paneShown = usePaneShown()
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const editorShown = page === 'thread' && !templatesOpen && paneShown && activeTab === 'editor'
+  const threeUp = page === 'thread' && !templatesOpen && paneShown
 
   useEffect(() => {
     if (stage === 'rail') setAssistantOpen(true)
   }, [stage, setAssistantOpen])
+
+  // v8: Copilot and a tab leave no room for this pane. Only a change of layout
+  // folds or reopens it, so opening it by hand sticks until the next change.
+  useEffect(() => {
+    if (V8) useWorkspaceUi.getState().setSidebarOpen(!threeUp)
+  }, [threeUp])
 
   useEffect(() => {
     if (!editorShown || focusTarget || stepCount === 0) return

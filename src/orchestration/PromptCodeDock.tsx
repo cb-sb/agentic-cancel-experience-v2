@@ -15,6 +15,7 @@ import {
   SETUP_ONLY_REPLY,
   beatPrompt,
   nextBeat,
+  prevBeat,
   setupChips,
   v8Landing,
   planCanvasIntro,
@@ -42,6 +43,7 @@ import { clearDraft } from '../store/draft'
 import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
 import { STUDIO, V8 } from '../layout/layoutMode'
+import { BackButton, backToExperiences } from '../shell/BackButton'
 import { newChat, newThread, useWorkspace } from '../workspace/useWorkspace'
 import { openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
@@ -802,23 +804,36 @@ export function PromptCodeDock({
       return null
     }
     if (turn === 'plan') {
+      const prev = V8 ? prevBeat(file, beat) : null
       return (
-        <SpotlightFrame id={spotlightForBeat(beat) ?? 'plan'}>
-          <PlanBeatCard
-            beat={beat}
-            onContinue={continuePlan}
-            onConfirm={confirmPlan}
-            onPreview={() => {
-              if (V8) {
-                openTab('preview')
-                return
-              }
-              useOrchestration.getState().setWalkedOrSkipped(true)
-              useExperience.getState().setMode('play')
-            }}
-            onKeepDefaults={keepDefaults}
-          />
-        </SpotlightFrame>
+        <div>
+          <SpotlightFrame id={spotlightForBeat(beat) ?? 'plan'}>
+            <PlanBeatCard
+              beat={beat}
+              onContinue={continuePlan}
+              onConfirm={confirmPlan}
+              onPreview={() => {
+                if (V8) {
+                  openTab('preview')
+                  return
+                }
+                useOrchestration.getState().setWalkedOrSkipped(true)
+                useExperience.getState().setMode('play')
+              }}
+              onKeepDefaults={keepDefaults}
+            />
+          </SpotlightFrame>
+          {prev && (
+            <button
+              type="button"
+              onClick={() => jumpPlan(prev)}
+              className="mt-[8px] inline-flex items-center gap-[5px] rounded-[8px] px-[6px] py-[4px] text-[12.5px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              <SIcon name="arrow-left" size={12} />
+              Back
+            </button>
+          )}
+        </div>
       )
     }
     if (turn === 'done') {
@@ -855,6 +870,13 @@ export function PromptCodeDock({
         style={{ background: COPILOT_UI.header, borderBottom: `1px solid ${COPILOT_UI.hairline}` }}
       >
         <div className="flex min-w-0 items-center gap-[10px]">
+          {V8 && centered && (
+            <BackButton
+              fallback={backToExperiences}
+              onBack={stage === 'center' && file.steps.length === 0 ? reset : undefined}
+              className="-mr-[6px]"
+            />
+          )}
           <HeaderIconButton
             label="Conversations"
             pressed={centered && sidebarOpen}

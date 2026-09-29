@@ -3,6 +3,7 @@ import { SButton, SIcon } from '@chargebee/sting-react'
 import type { JourneyFile } from '../journey/types'
 import { audienceLabel, useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
+import { BackButton, backToHome } from '../shell/BackButton'
 import { OTHER_PLAYS } from '../workspace/sampleNonCancel'
 import { byPriority, useCancelSettings } from '../workspace/useCancelSettings'
 import {
@@ -135,7 +136,10 @@ export function ExperiencesIndex() {
     <div className="h-full overflow-y-auto bg-white">
       <div className="mx-auto max-w-[960px] px-[32px] py-[32px]">
         <div className="flex items-center justify-between gap-[16px]">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Experiences</h1>
+          <div className="flex items-center gap-[8px]">
+            <BackButton fallback={backToHome} className="-ml-[8px]" />
+            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">Experiences</h1>
+          </div>
           {tab === 'retention' && (
             <SButton
               size="small"

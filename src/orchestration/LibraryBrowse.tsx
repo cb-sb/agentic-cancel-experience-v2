@@ -135,17 +135,27 @@ function TemplateConfirm({
   )
 }
 
-/** Template catalog as a panel. Compact mode sits inside Copilot; full mode fills the overlay. */
+/**
+ * Template catalog as a panel. Compact mode sits inside Copilot; full mode fills the overlay.
+ * Pass `kind` and `query` when the page above owns the category tabs and the search.
+ */
 export function LibraryBrowse({
   compact,
   onApply,
+  kind,
+  query: outerQuery,
 }: {
   compact?: boolean
   onApply: (id: LibraryEntry['id']) => void
+  kind?: LibraryKind
+  query?: string
 }) {
-  const [cat, setCat] = useState<Filter>('cancel')
+  const controlled = kind !== undefined
+  const [ownCat, setCat] = useState<Filter>('cancel')
+  const cat: Filter = kind ?? ownCat
   const [job, setJob] = useState<JobFilter>('all')
-  const [query, setQuery] = useState('')
+  const [ownQuery, setQuery] = useState('')
+  const query = outerQuery ?? ownQuery
   const [pending, setPending] = useState<LibraryEntry | null>(null)
 
   const cancelCatalog = useMemo(() => LIBRARY.filter((e) => e.kind === 'cancel'), [])
@@ -186,6 +196,8 @@ export function LibraryBrowse({
 
   return (
     <div className={compact ? 'flex flex-col gap-[12px]' : 'flex h-full min-h-0 flex-col'}>
+      {!controlled && (
+      <>
       <div className={`flex gap-[8px] ${compact ? '' : 'border-b border-slate-100 bg-white px-6 py-4'}`}>
         <div className="flex flex-1 items-center gap-[8px] rounded-xl border border-slate-200 bg-slate-50/80 px-[10px] py-[8px]">
           <input
@@ -212,6 +224,8 @@ export function LibraryBrowse({
           </STabs.List>
         </STabs>
       </div>
+      </>
+      )}
       {cat === 'cancel' && (
         <div
           className={`flex flex-col gap-[8px] ${
