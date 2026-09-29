@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import { type NodeProps } from '@xyflow/react'
+import { V8 } from '../../../layout/layoutMode'
 import { useOrchestration, type AnnotationTarget } from '../../../store/useOrchestration'
+import { useWorkspaceUi } from '../../../workspace/useWorkspaceUi'
 import { AnnotationDock } from '../../AnnotationComposer'
 import { useAnnotatePick } from '../../useAnnotatePick'
 import { CARD_H, CARD_W } from '../canvasTokens'
@@ -33,7 +35,13 @@ function SplitCardNodeComponent({ id, data }: NodeProps & { data: SplitCardNodeD
           <NodeCard
             node={data.placed}
             selected={open}
-            onSelect={annotateMode ? undefined : () => openConfig('targeting')}
+            onSelect={
+              annotateMode
+                ? undefined
+                : V8
+                  ? () => useWorkspaceUi.getState().askBeat('tests')
+                  : () => openConfig('targeting')
+            }
             isSplit
             size={size}
           />

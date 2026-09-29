@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { V8 } from '../../../layout/layoutMode'
 import { useExperience } from '../../../store/useExperience'
 import { useOrchestration } from '../../../store/useOrchestration'
 import { AnnotationDock } from '../../AnnotationComposer'
@@ -45,7 +46,7 @@ function TargetNodeComponent({ id, data }: NodeProps & { data: TargetNodeData })
           selectNode(selected ? null : flow.id)
         }}
         onRemove={
-          annotateMode || !(split && branch && paths > 1)
+          V8 || annotateMode || !(split && branch && paths > 1)
             ? undefined
             : () => removeBranch(split.id, branch.id)
         }

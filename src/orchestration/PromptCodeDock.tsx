@@ -12,8 +12,11 @@ import { ContextEditor } from './ContextEditor'
 import {
   PlanBeatCard,
   PlanSummary,
+  SETUP_ONLY_REPLY,
   beatPrompt,
   nextBeat,
+  setupChips,
+  v8Landing,
   planCanvasIntro,
   planIntro,
   planProposeIntro,
@@ -38,7 +41,7 @@ import { scanReviewCopy } from '../library/review'
 import { clearDraft } from '../store/draft'
 import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
-import { STUDIO } from '../layout/layoutMode'
+import { STUDIO, V8 } from '../layout/layoutMode'
 import { newChat, newThread, useWorkspace } from '../workspace/useWorkspace'
 import { openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
@@ -328,7 +331,12 @@ export function PromptCodeDock({
 
   const beginPostCanvas = () => {
     setTurn('plan')
-    setBeat('walk')
+    setBeat(V8 ? v8Landing(useJourney.getState().file).beat : 'walk')
+  }
+
+  /** v8: no plan card in the chat. Say what's next and open the first setting. */
+  const sayLanding = (live: typeof file) => {
+    say('bot', v8Landing(live).text)
   }
 
   const keepCopilotCentered = (door: SetupDoor = 'guide') => {
@@ -341,7 +349,8 @@ export function PromptCodeDock({
   const landPlan = (next: typeof file) => {
     const live = { ...next, steps: withLive(next.steps, true) }
     replaceFile(live)
-    say('bot', planIntro(live), { widget: 'plan' })
+    if (V8) sayLanding(live)
+    else say('bot', planIntro(live), { widget: 'plan' })
     useOrchestration.getState().enterWorkEditor()
     beginPostCanvas()
   }
@@ -357,7 +366,8 @@ export function PromptCodeDock({
 
   const approveProposedPlan = () => {
     say('you', 'Looks right — open the editor')
-    say('bot', planCanvasIntro())
+    if (V8) sayLanding(useJourney.getState().file)
+    else say('bot', planCanvasIntro())
     useOrchestration.getState().enterWorkEditor()
     beginPostCanvas()
   }
@@ -377,10 +387,11 @@ export function PromptCodeDock({
     if (beat === 'audience') orch.confirmSetupItem('audience')
     if (beat === 'holdout') orch.confirmSetupItem('holdout')
     if (beat === 'offers') orch.confirmSetupItem('offers')
+    if (beat === 'tests') orch.confirmSetupItem('experiment')
     // Cancellation and experiment are side-trips opened from the tracker, not
     // steps in the linear plan — they finish in place rather than advancing the
-    // beat chain (which would misroute back to Walk).
-    if (beat === 'cancel') {
+    // beat chain (which would misroute back to Walk). v8 walks them in order.
+    if (beat === 'cancel' && !V8) {
       say('bot', 'Locked in — the tracker shows cancellation handling as ready.')
       setTurn('done')
       return
@@ -412,9 +423,9 @@ export function PromptCodeDock({
     orch.confirmSetupItem('audience')
     orch.confirmSetupItem('holdout')
     orch.setWalkedOrSkipped(true)
-    say('you', 'Keep defaults and walk it')
+    say('you', V8 ? 'Keep the rest as is' : 'Keep defaults and walk it')
     setTurn('plan')
-    useExperience.getState().setMode('play')
+    if (!V8) useExperience.getState().setMode('play')
     if (!isBrandMatched(current.brand)) {
       setBeat('brand')
       say('bot', beatPrompt('brand', current), { look: 'brand' })
@@ -595,6 +606,7 @@ export function PromptCodeDock({
   useEffect(() => {
     if (!pendingCopilotGuide) return
     useOrchestration.getState().consumeCopilotGuide()
+    if (V8) return
     if (turn === 'kind' && lines.length === 0) startGuide()
     else if (turn !== 'guide') startGuide()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -615,19 +627,21 @@ export function PromptCodeDock({
     if (orch.setupDoor === 'library') startLibrary('ours')
     else if (orch.setupDoor === 'yours') startYours()
     else if (orch.setupDoor === 'upload') startUpload()
-    else if (orch.setupDoor === 'guide') startGuide()
+    else if (orch.setupDoor === 'guide' && !V8) startGuide()
     else if (orch.setupDoor === 'acquire') startAcquire()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupDoor])
 
   const confirmPlan = () => {
     if (beat === 'publish') {
-      useOrchestration.getState().setPublishGapsOpen(true)
+      if (!V8) useOrchestration.getState().setPublishGapsOpen(true)
       useOrchestration.getState().togglePublish()
       say('you', 'Publish')
       say(
         'bot',
-        'Live in this prototype. Remaining gaps stay on the tracker — you can still fill them.',
+        V8
+          ? 'It’s live. Change any setting from here or from the Plan tab.'
+          : 'Live in this prototype. Remaining gaps stay on the tracker — you can still fill them.',
       )
       setTurn('done')
       return
@@ -671,7 +685,19 @@ export function PromptCodeDock({
       void applyMatchedBrand(text)
       return
     }
-    const read = interpret(text, useJourney.getState().file)
+    const current = useJourney.getState().file
+    if (V8 && current.steps.length === 0) {
+      saySoon('Start from a template or upload your own pages first. Then I can set the offers, who sees it and tests here.')
+      return
+    }
+    const read = interpret(text, current)
+    if (V8 && (read.goals || read.rebuilt)) {
+      window.setTimeout(() => {
+        setGoalAsk(true)
+        say('bot', SETUP_ONLY_REPLY)
+      }, 420)
+      return
+    }
     if (read.goals) {
       window.setTimeout(() => {
         setGoalAsk(true)
@@ -692,6 +718,24 @@ export function PromptCodeDock({
   const send = () => sendText(draft)
 
   const options = useMemo(() => {
+    if (V8 && (goalAsk || (turn === 'done' && file.steps.length > 0))) {
+      return (
+        <div className="space-y-2">
+          {setupChips(file).map((chip) => (
+            <OptionBtn
+              key={chip.beat}
+              pill
+              label={chip.label}
+              onClick={() => {
+                setGoalAsk(false)
+                say('you', chip.label)
+                jumpPlan(chip.beat)
+              }}
+            />
+          ))}
+        </div>
+      )
+    }
     if (goalAsk) {
       return (
         <div className="space-y-2">
@@ -710,7 +754,13 @@ export function PromptCodeDock({
       )
     }
     if (turn === 'kind') {
-      return <StartPaths onTemplate={() => startLibrary('ours')} onUpload={startUpload} onGuide={startGuide} />
+      return (
+        <StartPaths
+          onTemplate={() => startLibrary('ours')}
+          onUpload={startUpload}
+          onGuide={V8 ? undefined : startGuide}
+        />
+      )
     }
     if (turn === 'library') {
       return <CopilotLibrary onUpload={startUpload} />
@@ -759,6 +809,10 @@ export function PromptCodeDock({
             onContinue={continuePlan}
             onConfirm={confirmPlan}
             onPreview={() => {
+              if (V8) {
+                openTab('preview')
+                return
+              }
               useOrchestration.getState().setWalkedOrSkipped(true)
               useExperience.getState().setMode('play')
             }}
@@ -788,7 +842,7 @@ export function PromptCodeDock({
 
   const subtitle = emptyHome
     ? 'New Conversation'
-    : dockMode === 'code'
+    : dockMode === 'code' && !V8
       ? 'The plan'
       : file.name && (file.template !== 'none' || file.source === 'uploaded' || file.steps.length > 0)
         ? file.name
@@ -853,7 +907,7 @@ export function PromptCodeDock({
           >
             <DesignModeIcon />
           </HeaderIconButton>
-          {(
+          {!V8 && (
             [
               { id: 'prompt' as const, label: 'Prompt' },
               { id: 'code' as const, label: 'Plan' },
@@ -894,7 +948,7 @@ export function PromptCodeDock({
         </div>
       </div>
 
-      {dockMode === 'code' ? (
+      {dockMode === 'code' && !V8 ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-none items-center gap-[6px] border-b border-slate-100 px-3 py-2">
             {(
@@ -934,26 +988,28 @@ export function PromptCodeDock({
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
-          <div className="flex w-[44px] flex-none flex-col items-center gap-[8px] pt-[16px]">
-            {compact || copilotDocked ? (
-              <HeaderIconButton label="Exit" onClick={goBack}>
-                <SIcon name="arrow-left" size={16} />
-              </HeaderIconButton>
-            ) : (
-              <HeaderIconButton
-                label={STUDIO ? 'New chat' : centered ? 'New experience' : 'New conversation'}
-                onClick={STUDIO ? () => newChat() : centered ? newThread : reset}
-              >
-                <SIcon name="pencil" size={16} />
-              </HeaderIconButton>
-            )}
-          </div>
+          {(compact || copilotDocked || !V8) && (
+            <div className="flex w-[44px] flex-none flex-col items-center gap-[8px] pt-[16px]">
+              {compact || copilotDocked ? (
+                <HeaderIconButton label="Exit" onClick={goBack}>
+                  <SIcon name="arrow-left" size={16} />
+                </HeaderIconButton>
+              ) : (
+                <HeaderIconButton
+                  label={STUDIO ? 'New chat' : centered ? 'New experience' : 'New conversation'}
+                  onClick={STUDIO ? () => newChat() : centered ? newThread : reset}
+                >
+                  <SIcon name="pencil" size={16} />
+                </HeaderIconButton>
+              )}
+            </div>
+          )}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[24px] pt-[12px]">
               <div className="space-y-[16px]">
                 {lines.map((m) => (
                   <ChatLine key={m.id} line={m}>
-                    {m.widget === 'plan' && (
+                    {m.widget === 'plan' && !V8 && (
                       <SpotlightFrame id="plan" className="mt-[12px]">
                         <PlanSummary
                           beat={turn === 'plan' ? beat : undefined}
@@ -997,12 +1053,14 @@ export function PromptCodeDock({
                 placeholder={
                   turn === 'plan' && beat === 'brand'
                     ? 'https://account.example.com — or: dark navy, gold buttons, Inter'
-                    : emptyHome
-                      ? 'Or say it: 4-step cancel, or a pricing table to acquire subscribers.'
-                      : 'Ask Copilot...'
+                    : V8
+                      ? 'Offers, who sees it, tests, page style, or brand'
+                      : emptyHome
+                        ? 'Or say it: 4-step cancel, or a pricing table to acquire subscribers.'
+                        : 'Ask Copilot...'
                 }
               />
-              {!(turn === 'plan' && beat === 'brand') && (
+              {!V8 && !(turn === 'plan' && beat === 'brand') && (
                 <div className="mt-[8px] flex flex-col gap-[4px] px-[4px]">
                   {EXAMPLE_PROMPTS.map((prompt) => (
                     <button

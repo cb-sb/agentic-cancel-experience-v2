@@ -1,7 +1,9 @@
+import { V8 } from '../../layout/layoutMode'
 import { playVariants } from '../../play/resolve'
 import { useOrchestration } from '../../store/useOrchestration'
 import { openTab } from '../../workspace/paneTabs'
-import { openVariantInEditor } from '../TargetingTab'
+import { useWorkspaceUi } from '../../workspace/useWorkspaceUi'
+import { openVariantInEditor } from '../targeting/SplitEditor'
 
 /** Says who gets the cancel page being edited, and switches between the play's variants. */
 export function VariantBar({ experienceId }: { experienceId: string }) {
@@ -31,10 +33,14 @@ export function VariantBar({ experienceId }: { experienceId: string }) {
       <span className="min-w-0 truncate text-slate-500">{current.share}</span>
       <button
         type="button"
-        onClick={() => openTab('targeting')}
+        onClick={() =>
+          V8
+            ? useWorkspaceUi.getState().askBeat(variants.length > 1 ? 'tests' : 'audience')
+            : openTab('targeting')
+        }
         className="ml-auto flex-none text-[12.5px] font-semibold text-indigo-600 hover:text-indigo-800"
       >
-        Targeting
+        {V8 ? 'Change who sees it' : 'Targeting'}
       </button>
     </div>
   )

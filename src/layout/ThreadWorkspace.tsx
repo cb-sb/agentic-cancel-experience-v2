@@ -16,7 +16,7 @@ import { closeTab, openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
 import { PlanTab } from '../orchestration/PlanTab'
 import { TargetingTab } from '../orchestration/TargetingTab'
-import { LAYOUT, STUDIO, TABBED } from './layoutMode'
+import { LAYOUT, STUDIO, TABBED, V8 } from './layoutMode'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
 
 const TAB_LABEL: Record<PaneTab, string> = {
@@ -26,9 +26,11 @@ const TAB_LABEL: Record<PaneTab, string> = {
   preview: 'Preview',
   plan: 'Plan',
 }
-const TAB_ORDER: PaneTab[] = STUDIO
-  ? ['editor', 'preview', 'targeting', 'canvas', 'plan']
-  : ['editor', 'preview', 'canvas']
+const TAB_ORDER: PaneTab[] = V8
+  ? ['editor', 'preview', 'canvas', 'plan']
+  : STUDIO
+    ? ['editor', 'preview', 'targeting', 'canvas', 'plan']
+    : ['editor', 'preview', 'canvas']
 
 export function usePaneShown(): boolean {
   const stage = useCopilotStage()
@@ -180,7 +182,7 @@ export function TabbedPane() {
       </div>
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
         {tabs.active === 'canvas' && <CanvasPane />}
-        {tabs.active === 'targeting' && <TargetingTab />}
+        {tabs.active === 'targeting' && !V8 && <TargetingTab />}
         {tabs.active === 'plan' && <PlanTab />}
         {tabs.active === 'editor' && <EditorPane />}
         {tabs.active === 'preview' && <PreviewOverlay variant="tab" />}

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { STUDIO, TABBED } from '../layout/layoutMode'
+import { STUDIO, TABBED, V8 } from '../layout/layoutMode'
 import { LIBRARY, startFromTemplate, withLive } from '../journey/templates'
 import {
   DEFAULT_JOURNEY_BRAND,
@@ -8,7 +8,7 @@ import {
   type JourneyFile,
   type JourneyTemplate,
 } from '../journey/types'
-import { planIntro, type PlanBeat } from '../orchestration/JourneyPlan'
+import { planIntro, v8Landing, type PlanBeat } from '../orchestration/JourneyPlan'
 import { useCopilotThread, type CopilotLine, type PromptTurn } from '../orchestration/copilotThread'
 import { applyDraftPayload, captureDraft, setDraftSink, type Draft } from '../store/draft'
 import { useExperience } from '../store/useExperience'
@@ -19,8 +19,12 @@ import { useUpload } from '../upload/useUpload'
 import { startPaneSync, whilePaused } from './paneTabs'
 import { NO_TABS, useWorkspaceUi, type ThreadTabs } from './useWorkspaceUi'
 
-/** Separate from the V5 draft key, so the two never overwrite each other. V7 tabs differ, so it keeps its own. */
-const KEY = STUDIO ? 'cancel-experience:workspace:v7' : 'cancel-experience:workspace:v1'
+/** Separate from the V5 draft key, so the two never overwrite each other. V7 and V8 tabs differ, so each keeps its own. */
+const KEY = V8
+  ? 'cancel-experience:workspace:v8'
+  : STUDIO
+    ? 'cancel-experience:workspace:v7'
+    : 'cancel-experience:workspace:v1'
 
 export interface ThreadChat {
   lines: CopilotLine[]
@@ -272,9 +276,16 @@ function openSample(seed: JourneyTemplate) {
   restoreJourney(live)
   const chat = useCopilotThread.getState()
   chat.say('you', LIBRARY.find((e) => e.id === seed)?.title ?? 'Start with a template')
-  chat.say('bot', planIntro(live), { widget: 'plan' })
-  chat.setTurn('plan')
-  chat.setBeat('walk')
+  if (V8) {
+    const landing = v8Landing(live)
+    chat.say('bot', landing.text)
+    chat.setTurn('plan')
+    chat.setBeat(landing.beat)
+  } else {
+    chat.say('bot', planIntro(live), { widget: 'plan' })
+    chat.setTurn('plan')
+    chat.setBeat('walk')
+  }
   useOrchestration.getState().setSpotlight(null)
   useOrchestration.setState({ stepStripShown: true })
   useWorkspaceUi.setState({ tabs: { open: ['editor'], active: 'editor' } })

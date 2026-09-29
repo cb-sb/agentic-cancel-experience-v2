@@ -2,7 +2,9 @@ import { useEffect } from 'react'
 import { SIcon } from '@chargebee/sting-react'
 import { LibraryBrowse } from './LibraryBrowse'
 import { YoursBrowse } from './YoursBrowse'
+import { V8 } from '../layout/layoutMode'
 import { useOrchestration } from '../store/useOrchestration'
+import { startFromLibrary, startFromSaved } from '../workspace/useWorkspace'
 import { useCopilotStage, type LibraryTab } from './copilotStage'
 
 function ExpandIcon() {
@@ -66,7 +68,13 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
           )}
           <div className="min-w-0">
             <h2 className="text-[15px] font-bold text-slate-900">
-              {page ? (libraryTab === 'yours' ? 'Saved components' : 'Templates') : 'Template library'}
+              {page && V8
+                ? 'Templates and components'
+                : page
+                  ? libraryTab === 'yours'
+                    ? 'Saved components'
+                    : 'Templates'
+                  : 'Template library'}
             </h2>
             <p className="text-[12px] text-slate-500">
               {libraryTab === 'yours'
@@ -94,14 +102,14 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
       </div>
       {libraryTab === 'yours' ? (
         <YoursBrowse
-          onApplyJourney={(id) => applyMerchantTemplate(id)}
+          onApplyJourney={(id) => (V8 ? startFromSaved(id) : applyMerchantTemplate(id))}
           onApplyComponents={(ids) => applyMerchantComponents(ids)}
           onDone={() => finishMerchantComponents()}
           onUpload={startNew}
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <LibraryBrowse onApply={(id) => applyLibraryTemplate(id)} />
+          <LibraryBrowse onApply={(id) => (V8 ? startFromLibrary(id) : applyLibraryTemplate(id))} />
         </div>
       )}
     </div>
@@ -175,7 +183,7 @@ function Tab({ id, active, onClick }: { id: LibraryTab; active: boolean; onClick
         active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
       }`}
     >
-      {id === 'ours' ? 'Chargebee' : 'My templates'}
+      {V8 ? (id === 'ours' ? 'Templates' : 'Saved components') : id === 'ours' ? 'Chargebee' : 'My templates'}
     </button>
   )
 }

@@ -1,4 +1,5 @@
 import { SCard, SIcon, type SIconName } from '@chargebee/sting-react'
+import { V8 } from '../layout/layoutMode'
 import { useOrchestration } from '../store/useOrchestration'
 
 function DoorShell({
@@ -42,7 +43,7 @@ function DoorShell({
   )
 }
 
-/** Three shippable starts. Copilot is only the third door. */
+/** Three shippable starts; Copilot is only the third door. v8 has two starts and no Copilot door. */
 export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
   const chooseDoor = useOrchestration((s) => s.chooseDoor)
   const openTemplates = useOrchestration((s) => s.openTemplates)
@@ -79,7 +80,11 @@ export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
             <DoorShell
               title="Start with a template"
               body="Pick a Chargebee posture, or reopen chrome you already scanned."
-              detail="Opens Chargebee templates. My templates is a tab in the same library."
+              detail={
+                V8
+                  ? 'Opens Templates and components.'
+                  : 'Opens Chargebee templates. My templates is a tab in the same library.'
+              }
               icon="layout-template"
               well="bg-[#eef2ff]"
               glyph="text-[#4f46e5]"
@@ -101,20 +106,22 @@ export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
             />
           </button>
 
-          <button
-            type="button"
-            onClick={() => chooseDoor('guide')}
-            className="group w-[268px] cursor-pointer text-left transition-transform duration-200 hover:-translate-y-[6px] focus-visible:outline-none"
-          >
-            <DoorShell
-              title="Help me start"
-              body="Don’t make me think. Copilot asks the job, then recommends a path."
-              detail="A few short questions, then a recommended chain you can walk as a subscriber."
-              icon="sparkles"
-              well="bg-[#f5f3ff]"
-              glyph="text-[#6d28d9]"
-            />
-          </button>
+          {!V8 && (
+            <button
+              type="button"
+              onClick={() => chooseDoor('guide')}
+              className="group w-[268px] cursor-pointer text-left transition-transform duration-200 hover:-translate-y-[6px] focus-visible:outline-none"
+            >
+              <DoorShell
+                title="Help me start"
+                body="Don’t make me think. Copilot asks the job, then recommends a path."
+                detail="A few short questions, then a recommended chain you can walk as a subscriber."
+                icon="sparkles"
+                well="bg-[#f5f3ff]"
+                glyph="text-[#6d28d9]"
+              />
+            </button>
+          )}
         </div>
       </div>
     </div>

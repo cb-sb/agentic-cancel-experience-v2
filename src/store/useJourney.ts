@@ -25,10 +25,18 @@ function applyHoldout(holdout: number) {
   if (targeting.kind !== 'split') return
   const splitId = targeting.id
   const clamped = Math.max(0, Math.min(50, Math.round(holdout)))
+  const current = targeting.branches.find((b) => b.node.kind === 'holdout')
+  // Runs on every file push, so leave a split the merchant built alone unless the holdout changed.
   if (clamped <= 0) {
-    orch.setSplitMode(splitId, 'single')
+    if (!current) return
+    orch.toggleHoldout(splitId)
+    const after = useOrchestration.getState().play.targeting
+    if (after.kind === 'split' && after.branches.filter((b) => b.node.kind === 'flow').length <= 1) {
+      orch.setSplitMode(splitId, 'single')
+    }
     return
   }
+  if (current && current.percent === clamped && targeting.mode === 'percent') return
   orch.setSplitMode(splitId, 'percent')
   const afterMode = useOrchestration.getState().play.targeting
   if (afterMode.kind !== 'split') return

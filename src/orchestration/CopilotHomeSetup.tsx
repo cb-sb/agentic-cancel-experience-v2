@@ -52,7 +52,7 @@ export function StartPaths({
 }: {
   onTemplate: () => void
   onUpload: () => void
-  onGuide: () => void
+  onGuide?: () => void
 }) {
   return (
     <div className="space-y-2">
@@ -73,12 +73,14 @@ export function StartPaths({
           label="I’ll upload my own template to work from"
           onClick={onUpload}
         />
-        <OptionBtn
-          pill
-          icon={<SIcon name="compass" size={16} />}
-          label="Help me pick the right path for this cancel"
-          onClick={onGuide}
-        />
+        {onGuide && (
+          <OptionBtn
+            pill
+            icon={<SIcon name="compass" size={16} />}
+            label="Help me pick the right path for this cancel"
+            onClick={onGuide}
+          />
+        )}
       </div>
     </div>
   )

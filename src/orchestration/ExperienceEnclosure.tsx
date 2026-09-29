@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { blueprintMeta } from '../lib/blueprints'
+import { V8 } from '../layout/layoutMode'
 import { AddMenu, type AddOption } from './flow/AddMenu'
 import { experienceBadge } from '../lib/experienceUtils'
 import { useExperience } from '../store/useExperience'
@@ -306,6 +307,7 @@ export function ExperienceEnclosure({
           <EnclosureBtn title="Open branding studio" onClick={() => go('experiences.branding')}>
             <PaletteIcon />
           </EnclosureBtn>
+          {!V8 && (
           <div className="relative">
             <EnclosureBtn title="Duplicate…" onClick={() => setDupOpen((v) => !v)}>
               <CopyIcon />
@@ -318,14 +320,15 @@ export function ExperienceEnclosure({
               />
             )}
           </div>
+          )}
           <EnclosureBtn
             title={collapsed ? 'Expand experience' : 'Collapse to summary'}
             onClick={onToggleCollapse}
           >
             {collapsed ? <ExpandIcon /> : <CollapseIcon />}
           </EnclosureBtn>
-          <span className="mx-0.5 h-4 w-px bg-slate-200" />
-          {removing ? (
+          {!V8 && <span className="mx-0.5 h-4 w-px bg-slate-200" />}
+          {V8 ? null : removing ? (
             <RemoveConfirm
               onCancel={() => setRemoving(false)}
               onConfirm={() => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SIcon } from '@chargebee/sting-react'
+import { V8 } from './layoutMode'
 import { useCopilotThread } from '../orchestration/copilotThread'
 import { useOrchestration } from '../store/useOrchestration'
 import {
@@ -139,6 +140,41 @@ function ExperienceFolder({
   )
 }
 
+/** v8: one row per experience. Each experience has one chat, so there is nothing to expand. */
+function ExperienceRow({ thread, current }: { thread: ExperienceThread; current: boolean }) {
+  const dirty = useOrchestration((s) => s.dirty)
+  const activeLive = useOrchestration((s) => s.play.publishState === 'live')
+  const activeId = useWorkspace((s) => s.activeId)
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        useWorkspaceUi.getState().setPage('thread')
+        useOrchestration.getState().closeTemplates()
+        switchThread(thread.id)
+      }}
+      aria-current={current ? 'true' : undefined}
+      className={`flex h-8 w-full items-center gap-[8px] rounded-lg px-[10px] text-left transition-colors ${
+        current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'
+      }`}
+    >
+      <span
+        className={`min-w-0 flex-1 truncate text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}
+      >
+        {thread.title}
+      </span>
+      {current && dirty ? (
+        <span className="flex-none text-[11px] text-slate-400">Unsaved</span>
+      ) : (
+        <span className="flex-none">
+          <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
+        </span>
+      )}
+    </button>
+  )
+}
+
 /** Cancel experience's own pane, beside the Growth nav: the Experiences page, shared settings, then every experience. */
 export function ExperiencesPane() {
   const open = useWorkspaceUi((s) => s.sidebarOpen)
@@ -216,26 +252,41 @@ export function ExperiencesPane() {
             </button>
           </div>
         )}
-        <SettingRow
-          icon="layout-template"
-          label="Templates"
-          folded={folded}
-          active={libraryShown && libraryTab === 'ours'}
-          onClick={() => {
-            setPage('thread')
-            openTemplatePicker('ours')
-          }}
-        />
-        <SettingRow
-          icon="puzzle"
-          label="Saved components"
-          folded={folded}
-          active={libraryShown && libraryTab === 'yours'}
-          onClick={() => {
-            setPage('thread')
-            useOrchestration.getState().openTemplates('yours')
-          }}
-        />
+        {V8 ? (
+          <SettingRow
+            icon="layout-template"
+            label="Templates and components"
+            folded={folded}
+            active={libraryShown}
+            onClick={() => {
+              setPage('thread')
+              useOrchestration.getState().openTemplates(libraryTab)
+            }}
+          />
+        ) : (
+          <>
+            <SettingRow
+              icon="layout-template"
+              label="Templates"
+              folded={folded}
+              active={libraryShown && libraryTab === 'ours'}
+              onClick={() => {
+                setPage('thread')
+                openTemplatePicker('ours')
+              }}
+            />
+            <SettingRow
+              icon="puzzle"
+              label="Saved components"
+              folded={folded}
+              active={libraryShown && libraryTab === 'yours'}
+              onClick={() => {
+                setPage('thread')
+                useOrchestration.getState().openTemplates('yours')
+              }}
+            />
+          </>
+        )}
         <div className="relative">
           <SettingRow icon="palette" label="Brand" folded={folded} active={brandOpen} onClick={() => setBrandOpen((v) => !v)} />
           {brandOpen && <BrandPopover onClose={() => setBrandOpen(false)} />}
@@ -245,7 +296,14 @@ export function ExperiencesPane() {
       {!folded && (
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200 px-[10px] pb-[10px] pt-[14px]">
           <div className="flex flex-col gap-[2px]">
-            {orderedThreads(threads).map((t) => (
+            {orderedThreads(threads).map((t) =>
+              V8 ? (
+                <ExperienceRow
+                  key={t.id}
+                  thread={t}
+                  current={page === 'thread' && !libraryShown && t.id === activeId}
+                />
+              ) : (
               <ExperienceFolder
                 key={t.id}
                 thread={t}
@@ -253,7 +311,8 @@ export function ExperiencesPane() {
                 current={page === 'thread' && !libraryShown && t.id === activeId}
                 onToggle={() => toggle(t.id)}
               />
-            ))}
+              ),
+            )}
           </div>
         </div>
       )}

@@ -11,8 +11,11 @@ import type {
   JourneyFile,
   OfferKey,
 } from '../journey/types'
-import { STUDIO } from '../layout/layoutMode'
+import { STUDIO, V8 } from '../layout/layoutMode'
 import { audienceLabel, useJourney } from '../store/useJourney'
+import { useOrchestration } from '../store/useOrchestration'
+import { audienceSummary } from '../types/orchestration'
+import { SplitEditor, splitLine } from './targeting/SplitEditor'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import type { ShellLayout } from '../types/experience'
 
@@ -35,6 +38,8 @@ function CtaPair({
   )
 }
 
+const KEEP_REST = V8 ? 'Keep the rest as is' : 'Keep defaults and walk it'
+
 const AUDIENCES: AudienceKey[] = ['all', 'paying', 'high_value', 'high_risk', 'annual', 'in_trial']
 
 const SHELLS: { id: ShellLayout; label: string; hint: string }[] = [
@@ -54,6 +59,7 @@ export type PlanBeat =
   | 'brand'
   | 'cancel'
   | 'experiment'
+  | 'tests'
   | 'review'
   | 'publish'
 
@@ -69,10 +75,66 @@ const TIMING_CHOICES: { id: CancelTiming; label: string; hint: string }[] = [
 ]
 
 export function planBeats(file: JourneyFile): PlanBeat[] {
+  const hasOffers = file.steps.some((s) => s.kind === 'offer')
+  if (V8) {
+    const beats: PlanBeat[] = hasOffers ? ['offers'] : []
+    beats.push('audience', 'tests', 'shell', 'cancel', 'brand', 'publish')
+    return beats
+  }
   const beats: PlanBeat[] = ['walk']
-  if (file.steps.some((s) => s.kind === 'offer')) beats.push('offers')
+  if (hasOffers) beats.push('offers')
   beats.push('audience', 'holdout', 'brand', 'publish')
   return beats
+}
+
+/** v8: the first thing Copilot sets up once screens are in. */
+export function firstBeat(file: JourneyFile): PlanBeat {
+  return planBeats(file)[0] ?? 'audience'
+}
+
+const V8_LAND_LINE =
+  'Defaults are in. I’ll set who sees it and the offers with you here. The Plan tab shows the whole setup.'
+
+/** v8: what Copilot says once screens land, and the setting it opens first. */
+export function v8Landing(file: JourneyFile): { beat: PlanBeat; text: string } {
+  const beat = firstBeat(file)
+  return { beat, text: `${V8_LAND_LINE}\n\n${beatPrompt(beat, file)}` }
+}
+
+export const SETUP_ONLY_REPLY =
+  'Here I can set the offers, who sees it, tests, the page style, cancel handling and brand. To change screen text, use the Editor tab.'
+
+/** v8: shortcuts to each setting Copilot handles. */
+export function setupChips(file: JourneyFile): { beat: PlanBeat; label: string }[] {
+  return [
+    ...(file.steps.some((s) => s.kind === 'offer') ? [{ beat: 'offers' as const, label: 'Change the offers' }] : []),
+    { beat: 'audience', label: 'Change who sees it' },
+    { beat: 'tests', label: 'Set up a test' },
+    { beat: 'shell', label: 'Change the page style' },
+    { beat: 'cancel', label: 'Set cancel handling' },
+    { beat: 'brand', label: 'Match my brand' },
+  ]
+}
+
+function v8Prompt(beat: PlanBeat, file: JourneyFile): string | null {
+  switch (beat) {
+    case 'offers':
+      return file.steps.filter((s) => s.kind === 'offer').length > 1
+        ? 'Here are the offers on the path. Keep them, or pick different ones.'
+        : 'Here’s the offer on the path. Keep it, or pick a different one.'
+    case 'audience':
+      return 'Who should see this cancel page? Everyone who clicks Cancel is the default.'
+    case 'tests':
+      return 'Show one page to everyone, test pages against each other, or give each sub-audience its own page.'
+    case 'shell':
+      return 'How should the page sit on your site? A modal opens over your account page. A full page is a hosted cancel URL.'
+    case 'cancel':
+      return 'When someone goes through with the cancel, how should it be handled? Pick how it’s processed and when it takes effect. Return URLs are optional.'
+    case 'publish':
+      return 'That’s the setup. Walk it in Preview if you want, then publish.'
+    default:
+      return null
+  }
 }
 
 export function nextBeat(file: JourneyFile, current: PlanBeat): PlanBeat | null {
@@ -83,6 +145,8 @@ export function nextBeat(file: JourneyFile, current: PlanBeat): PlanBeat | null 
 }
 
 export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
+  const v8 = V8 ? v8Prompt(beat, file) : null
+  if (v8) return v8
   switch (beat) {
     case 'walk':
       return 'Walk this as a subscriber. Editor is optional — you can come back to a step from the canvas.'
@@ -102,6 +166,7 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
     case 'cancel':
       return 'How should the cancel be handled once someone goes through? Pick how it’s processed and when it takes effect. Return URLs are optional.'
     case 'experiment':
+    case 'tests':
       return 'This play splits traffic to compare treatments. Check the split reads right — an offer variant against a no-offer control is the honest comparison.'
     case 'brand':
       return brandGatePrompt(file.kind)
@@ -135,7 +200,7 @@ export function planIntro(file: JourneyFile): string {
   return `I’ve started ${label.toLowerCase()}. Defaults are in — walk it as a subscriber, or open a row on the plan to change who sees it, the offer, or how it sits on the site.`
 }
 
-function flowLine(file: JourneyFile): string {
+export function flowLine(file: JourneyFile): string {
   if (file.source === 'uploaded') return uploadedScreenChain(file)
   const entry = LIBRARY.find((e) => e.id === file.template)
   if (entry) return entry.stepLabels.join(' → ')
@@ -169,11 +234,19 @@ function beatHint(beat: PlanBeat): string | null {
   }
 }
 
-function shellLabel(id: ShellLayout): string {
+export function shellLabel(id: ShellLayout): string {
   return SHELLS.find((s) => s.id === id)?.label ?? id
 }
 
-function offerLine(file: JourneyFile): string {
+/** "Process via Billing, end of current term", or null when either is missing. */
+export function cancelHandlingLine(file: JourneyFile): string | null {
+  const processing = PROCESSING_CHOICES.find((o) => o.id === file.cancelHandling?.processing)
+  const timing = TIMING_CHOICES.find((o) => o.id === file.cancelHandling?.timing)
+  if (!processing || !timing) return null
+  return `${processing.label}, ${timing.label.toLowerCase()}`
+}
+
+export function offerLine(file: JourneyFile): string {
   return file.steps
     .filter((s) => s.kind === 'offer')
     .map((s) => offerVariantLabel(s.offer ?? 'discount'))
@@ -299,6 +372,33 @@ export function PlanBeatCard({
     )
   }
 
+  if (beat === 'publish' && V8) {
+    return (
+      <CtaPair
+        primary={{ label: 'Publish', onClick: onConfirm }}
+        secondary={{ label: 'Walk it in Preview', onClick: onPreview }}
+      />
+    )
+  }
+
+  if (beat === 'tests') {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <SplitEditor compact />
+        <div className="mt-3 flex justify-end">
+          <SButton
+            size="small"
+            variant="primary"
+            className="w-auto shrink-0"
+            onClick={() => onContinue(splitLine(useOrchestration.getState().play))}
+          >
+            Continue
+          </SButton>
+        </div>
+      </div>
+    )
+  }
+
   if (beat === 'publish' || beat === 'review') {
     return (
       <CtaPair
@@ -355,6 +455,7 @@ export function PlanBeatCard({
               }}
             />
           ))}
+          {V8 && <AudienceRules />}
         </div>
       )}
 
@@ -440,7 +541,17 @@ export function PlanBeatCard({
               onCommit={(v) => updateCancelHandling({ cancelUrl: v })}
             />
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-[8px]">
+            {V8 && (
+              <SButton
+                size="small"
+                variant="neutral-ghost"
+                className="w-auto shrink-0"
+                onClick={() => onContinue('Set cancel handling later')}
+              >
+                Do this later
+              </SButton>
+            )}
             <SButton
               size="small"
               variant="primary"
@@ -491,7 +602,7 @@ export function PlanBeatCard({
         <div className="mt-3">
           <CtaPair
             primary={{ label: keepLabel(beat, file), onClick: () => onContinue(keepLabel(beat, file)) }}
-            secondary={{ label: 'Keep defaults and walk it', onClick: onKeepDefaults }}
+            secondary={{ label: KEEP_REST, onClick: onKeepDefaults }}
           />
         </div>
       )}
@@ -510,12 +621,18 @@ export function PlanBeatCard({
       {(beat === 'audience' || beat === 'shell') && (
         <div className="mt-3 flex justify-end">
           <SButton size="small" variant="neutral-ghost" className="w-auto shrink-0" onClick={onKeepDefaults}>
-            Keep defaults and walk it
+            {KEEP_REST}
           </SButton>
         </div>
       )}
     </div>
   )
+}
+
+function AudienceRules() {
+  const audience = useOrchestration((s) => s.play.audience)
+  if (audience.targetAll) return null
+  return <p className="px-1 pt-1 font-mono text-[11.5px] text-slate-500">{audienceSummary(audience)}</p>
 }
 
 function GlobalControlNote({ onContinue }: { onContinue: (said: string) => void }) {

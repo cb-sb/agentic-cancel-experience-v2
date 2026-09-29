@@ -1,3 +1,4 @@
+import { V8 } from '../layout/layoutMode'
 import type { PlanBeat } from './JourneyPlan'
 
 /** Surfaces Copilot can point at while it talks. */
@@ -37,7 +38,7 @@ export function spotlightForBeat(beat: PlanBeat): SpotlightId | null {
     case 'brand':
       return 'brand'
     case 'shell':
-      return 'plan'
+      return V8 ? null : 'plan'
     default:
       return null
   }

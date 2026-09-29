@@ -1,4 +1,4 @@
-import { LAYOUT, STUDIO, TABBED } from '../layout/layoutMode'
+import { LAYOUT, STUDIO, TABBED, V8 } from '../layout/layoutMode'
 import { useCopilotThread } from '../orchestration/copilotThread'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
@@ -89,7 +89,8 @@ export function startPaneSync() {
     if (useExperience.getState().mode === 'play') useExperience.getState().setMode('compose')
   })
 
-  if (!STUDIO) return
+  // v8 has no Targeting tab: audience and tests are set in the chat card itself.
+  if (!STUDIO || V8) return
   let beat = useCopilotThread.getState().beat
   useCopilotThread.subscribe((s) => {
     if (s.beat === beat) return

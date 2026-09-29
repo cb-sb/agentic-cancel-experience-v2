@@ -3,7 +3,8 @@ import { useJourney } from '../store/useJourney'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { useOrchestration } from '../store/useOrchestration'
 import { savedToLibraryCopy } from '../library/review'
-import { planIntro, type PlanBeat } from './JourneyPlan'
+import { V8 } from '../layout/layoutMode'
+import { planIntro, v8Landing, type PlanBeat } from './JourneyPlan'
 import { spotlightForWidget, type SpotlightId } from './spotlight'
 
 export type PromptTurn = 'kind' | 'guide' | 'propose' | 'plan' | 'done' | 'library' | 'upload'
@@ -56,6 +57,14 @@ export function landUploadedPlan() {
     useOrchestration.setState({ setupDoor: 'upload', setupDoorConsumed: true, assistantOpen: true })
   }
   const savedLine = savedToLibraryCopy(saved?.name ?? live.name, saved?.stepLabels ?? [])
+  if (V8) {
+    const landing = v8Landing(live)
+    say('bot', [savedLine, landing.text].join('\n\n'))
+    orch.enterWorkEditor()
+    setTurn('plan')
+    setBeat(landing.beat)
+    return
+  }
   say('bot', [savedLine, planIntro(live)].join('\n\n'), { widget: 'plan' })
   orch.enterWorkEditor()
   setTurn('plan')

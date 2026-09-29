@@ -21,6 +21,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { V8 } from '../../layout/layoutMode'
 import { useExperience } from '../../store/useExperience'
 import { useOrchestration } from '../../store/useOrchestration'
 import { iconProps } from './icons'
@@ -339,7 +340,7 @@ function FlowCanvasInner() {
    */
   const onEdgeClick = useCallback<NonNullable<ComponentProps<typeof ReactFlow>['onEdgeClick']>>(
     (event, edge) => {
-      if (useOrchestration.getState().annotateMode) return
+      if (V8 || useOrchestration.getState().annotateMode) return
       const link = edge.data as { expId?: string; optId?: string } | undefined
       if (!link?.expId || !link.optId) return
       const box = paneRef.current?.getBoundingClientRect()

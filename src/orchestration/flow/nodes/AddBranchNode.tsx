@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import { type NodeProps } from '@xyflow/react'
+import { V8 } from '../../../layout/layoutMode'
 import { useOrchestration } from '../../../store/useOrchestration'
+import { useWorkspaceUi } from '../../../workspace/useWorkspaceUi'
 import { ADD_BRANCH_H, CARD_W } from '../canvasTokens'
 import { ScreenBox } from '../screen'
 import { AddBranchButton } from '../sharedUi'
@@ -25,7 +27,11 @@ function AddBranchNodeComponent({ data }: NodeProps & { data: AddBranchNodeData 
             mode={data.mode}
             scale={1}
             onClick={() =>
-              data.mode === 'audience' ? addSubAudience(data.splitId) : addVariant(data.splitId)
+              V8
+                ? useWorkspaceUi.getState().askBeat('tests')
+                : data.mode === 'audience'
+                  ? addSubAudience(data.splitId)
+                  : addVariant(data.splitId)
             }
           />
         )

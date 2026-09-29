@@ -1,6 +1,8 @@
 import { memo, useCallback } from 'react'
 import { NodeToolbar, Position, type NodeProps } from '@xyflow/react'
+import { V8 } from '../../../layout/layoutMode'
 import { useOrchestration, type AnnotationTarget } from '../../../store/useOrchestration'
+import { useWorkspaceUi } from '../../../workspace/useWorkspaceUi'
 import { AnnotationDock } from '../../AnnotationComposer'
 import { NodeSetup } from '../../NodeSetup'
 import { useAnnotatePick } from '../../useAnnotatePick'
@@ -61,9 +63,11 @@ function SpineNodeComponent({ id, data }: NodeProps & { data: SpineNodeData }) {
             onSelect={
               annotateMode
                 ? undefined
-                : isBranch
-                  ? () => (targeting ? closeConfig() : openConfig('targeting'))
-                  : undefined
+                : isBranch && V8
+                  ? () => useWorkspaceUi.getState().askBeat('tests')
+                  : isBranch
+                    ? () => (targeting ? closeConfig() : openConfig('targeting'))
+                    : undefined
             }
             size={size}
           />
@@ -76,7 +80,7 @@ function SpineNodeComponent({ id, data }: NodeProps & { data: SpineNodeData }) {
       )}
       {/* NodeToolbar renders in screen space, so setup panels keep a readable
           size instead of shrinking with the canvas zoom. */}
-      <NodeToolbar isVisible={selected} position={Position.Bottom} align="start" offset={14}>
+      <NodeToolbar isVisible={selected && !V8} position={Position.Bottom} align="start" offset={14}>
         <div
           className="nowheel nopan cursor-default rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-xl"
           onPointerDown={(e) => e.stopPropagation()}
