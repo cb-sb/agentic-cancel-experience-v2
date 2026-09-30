@@ -154,7 +154,6 @@ const LIBRARY_ROWS: { kind: LibraryKind; label: string; icon: SIconName }[] = [
   { kind: 'offers', label: 'Offers', icon: 'gift' },
   { kind: 'reasons', label: 'Survey reasons', icon: 'message-square' },
   { kind: 'cards', label: 'Loss aversion cards', icon: 'shield' },
-  { kind: 'confirmations', label: 'Confirmation pages', icon: 'badge-check' },
 ]
 
 function LibrarySection() {
