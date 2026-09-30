@@ -12,26 +12,37 @@ import { PreviewOverlay } from '../orchestration/PreviewHeader'
 import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { TemplatesModal } from '../orchestration/TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
-import { closeTab, openTab } from '../workspace/paneTabs'
-import { useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
+import { closeTab, focusTab, openAnotherTab, openTab, tabNumber } from '../workspace/paneTabs'
+import { activeKind, useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
 import { PlanTab } from '../orchestration/PlanTab'
+import { ExperienceContextBar } from '../plays/ExperienceContext'
+import { ExperienceTaskList } from '../setup/TaskList'
 import { TargetingTab } from '../orchestration/TargetingTab'
 import { LAYOUT, STUDIO, TABBED, V8 } from './layoutMode'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 
-const TAB_LABEL: Record<PaneTab, string> = {
+export const TAB_LABEL: Record<PaneTab, string> = {
   editor: 'Editor',
-  canvas: 'Canvas',
+  canvas: V8 ? 'Steps map' : 'Canvas',
   targeting: 'Targeting',
   preview: 'Preview',
-  plan: 'Plan',
+  plan: V8 ? 'Summary' : 'Plan',
+  tasks: 'Task list',
 }
 const TAB_ORDER: PaneTab[] = V8
-  ? ['editor', 'preview', 'canvas', 'plan']
+  ? ['editor', 'preview', 'plan', 'tasks', 'canvas']
   : STUDIO
     ? ['editor', 'preview', 'targeting', 'canvas', 'plan']
     : ['editor', 'preview', 'canvas']
+
+const TAB_HINT: Partial<Record<PaneTab, string>> = {
+  editor: 'Change screens and copy',
+  preview: 'Walk it as a subscriber',
+  plan: 'Every setting in one place',
+  tasks: 'What is done and what is left',
+  canvas: 'Every step of this experience at once',
+}
 
 export function usePaneShown(): boolean {
   const stage = useCopilotStage()
@@ -96,22 +107,48 @@ function AddTabMenu({ tabs }: { tabs: ThreadTabs }) {
     window.addEventListener('mousedown', onDown)
     return () => window.removeEventListener('mousedown', onDown)
   }, [open])
-  const options = STUDIO ? TAB_ORDER : TAB_ORDER.filter((id) => !tabs.open.includes(id))
+  const openKinds = tabs.open.map((t) => t.kind)
+  const activeTabKind = activeKind(tabs)
+  const options = STUDIO ? TAB_ORDER : TAB_ORDER.filter((id) => !openKinds.includes(id))
   if (options.length === 0) return null
   return (
     <div ref={ref} className="relative flex h-[42px] flex-none items-center self-end">
       <IconButton label="Open a tab" onClick={() => setOpen((v) => !v)}>
         <SIcon name="plus" size={15} />
       </IconButton>
-      {open && (
+      {open && V8 && (
+        <div className="absolute left-0 top-full z-40 mt-1 w-[280px] rounded-xl border border-slate-200 bg-white p-1 shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
+          {options.map((id) => {
+            const count = openKinds.filter((k) => k === id).length
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  openAnotherTab(id)
+                }}
+                className="flex w-full items-center gap-[8px] rounded-lg px-3 py-1.5 text-left hover:bg-slate-100"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] text-slate-800">{TAB_LABEL[id]}</span>
+                  <span className="block truncate text-[11.5px] text-slate-400">{TAB_HINT[id]}</span>
+                </span>
+                {count > 0 && <span className="flex-none text-[11.5px] text-slate-400">{count} open · new tab</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {open && !V8 && (
         <div
           className={`absolute left-0 top-full z-40 mt-1 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_12px_40px_rgba(15,23,42,0.16)] ${
             STUDIO ? 'w-[260px]' : 'w-[160px]'
           }`}
         >
           {options.map((id) => {
-            const isOpen = tabs.open.includes(id)
-            const current = tabs.active === id
+            const isOpen = openKinds.includes(id)
+            const current = activeTabKind === id
             return (
               <button
                 key={id}
@@ -142,33 +179,51 @@ function AddTabMenu({ tabs }: { tabs: ThreadTabs }) {
   )
 }
 
-/** Tabs layout: one tab of each kind at most, opened by Copilot or the + menu. */
+export function tabLabel(tabs: ThreadTabs, id: string): string {
+  const ref = tabs.open.find((t) => t.id === id)
+  if (!ref) return ''
+  const n = tabNumber(tabs, id)
+  return n > 1 ? `${TAB_LABEL[ref.kind]} ${n}` : TAB_LABEL[ref.kind]
+}
+
+/** Tabs layout: opened by Copilot or the + menu. v8 can hold more than one of a kind. */
 export function TabbedPane() {
   const tabs = useWorkspaceUi((s) => s.tabs)
+  const kind = activeKind(tabs)
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-slate-100">
       <div className="flex h-[60px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
         {V8 && <BackButton fallback={backToExperiences} className="mr-[4px] self-center" />}
-        <div role="tablist" aria-label="Open views" className="flex min-w-0 items-end gap-1">
-          {tabs.open.map((id) => {
-            const active = tabs.active === id
+        <div role="tablist" aria-label="Open views" className="no-scrollbar -mb-px flex min-w-0 items-end gap-1 overflow-x-auto overflow-y-hidden">
+          {tabs.open.map((ref) => {
+            const active = tabs.active === ref.id
+            const label = tabLabel(tabs, ref.id)
             return (
               <div
-                key={id}
-                className={`group -mb-px flex h-[42px] items-center gap-1 rounded-t-xl border px-3 text-[13px] font-semibold ${
+                key={ref.id}
+                className={`group -mb-px flex h-[42px] flex-none items-center gap-1 rounded-t-xl border px-3 text-[13px] font-semibold ${
                   active
                     ? 'border-slate-200 border-b-white bg-white text-slate-900'
                     : 'border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                 }`}
               >
-                <button type="button" role="tab" aria-selected={active} onClick={() => openTab(id)} className="px-1">
-                  {TAB_LABEL[id]}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => focusTab(ref.id)}
+                  onAuxClick={(e) => {
+                    if (e.button === 1) closeTab(ref.id)
+                  }}
+                  className="whitespace-nowrap px-1"
+                >
+                  {label}
                 </button>
                 <button
                   type="button"
-                  aria-label={`Close ${TAB_LABEL[id]}`}
-                  title={`Close ${TAB_LABEL[id]}`}
-                  onClick={() => closeTab(id)}
+                  aria-label={`Close ${label}`}
+                  title={`Close ${label}`}
+                  onClick={() => closeTab(ref.id)}
                   className="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-800"
                 >
                   <SIcon name="x" size={12} />
@@ -182,12 +237,14 @@ export function TabbedPane() {
           <PlayActions />
         </div>
       </div>
+      {V8 && <ExperienceContextBar />}
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
-        {tabs.active === 'canvas' && <CanvasPane />}
-        {tabs.active === 'targeting' && !V8 && <TargetingTab />}
-        {tabs.active === 'plan' && <PlanTab />}
-        {tabs.active === 'editor' && <EditorPane />}
-        {tabs.active === 'preview' && <PreviewOverlay variant="tab" />}
+        {kind === 'canvas' && <CanvasPane />}
+        {kind === 'targeting' && !V8 && <TargetingTab />}
+        {kind === 'plan' && <PlanTab key={tabs.active} />}
+        {kind === 'tasks' && <ExperienceTaskList key={tabs.active} />}
+        {kind === 'editor' && <EditorPane />}
+        {kind === 'preview' && <PreviewOverlay variant="tab" />}
       </div>
     </div>
   )
@@ -223,7 +280,7 @@ export function ThreadWorkspace() {
   const workSurface = useOrchestration((s) => s.workSurface)
   const focusTarget = useOrchestration((s) => s.focusTarget)
   const previewing = useExperience((s) => s.mode === 'play')
-  const activeTab = useWorkspaceUi((s) => s.tabs.active)
+  const activeTab = useWorkspaceUi((s) => activeKind(s.tabs))
   const stepCount = useExperience((s) => s.experiences[PRIMARY_EXPERIENCE_ID]?.steps.length ?? 0)
   const stage = useCopilotStage()
   const paneShown = usePaneShown()

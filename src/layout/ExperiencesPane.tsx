@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
-import { SIcon } from '@chargebee/sting-react'
+import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { V8 } from './layoutMode'
+import { contextPlayId, createExperience, openLibrary, openOrder, openPlay } from '../plays/navigate'
+import { createPlay } from '../plays/usePlays'
+import { RowMenu, type MenuItem } from '../plays/ui'
+import type { ShellLayout } from '../types/experience'
+import type { LibraryKind } from '../workspace/useWorkspaceUi'
+import { PlaysTree } from './PlaysTree'
 import { useCopilotThread } from '../orchestration/copilotThread'
 import { useOrchestration } from '../store/useOrchestration'
 import {
@@ -140,38 +146,78 @@ function ExperienceFolder({
   )
 }
 
-/** v8: one row per experience. Each experience has one chat, so there is nothing to expand. */
-function ExperienceRow({ thread, current }: { thread: ExperienceThread; current: boolean }) {
-  const dirty = useOrchestration((s) => s.dirty)
-  const activeLive = useOrchestration((s) => s.play.publishState === 'live')
-  const activeId = useWorkspace((s) => s.activeId)
+/** v8: one menu for everything a merchant can make for the cancel flow. */
+function CreateMenu() {
+  const items: MenuItem[] = [
+    {
+      label: 'Play',
+      icon: 'workflow',
+      hint: 'Who sees which cancel experience',
+      onClick: () => {
+        const id = createPlay()
+        openPlay(id)
+        useWorkspaceUi.getState().setRenaming(id)
+      },
+    },
+    {
+      label: 'Cancel experience…',
+      icon: 'layers',
+      hint: 'Pick a layout first',
+      items: SHELL_CHOICES.map((s) => ({
+        label: s.label,
+        icon: s.icon,
+        hint: s.hint,
+        onClick: () => {
+          const ui = useWorkspaceUi.getState()
+          const inPlay = ui.page === 'play' ? ui.playId : ui.page === 'thread' ? contextPlayId() : null
+          createExperience({ playId: inPlay, shell: s.id })
+        },
+      })),
+    },
+    { label: 'Offer', icon: 'gift', hint: 'Discount, pause, plan change and more', onClick: () => openLibrary('offers', true) },
+    { label: 'Survey reason', icon: 'message-square', hint: 'Why they are leaving, linked to an offer', onClick: () => openLibrary('reasons', true) },
+    { label: 'Loss aversion card', icon: 'shield', hint: 'What they would lose by leaving', onClick: () => openLibrary('cards', true) },
+    { label: 'Confirmation page', icon: 'badge-check', hint: 'After an offer or a cancel', onClick: () => openLibrary('confirmations', true) },
+    { label: 'Dictionary entry', icon: 'languages', hint: 'Shared text and translations', onClick: () => openLibrary('dictionary', true) },
+  ]
+  return <RowMenu label="Create" icon="plus" items={items} width={270} />
+}
 
+const SHELL_CHOICES: { id: ShellLayout; label: string; hint: string; icon: SIconName }[] = [
+  { id: 'modal', label: 'Modal', hint: 'Opens over your account page', icon: 'layers' },
+  { id: 'fullpage', label: 'Full page', hint: 'Full viewport width, one step at a time', icon: 'file-text' },
+  { id: 'fullpage_scroll', label: 'Full page continuous', hint: 'Every step on one scrolling page', icon: 'list-ordered' },
+]
+
+const LIBRARY_ROWS: { kind: LibraryKind; label: string; icon: SIconName }[] = [
+  { kind: 'offers', label: 'Offers', icon: 'gift' },
+  { kind: 'reasons', label: 'Survey reasons', icon: 'message-square' },
+  { kind: 'cards', label: 'Loss aversion cards', icon: 'shield' },
+  { kind: 'confirmations', label: 'Confirmation pages', icon: 'badge-check' },
+  { kind: 'dictionary', label: 'Dictionary', icon: 'languages' },
+]
+
+function LibrarySection() {
+  const page = useWorkspaceUi((s) => s.page)
+  const kind = useWorkspaceUi((s) => s.libraryKind)
   return (
-    <button
-      type="button"
-      onClick={() => {
-        useWorkspaceUi.getState().setPage('thread')
-        useOrchestration.getState().closeTemplates()
-        switchThread(thread.id)
-      }}
-      aria-current={current ? 'true' : undefined}
-      className={`flex h-8 w-full items-center gap-[8px] rounded-lg px-[10px] text-left transition-colors ${
-        current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'
-      }`}
-    >
-      <span
-        className={`min-w-0 flex-1 truncate text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}
-      >
-        {thread.title}
-      </span>
-      {current && dirty ? (
-        <span className="flex-none text-[11px] text-slate-400">Unsaved</span>
-      ) : (
-        <span className="flex-none">
-          <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
-        </span>
-      )}
-    </button>
+    <div className="mt-[10px]">
+      <div className="flex h-7 items-center px-[10px]">
+        <span className="text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Library</span>
+      </div>
+      <div className="flex flex-col gap-[2px]">
+        {LIBRARY_ROWS.map((r) => (
+          <SettingRow
+            key={r.kind}
+            icon={r.icon}
+            label={r.label}
+            folded={false}
+            active={page === 'library' && kind === r.kind}
+            onClick={() => openLibrary(r.kind)}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -241,28 +287,41 @@ export function ExperiencesPane() {
               <SIcon name="layers" size={16} className="flex-none text-slate-500" />
               <span className="truncate">Experiences</span>
             </button>
-            <button
-              type="button"
-              onClick={create}
-              title="New experience"
-              aria-label="New experience"
-              className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900"
-            >
-              <SIcon name="plus" size={15} />
-            </button>
+            {V8 ? (
+              <CreateMenu />
+            ) : (
+              <button
+                type="button"
+                onClick={create}
+                title="New experience"
+                aria-label="New experience"
+                className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900"
+              >
+                <SIcon name="plus" size={15} />
+              </button>
+            )}
           </div>
         )}
         {V8 ? (
-          <SettingRow
-            icon="layout-template"
-            label="Templates and components"
-            folded={folded}
-            active={libraryShown}
-            onClick={() => {
-              setPage('thread')
-              useOrchestration.getState().openTemplates(libraryTab)
-            }}
-          />
+          <>
+            <SettingRow
+              icon="list-ordered"
+              label="Play order and testing"
+              folded={folded}
+              active={page === 'order'}
+              onClick={openOrder}
+            />
+            <SettingRow
+              icon="layout-template"
+              label="Templates and components"
+              folded={folded}
+              active={libraryShown}
+              onClick={() => {
+                setPage('thread')
+                useOrchestration.getState().openTemplates(libraryTab)
+              }}
+            />
+          </>
         ) : (
           <>
             <SettingRow
@@ -293,17 +352,16 @@ export function ExperiencesPane() {
         </div>
       </div>
 
-      {!folded && (
+      {!folded && V8 && (
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200 px-[10px] pb-[10px] pt-[10px]">
+          <PlaysTree />
+          <LibrarySection />
+        </div>
+      )}
+      {!folded && !V8 && (
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200 px-[10px] pb-[10px] pt-[14px]">
           <div className="flex flex-col gap-[2px]">
-            {orderedThreads(threads).map((t) =>
-              V8 ? (
-                <ExperienceRow
-                  key={t.id}
-                  thread={t}
-                  current={page === 'thread' && !libraryShown && t.id === activeId}
-                />
-              ) : (
+            {orderedThreads(threads).map((t) => (
               <ExperienceFolder
                 key={t.id}
                 thread={t}
@@ -311,8 +369,7 @@ export function ExperiencesPane() {
                 current={page === 'thread' && !libraryShown && t.id === activeId}
                 onToggle={() => toggle(t.id)}
               />
-              ),
-            )}
+            ))}
           </div>
         </div>
       )}

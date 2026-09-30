@@ -17,7 +17,7 @@ import type { AudienceKey, JourneyFile, JourneyTemplate, OfferKey } from './type
 const SHELLS: { id: ShellLayout; label: string; hint: string }[] = [
   { id: 'modal', label: 'Modal', hint: 'overlay on the merchant site' },
   { id: 'fullpage', label: 'Full page', hint: 'hosted cancel page' },
-  { id: 'fullpage_scroll', label: 'Scrolling page', hint: 'full page that scrolls' },
+  { id: 'fullpage_scroll', label: V8 ? 'Full page continuous' : 'Scrolling page', hint: 'full page that scrolls' },
 ]
 
 const AUDIENCE_LABEL: Record<AudienceKey, string> = {

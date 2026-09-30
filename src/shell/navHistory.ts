@@ -4,7 +4,7 @@ import { useUpload } from '../upload/useUpload'
 import { V8 } from '../layout/layoutMode'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { switchThread, useWorkspace } from '../workspace/useWorkspace'
-import { useWorkspaceUi, type StudioPage } from '../workspace/useWorkspaceUi'
+import { useWorkspaceUi, type LibraryKind, type StudioPage } from '../workspace/useWorkspaceUi'
 import { hashFor, routeFromHash, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
 
@@ -16,6 +16,8 @@ interface Place {
   templates: boolean
   upload?: boolean
   readOnlyId: string | null
+  playId?: string | null
+  libraryKind?: LibraryKind
 }
 
 interface EntryState {
@@ -35,6 +37,8 @@ function currentPlace(): Place {
     templates: useOrchestration.getState().templatesOpen,
     upload: uploadPageOpen(),
     readOnlyId: ui.readOnlyId,
+    playId: ui.playId,
+    libraryKind: ui.libraryKind,
   }
 }
 
@@ -44,7 +48,16 @@ function uploadPageOpen(): boolean {
 }
 
 function keyOf(p: Place): string {
-  return [p.route, p.page, p.threadId, p.templates ? 1 : 0, p.upload ? 1 : 0, p.readOnlyId ?? ''].join('|')
+  return [
+    p.route,
+    p.page,
+    p.threadId,
+    p.templates ? 1 : 0,
+    p.upload ? 1 : 0,
+    p.readOnlyId ?? '',
+    p.playId ?? '',
+    p.page === 'library' ? (p.libraryKind ?? '') : '',
+  ].join('|')
 }
 
 function urlFor(route: NavLeafId): string {
@@ -87,7 +100,13 @@ function apply(place: Place) {
   if (place.threadId !== ws.activeId && ws.threads.some((t) => t.id === place.threadId)) {
     switchThread(place.threadId)
   }
-  useWorkspaceUi.setState({ page: place.page, readOnlyId: place.readOnlyId, searchOpen: false })
+  useWorkspaceUi.setState({
+    page: place.page,
+    readOnlyId: place.readOnlyId,
+    searchOpen: false,
+    ...(place.playId !== undefined ? { playId: place.playId } : {}),
+    ...(place.libraryKind ? { libraryKind: place.libraryKind } : {}),
+  })
   useCancelSettings.getState().setSettingsOpen(false)
   const orch = useOrchestration.getState()
   if (place.templates && !orch.templatesOpen) orch.openTemplates()

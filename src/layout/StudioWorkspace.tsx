@@ -13,13 +13,17 @@ import { BackButton, backToExperiences } from '../shell/BackButton'
 import { UploadFlow } from '../upload/UploadFlow'
 import { UploadPage } from '../upload/UploadPage'
 import { useUpload } from '../upload/useUpload'
-import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
+import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { CancelPageSettings } from './CancelPageSettings'
 import { ExperiencesIndex } from './ExperiencesIndex'
 import { ExperiencesPane } from './ExperiencesPane'
 import { SearchDialog } from './SearchDialog'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W } from './ThreadSidebar'
 import { ReopenPane, TabbedPane, usePaneShown } from './ThreadWorkspace'
+import { LibraryPage } from '../library/LibraryPage'
+import { PlayOrder } from '../plays/PlayOrder'
+import { PlayWorkspace } from '../plays/PlayWorkspace'
+import { ToastHost } from '../plays/ui'
 
 function ThreadView() {
   const stage = useCopilotStage()
@@ -86,7 +90,7 @@ export function StudioWorkspace() {
   const beatAsk = useWorkspaceUi((s) => s.beatAsk)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const focusTarget = useOrchestration((s) => s.focusTarget)
-  const activeTab = useWorkspaceUi((s) => s.tabs.active)
+  const activeTab = useWorkspaceUi((s) => activeKind(s.tabs))
   const stepCount = useExperience((s) => s.experiences[PRIMARY_EXPERIENCE_ID]?.steps.length ?? 0)
   const stage = useCopilotStage()
   const paneShown = usePaneShown()
@@ -120,10 +124,17 @@ export function StudioWorkspace() {
           <div className="min-w-0 flex-1">
             <ExperiencesIndex />
           </div>
+        ) : V8 && page === 'play' ? (
+          <PlayWorkspace />
+        ) : V8 && page === 'order' ? (
+          <PlayOrder />
+        ) : V8 && page === 'library' ? (
+          <LibraryPage />
         ) : (
           <ThreadView />
         )}
       </div>
+      {V8 && <ToastHost />}
       <UploadFlow />
       <CancelPageSettings />
       <SearchDialog />

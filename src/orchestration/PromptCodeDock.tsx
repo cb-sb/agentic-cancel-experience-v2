@@ -16,7 +16,6 @@ import {
   beatPrompt,
   nextBeat,
   prevBeat,
-  setupChips,
   v8Landing,
   planCanvasIntro,
   planIntro,
@@ -48,6 +47,37 @@ import { newChat, newThread, startUploadPage, useWorkspace } from '../workspace/
 import { openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
+import { contextPlayId, openPlayTab } from '../plays/navigate'
+import { playsUsing, usePlays } from '../plays/usePlays'
+import { showMe } from '../setup/actions'
+import { experienceChatRows, finalCheck, finalCheckText, leftCount, nextRow, promptFor } from '../setup/chatSetup'
+import { experienceRows, readSetupInputs, useSetupInputs, workspaceRows, type TaskRow } from '../setup/progress'
+import { entryById } from '../setup/registry'
+import { SetupCard, hasFields } from '../setup/SetupCards'
+import { setMark } from '../setup/useSetupState'
+
+/** v8: settings the chat can reopen from its chips once setup is done. */
+const V8_CHANGE_CHIPS: { id: string; label: string }[] = [
+  { id: 'offers', label: 'Change the offers' },
+  { id: 'layout', label: 'Change the page layout' },
+  { id: 'cancelHandling', label: 'Change cancel handling' },
+  { id: 'brand', label: 'Match my brand' },
+]
+
+/** Old v8 plan beats, mapped to the setup item that replaced them. */
+const BEAT_ITEM: Partial<Record<PlanBeat, string>> = {
+  offers: 'offers',
+  shell: 'layout',
+  cancel: 'cancelHandling',
+  brand: 'brand',
+  publish: 'publish',
+  walk: 'walk',
+}
+
+function allRows(experienceId: string): TaskRow[] {
+  const inputs = readSetupInputs()
+  return [...experienceRows(experienceId, inputs), ...workspaceRows(inputs)]
+}
 
 function scrollSpotlightInto(container: HTMLElement): boolean {
   const marked = container.querySelector<HTMLElement>('[data-spotlight-on]')
@@ -185,6 +215,14 @@ function lineEnterClass(line: CopilotLine) {
 
 function ChatLine({ line, children }: { line: CopilotLine; children?: ReactNode }) {
   const enter = lineEnterClass(line)
+  if (line.note) {
+    return (
+      <div className={`flex items-center justify-center gap-[6px] px-[12px] text-center text-[12px] text-[#677488] ${enter}`}>
+        <SIcon name="pencil" size={11} className="flex-none" />
+        <span className="min-w-0">{line.text}</span>
+      </div>
+    )
+  }
   if (line.from === 'you') {
     return (
       <div className={`flex justify-end pl-[36px] ${enter}`}>
@@ -278,6 +316,17 @@ export function PromptCodeDock({
   const setTurn = useCopilotThread((s) => s.setTurn)
   const beat = useCopilotThread((s) => s.beat)
   const setBeat = useCopilotThread((s) => s.setBeat)
+  const setupItem = useCopilotThread((s) => s.setupItem)
+  const setSetupItem = useCopilotThread((s) => s.setSetupItem)
+  const activeId = useWorkspace((s) => s.activeId)
+  const setupAsk = useWorkspaceUi((s) => s.setupAsk)
+  const setupInputs = useSetupInputs()
+  const chatRows = V8 ? experienceChatRows(activeId, setupInputs) : []
+  const setupRow = V8 && setupItem
+    ? [...experienceRows(activeId, setupInputs), ...workspaceRows(setupInputs)].find((r) => r.entry.id === setupItem.id) ?? null
+    : null
+  const setupLeft = leftCount(chatRows)
+  const publishAfter = useRef<string | null>(null)
   const [draft, setDraft] = useState('')
   const [goalAsk, setGoalAsk] = useState(false)
   const chatKey = useWorkspace((s) => `${s.activeId}:${s.threads.find((t) => t.id === s.activeId)?.activeChatId ?? ''}`)
@@ -440,7 +489,72 @@ export function PromptCodeDock({
     say('bot', beatPrompt('publish', current), { look: 'walk' })
   }
 
+  /** v8: show one setup card. The publish card gets a final check first. */
+  const askRow = (row: TaskRow, quiet = false) => {
+    let target = row
+    if (row.entry.id === 'publish') {
+      const check = finalCheck(experienceRows(activeId, readSetupInputs()))
+      say('bot', finalCheckText(check, 'publish'))
+      quiet = true
+      if (check.blockers.length > 0) target = check.blockers[0]
+      if (target !== row && setupItem?.id !== target.entry.id) say('bot', promptFor(target))
+      publishAfter.current = target !== row ? activeId : null
+    }
+    setTurn('setup')
+    setSetupItem({ id: target.entry.id, targetId: target.targetId })
+    if (!quiet) say('bot', promptFor(target))
+  }
+
+  const askItem = (id: string) => {
+    const row = allRows(activeId).find((r) => r.entry.id === id)
+    if (row) askRow(row)
+  }
+
+  const finishSetup = () => {
+    setSetupItem(null)
+    setTurn('done')
+    const pid = contextPlayId() ?? playsUsing(activeId)[0]?.id
+    const play = pid ? usePlays.getState().plays.find((p) => p.id === pid) : undefined
+    say(
+      'bot',
+      play
+        ? `That’s everything for this experience. ${play.name} has a few settings of its own, like who it’s for and how traffic is split.`
+        : 'That’s everything for this experience. Anything you skipped is waiting in the Task list.',
+    )
+  }
+
+  const advanceSetup = (afterId: string) => {
+    if (publishAfter.current === activeId) {
+      const blockers = finalCheck(experienceRows(activeId, readSetupInputs())).blockers.filter((r) => r.entry.id !== afterId)
+      const publish = allRows(activeId).find((r) => r.entry.id === 'publish')
+      if (publish && publish.status !== 'done') {
+        if (blockers.length > 0) return askRow(blockers[0])
+        publishAfter.current = null
+        return askRow(publish)
+      }
+    }
+    publishAfter.current = null
+    const next = nextRow(experienceChatRows(activeId, readSetupInputs()), { not: afterId })
+    if (next) askRow(next)
+    else finishSetup()
+  }
+
+  const resumeSetup = () => {
+    const next = nextRow(experienceChatRows(activeId, readSetupInputs()), { includeSkipped: true })
+    if (next) askRow(next)
+    else finishSetup()
+  }
+
   const jumpPlan = (next: PlanBeat) => {
+    if (V8) {
+      const id = BEAT_ITEM[next]
+      if (id) askItem(id)
+      else {
+        const pid = contextPlayId() ?? playsUsing(activeId)[0]?.id
+        if (pid) openPlayTab(pid, 'tasks')
+      }
+      return
+    }
     const current = useJourney.getState().file
     const alreadyOnBeat = turn === 'plan' && beat === next
     setTurn('plan')
@@ -612,6 +726,44 @@ export function PromptCodeDock({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beatAsk])
 
+  /** v8: "Do it in chat" from the Task list or anywhere else. */
+  useEffect(() => {
+    if (!V8 || !setupAsk) return
+    const entry = entryById(setupAsk.item)
+    if (!entry || entry.scope === 'play') return
+    if (entry.scope === 'experience' && setupAsk.targetId !== activeId) return
+    if (entry.scope === 'workspace' && useWorkspaceUi.getState().page === 'play') return
+    useWorkspaceUi.setState({ setupAsk: null })
+    setDockMode('prompt')
+    if (setupItem?.id === entry.id) return
+    askItem(entry.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupAsk, activeId])
+
+  /** v8: landing, an old plan beat, or a reopened chat all pick up at the next open setting. */
+  useEffect(() => {
+    if (!V8 || setupItem || (turn !== 'setup' && turn !== 'plan') || file.steps.length === 0) return
+    if (useWorkspaceUi.getState().setupAsk) return
+    const next = nextRow(experienceChatRows(activeId, readSetupInputs()))
+    if (!next) {
+      setTurn('done')
+      return
+    }
+    const last = [...useCopilotThread.getState().lines].reverse().find((l) => l.from === 'bot' && !l.note)
+    askRow(next, last?.text === promptFor(next))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turn, setupItem, activeId, file.steps.length])
+
+  /** v8: cards with nothing to fill (walk it, publish) move on once they're done elsewhere. */
+  const focusDone = setupRow?.status === 'done'
+  useEffect(() => {
+    if (!V8 || !setupRow || !focusDone) return
+    if (hasFields(setupRow.entry) && setupRow.entry.id !== 'publish') return
+    if (setupRow.entry.id === 'publish') say('bot', 'It’s published. It shows up wherever a live play uses it.')
+    advanceSetup(setupRow.entry.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusDone, setupItem?.id])
+
   useEffect(() => {
     if (!pendingCopilotGuide) return
     useOrchestration.getState().consumeCopilotGuide()
@@ -677,7 +829,15 @@ export function PromptCodeDock({
     setDraft('')
     setGoalAsk(false)
     say('you', shown ?? text)
-    if (turn === 'plan' && beat === 'brand') {
+    if (V8 && setupItem?.id === 'brand') {
+      void applyMatchedBrand(text).then((ok) => {
+        if (!ok) return
+        setMark(activeId, 'brand', 'done', 'chat')
+        advanceSetup('brand')
+      })
+      return
+    }
+    if (turn === 'plan' && beat === 'brand' && !V8) {
       void applyMatchedBrand(text).then((ok) => {
         if (!ok) return
         const current = useJourney.getState().file
@@ -727,21 +887,74 @@ export function PromptCodeDock({
   const send = () => sendText(draft)
 
   const options = useMemo(() => {
-    if (V8 && (goalAsk || (turn === 'done' && file.steps.length > 0))) {
+    if (V8 && (turn === 'setup' || turn === 'plan') && setupRow && !goalAsk) {
+      const row = setupRow
       return (
-        <div className="space-y-2">
-          {setupChips(file).map((chip) => (
+        <div>
+          <SetupCard
+            entry={row.entry}
+            targetId={row.targetId}
+            mode="chat"
+            onSave={(said) => {
+              say('you', said)
+              advanceSetup(row.entry.id)
+            }}
+            onSkip={() => {
+              setMark(row.targetId, row.entry.id, 'skipped', 'chat')
+              say('you', 'Skip for now')
+              advanceSetup(row.entry.id)
+            }}
+            onNotNeeded={() => {
+              setMark(row.targetId, row.entry.id, 'na', 'chat')
+              say('you', 'Not needed')
+              advanceSetup(row.entry.id)
+            }}
+            onShowMe={() => showMe(row)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setSetupItem(null)
+              setTurn('done')
+              say('you', 'Stop for now')
+              say('bot', 'No problem. Pick it up any time with Resume setup, or from the Task list.')
+            }}
+            className="mt-[8px] inline-flex items-center gap-[5px] rounded-[8px] px-[6px] py-[4px] text-[12.5px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          >
+            Stop for now
+          </button>
+        </div>
+      )
+    }
+    if (V8 && (goalAsk || (turn === 'done' && file.steps.length > 0))) {
+      const pid = contextPlayId() ?? playsUsing(activeId)[0]?.id
+      const play = pid ? usePlays.getState().plays.find((p) => p.id === pid) : undefined
+      return (
+        <div className="flex flex-wrap gap-2">
+          {setupLeft > 0 && (
             <OptionBtn
-              key={chip.beat}
+              pill
+              label={`Resume setup (${setupLeft} left)`}
+              onClick={() => {
+                setGoalAsk(false)
+                say('you', 'Resume setup')
+                resumeSetup()
+              }}
+            />
+          )}
+          {V8_CHANGE_CHIPS.filter((chip) => chatRows.some((r) => r.entry.id === chip.id)).map((chip) => (
+            <OptionBtn
+              key={chip.id}
               pill
               label={chip.label}
               onClick={() => {
                 setGoalAsk(false)
                 say('you', chip.label)
-                jumpPlan(chip.beat)
+                askItem(chip.id)
               }}
             />
           ))}
+          {play && <OptionBtn pill label={`Set up ${play.name}`} onClick={() => openPlayTab(play.id, 'tasks')} />}
         </div>
       )
     }
@@ -860,7 +1073,7 @@ export function PromptCodeDock({
     }
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goalAsk, turn, beat, file, uploadPhase, pendingLibraryTemplate])
+  }, [goalAsk, turn, beat, file, uploadPhase, pendingLibraryTemplate, setupItem, setupRow?.status, setupLeft, activeId])
 
   const subtitle = emptyHome
     ? 'New Conversation'
@@ -1071,7 +1284,7 @@ export function PromptCodeDock({
                 ))}
               </div>
               {options ? (
-                <div key={`${turn}-${beat}-${uploadPhase}`} className="cb-copilot-enter mt-[16px]">
+                <div key={`${turn}-${beat}-${uploadPhase}-${setupItem?.id ?? ''}`} className="cb-copilot-enter mt-[16px]">
                   {options}
                 </div>
               ) : null}
@@ -1082,7 +1295,7 @@ export function PromptCodeDock({
                 onChange={setDraft}
                 onSend={send}
                 placeholder={
-                  turn === 'plan' && beat === 'brand'
+                  (turn === 'plan' && beat === 'brand') || setupItem?.id === 'brand'
                     ? 'https://account.example.com — or: dark navy, gold buttons, Inter'
                     : V8
                       ? 'Offers, who sees it, tests, page style, or brand'

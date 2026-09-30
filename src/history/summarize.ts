@@ -1,3 +1,4 @@
+import { V8 } from '../layout/layoutMode'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { audienceLabel } from '../store/useJourney'
 import type { JourneyFile, JourneyStepFile, JourneyStepKind } from '../journey/types'
@@ -20,7 +21,7 @@ const STEP_LABEL: Record<JourneyStepKind, string> = {
 const SHELL_LABEL: Record<string, string> = {
   modal: 'Modal',
   fullpage: 'Full page',
-  fullpage_scroll: 'Scrolling page',
+  fullpage_scroll: V8 ? 'Full page continuous' : 'Scrolling page',
 }
 
 function stepIds(file: JourneyFile): string {

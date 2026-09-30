@@ -16,8 +16,11 @@ import { resetHistoryBaseline, useHistory } from '../store/useHistory'
 import { restoreJourney, useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { useUpload } from '../upload/useUpload'
+import { nameProblem, uniqueName } from '../plays/names'
+import { dropExperience, initPlays, playsUsing } from '../plays/usePlays'
 import { startPaneSync, whilePaused } from './paneTabs'
-import { NO_TABS, useWorkspaceUi, type ThreadTabs } from './useWorkspaceUi'
+import { useCancelSettings } from './useCancelSettings'
+import { activeKind, normalizeTabs, NO_TABS, singleTab, useWorkspaceUi, type ThreadTabs } from './useWorkspaceUi'
 
 /** Separate from the V5 draft key, so the two never overwrite each other. V7 and V8 tabs differ, so each keeps its own. */
 const KEY = V8
@@ -50,6 +53,8 @@ export interface ChatThread {
 export interface ExperienceThread {
   id: string
   title: string
+  /** v8: the merchant named it, so the title no longer follows the template. */
+  named?: boolean
   updatedAt: number
   /** Seeded from a Chargebee template so the list isn't empty on first visit. */
   sample?: boolean
@@ -110,7 +115,24 @@ export function chatTitle(lines: CopilotLine[]): string {
   return first || 'New chat'
 }
 
+/** v8 names are unique, so an auto title gets a number when another experience already has it. */
+function autoTitle(threadId: string, file: JourneyFile): string {
+  const thread = useWorkspace.getState().threads.find((t) => t.id === threadId)
+  if (thread?.named) return thread.title
+  const base = titleFor(file)
+  if (!V8) return base
+  return uniqueName(base, experienceNames(threadId))
+}
+
+export function experienceNames(exceptId?: string): string[] {
+  return useWorkspace
+    .getState()
+    .threads.filter((t) => t.id !== exceptId)
+    .map((t) => t.title)
+}
+
 function isBlank(t: ExperienceThread): boolean {
+  if (V8 && playsUsing(t.id).length > 0) return false
   if (t.seed) return false
   if (!t.snapshot) return true
   return t.snapshot.journey.steps.length === 0 && chatsOf(t).every((c) => c.chat.lines.length === 0)
@@ -185,7 +207,7 @@ function storeActive(draft?: Draft) {
   patchThread(activeId, {
     snapshot,
     seed: undefined,
-    title: titleFor(snapshot.journey),
+    title: autoTitle(activeId, snapshot.journey),
     ...storeChat(thread, snapshot.chat),
     ...(touched ? { updatedAt: Date.now(), sample: false } : {}),
   })
@@ -204,7 +226,7 @@ function storeChat(thread: ExperienceThread, chat: ThreadChat): Pick<ExperienceT
 
 function loadChat(chat: ThreadChat) {
   useOrchestration.getState().setSpotlight(null)
-  useCopilotThread.setState({ lines: chat.lines, turn: chat.turn, beat: chat.beat })
+  useCopilotThread.setState({ lines: chat.lines, turn: chat.turn, beat: chat.beat, setupItem: null })
 }
 
 /** Open another conversation on the same experience. The journey and tabs stay as they are. */
@@ -288,22 +310,23 @@ function openSample(seed: JourneyTemplate) {
   }
   useOrchestration.getState().setSpotlight(null)
   useOrchestration.setState({ stepStripShown: true })
-  useWorkspaceUi.setState({ tabs: { open: ['editor'], active: 'editor' } })
+  useWorkspaceUi.setState({ tabs: singleTab('editor') })
 }
 
 function openSnapshot(s: ThreadSnapshot) {
   applyDraftPayload(s)
   useHistory.getState().hydrate(Array.isArray(s.history) ? s.history : [])
-  useCopilotThread.setState({ lines: s.chat.lines, turn: s.chat.turn, beat: s.chat.beat })
-  const tabs = s.tabs ?? NO_TABS
+  useCopilotThread.setState({ lines: s.chat.lines, turn: s.chat.turn, beat: s.chat.beat, setupItem: null })
+  const tabs = normalizeTabs(s.tabs)
   useWorkspaceUi.setState({ tabs })
-  const fromTab = TABBED && (tabs.active === 'editor' || tabs.active === 'canvas') ? tabs.active : null
+  const kind = activeKind(tabs)
+  const fromTab = TABBED && (kind === 'editor' || kind === 'canvas') ? kind : null
   const surface = fromTab ?? (s.surface === 'canvas' ? 'canvas' : 'editor')
   useOrchestration.setState({
     stepStripShown: s.journey.steps.length > 0,
     workSurface: surface,
   })
-  if (TABBED && tabs.active === 'preview') useExperience.getState().setMode('play')
+  if (TABBED && kind === 'preview') useExperience.getState().setMode('play')
 }
 
 function openThread(id: string) {
@@ -340,10 +363,11 @@ export function switchThread(id: string) {
   persist()
 }
 
-export function newThread() {
-  if (isEmptyNow()) {
+/** `force` always makes a new one, even when the open experience is still empty. */
+export function newThread(opts: { force?: boolean } = {}): string {
+  if (isEmptyNow() && !opts.force && !(V8 && playsUsing(useWorkspace.getState().activeId).length > 0)) {
     useWorkspaceUi.setState({ search: '' })
-    return
+    return useWorkspace.getState().activeId
   }
   storeActive()
   const stale = useWorkspace.getState().threads.filter((t) => t.id !== useWorkspace.getState().activeId && isBlank(t))
@@ -351,11 +375,108 @@ export function newThread() {
     const drop = new Set(stale.map((t) => t.id))
     useWorkspace.setState((s) => ({ threads: s.threads.filter((t) => !drop.has(t.id)) }))
   }
-  const thread: ExperienceThread = { id: newId(), title: 'New experience', updatedAt: Date.now() }
+  const title = V8 ? uniqueName('New experience', experienceNames()) : 'New experience'
+  const thread: ExperienceThread = { id: newId(), title, updatedAt: Date.now() }
   useWorkspace.setState((s) => ({ threads: [thread, ...s.threads], activeId: thread.id }))
   openThread(thread.id)
   persist()
+  return thread.id
 }
+
+/** v8: null when the name is taken or empty, otherwise what went wrong. */
+export function renameThread(id: string, name: string): string | null {
+  const problem = nameProblem(name, experienceNames(id), 'experience')
+  if (problem) return problem
+  patchThread(id, { title: name.trim().replace(/\s+/g, ' '), named: true, updatedAt: Date.now() })
+  persist()
+  return null
+}
+
+/**
+ * v8: an independent copy with its own journey. It never shares edits with the
+ * original, so it has to carry a different name.
+ */
+export function duplicateThread(id: string, name?: string): string | null {
+  const { activeId } = useWorkspace.getState()
+  if (id === activeId) storeActive()
+  const src = useWorkspace.getState().threads.find((t) => t.id === id)
+  if (!src) return null
+  const title = name && !nameProblem(name, experienceNames(), 'experience') ? name.trim() : uniqueName(`${src.title} copy`, experienceNames())
+  const note: CopilotLine = {
+    id: `${Date.now()}-copy`,
+    from: 'bot',
+    text: `This is a copy of ${src.title}. Changes here stay in this copy.`,
+  }
+  const hasSteps = Boolean(src.snapshot?.journey.steps.length) || Boolean(src.seed)
+  const chat: ThreadChat = { lines: [note], turn: hasSteps ? 'done' : 'kind', beat: 'walk' }
+  const snapshot: ThreadSnapshot | undefined = src.snapshot && {
+    ...(JSON.parse(JSON.stringify(src.snapshot)) as ThreadSnapshot),
+    dirty: false,
+    chat,
+    tabs: singleTab('editor'),
+  }
+  if (snapshot) snapshot.play = { ...snapshot.play, publishState: 'draft' }
+  const chatId = newId()
+  const copy: ExperienceThread = {
+    id: newId(),
+    title,
+    named: true,
+    updatedAt: Date.now(),
+    seed: snapshot ? undefined : src.seed,
+    snapshot,
+    chats: snapshot ? [{ id: chatId, updatedAt: Date.now(), chat }] : undefined,
+    activeChatId: snapshot ? chatId : undefined,
+  }
+  useWorkspace.setState((s) => {
+    const at = s.threads.findIndex((t) => t.id === id)
+    return { threads: [...s.threads.slice(0, at + 1), copy, ...s.threads.slice(at + 1)] }
+  })
+  persist()
+  return copy.id
+}
+
+/** v8: removes the experience everywhere, including from every play it sat in. */
+export function deleteThread(id: string) {
+  const { threads, activeId } = useWorkspace.getState()
+  if (!threads.some((t) => t.id === id)) return
+  dropExperience(id)
+  const { globalFallbackId, setGlobalFallback } = useCancelSettings.getState()
+  if (globalFallbackId === id) setGlobalFallback(null)
+  const rest = threads.filter((t) => t.id !== id)
+  if (id !== activeId) {
+    useWorkspace.setState({ threads: rest })
+    persist()
+    return
+  }
+  const next = orderedThreads(rest)[0]
+  if (next) {
+    useWorkspace.setState({ threads: rest, activeId: next.id })
+    openThread(next.id)
+  } else {
+    const blank: ExperienceThread = { id: newId(), title: 'New experience', updatedAt: Date.now() }
+    useWorkspace.setState({ threads: [blank], activeId: blank.id })
+    openThread(blank.id)
+  }
+  persist()
+}
+
+/** The journey behind any experience, open or not. Samples never opened are built from their template. */
+export function fileOfThread(t: ExperienceThread): JourneyFile {
+  const { activeId } = useWorkspace.getState()
+  if (t.id === activeId) return useJourney.getState().file
+  if (t.snapshot) return t.snapshot.journey
+  if (t.seed) {
+    const cached = seedFiles.get(t.seed)
+    if (cached) return cached
+    const file = startFromTemplate({ ...EMPTY_JOURNEY, brand: blankBrand() }, t.seed)
+    const live = { ...file, steps: withLive(file.steps, true) }
+    seedFiles.set(t.seed, live)
+    return live
+  }
+  return EMPTY_JOURNEY
+}
+
+const seedFiles = new Map<JourneyTemplate, JourneyFile>()
 
 function isEmptyNow(): boolean {
   return useJourney.getState().file.steps.length === 0 && useCopilotThread.getState().lines.length === 0
@@ -408,7 +529,7 @@ function watchActiveThread() {
     if (s.file === last) return
     last = s.file
     const { activeId, threads, brand } = useWorkspace.getState()
-    const title = titleFor(s.file)
+    const title = autoTitle(activeId, s.file)
     const thread = threads.find((t) => t.id === activeId)
     if (thread && thread.title !== title) patchThread(activeId, { title })
     if (s.file.brand.matched && s.file.brand !== brand) useWorkspace.setState({ brand: s.file.brand })
@@ -436,7 +557,29 @@ export function loadWorkspace() {
       persist()
     },
   })
-  useWorkspace.setState(read() ?? seedWorkspace())
+  const saved = read()
+  useWorkspace.setState(saved ?? seedWorkspace())
+  if (V8) {
+    const seen: string[] = []
+    useWorkspace.setState((s) => ({
+      threads: s.threads.map((t) => {
+        const title = uniqueName(t.title, seen)
+        seen.push(title)
+        return title === t.title ? t : { ...t, title }
+      }),
+    }))
+    initPlays(
+      useWorkspace.getState().threads.map((t) => ({
+        id: t.id,
+        title: t.title,
+        seed: t.seed,
+        blank: isBlank(t),
+        audience: t.snapshot?.play.audience,
+        live: t.snapshot?.play.publishState === 'live',
+      })),
+      !saved,
+    )
+  }
   openThread(useWorkspace.getState().activeId)
   persist()
   watchActiveThread()

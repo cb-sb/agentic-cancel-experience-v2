@@ -288,7 +288,7 @@ export function TemplateOutlineStrip({
   const { steps } = useTemplateSteps(entry, brand)
   return (
     <ol
-      className={`flex items-start overflow-x-auto px-[18px] pb-[20px] pt-[18px]${className ? ` ${className}` : ''}`}
+      className={`flex items-start overflow-x-auto px-[18px] pb-[20px] pt-[18px] ${className ?? ''}`}
       style={{
         backgroundColor: '#eef2f6',
         backgroundImage: 'radial-gradient(#d5dde8 1px, transparent 1px)',

@@ -10,6 +10,9 @@ import { PlanSummary } from './JourneyPlan'
 import { useSetupProgress } from './JourneySetupChrome'
 import { jumpSetupItem } from './setupActions'
 import type { SetupItemId } from './setupTracker'
+import { useCopilotThread } from './copilotThread'
+import { experienceRows, useSetupInputs, workspaceRows } from '../setup/progress'
+import { SettingsSection } from '../setup/SettingsSection'
 
 /** Where each setup row is fixed. Rows without a tab are answered in the chat. */
 const ROW_TAB: Partial<Record<SetupItemId, PaneTab>> = {
@@ -28,7 +31,8 @@ const TAB_NAME: Record<PaneTab, string> = {
   canvas: 'Canvas',
   targeting: 'Targeting',
   preview: 'Preview',
-  plan: 'Plan',
+  plan: V8 ? 'Summary' : 'Plan',
+  tasks: 'Task list',
 }
 
 function goTo(id: SetupItemId) {
@@ -51,21 +55,35 @@ function rowAction(id: SetupItemId): string {
   return tab ? TAB_NAME[tab] : 'Chat'
 }
 
-/** v8: the plan as a summary of decisions. Each edit asks before it saves. */
+/** Summary edits leave a small line in the chat, so it knows what changed. */
+function noteInChat(text: string) {
+  useCopilotThread.getState().say('bot', text, { note: true })
+}
+
+/** v8: every decision for this experience, editable in place. */
 function PlanPage() {
   const file = useJourney((s) => s.file)
+  const activeId = useWorkspace((s) => s.activeId)
   const title = useWorkspace((s) => s.threads.find((t) => t.id === s.activeId)?.title)
+  const inputs = useSetupInputs()
+  const rows = experienceRows(activeId, inputs).filter((r) => r.entry.id !== 'layout' && r.entry.id !== 'brand')
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] px-[28px] py-[24px]">
-        <div className="mb-[16px]">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Plan</p>
+      <div className="mx-auto max-w-[720px] space-y-[20px] px-[28px] py-[24px]">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
           <h2 className="mt-[4px] text-[18px] font-semibold text-slate-900">{title ?? file.name}</h2>
           <p className="mt-[4px] text-[13px] text-slate-500">
-            Every decision for this experience. Change any of them here and confirm to save.
+            Every decision for this experience. Change anything here and the chat and Task list keep up.
           </p>
         </div>
         <ContextEditor confirmEdits page />
+        {file.steps.length > 0 && (
+          <>
+            <SettingsSection title="Setup" hint="Offers, links and how the cancel is handled" rows={rows} onNote={noteInChat} />
+            <SettingsSection title="Workspace" hint="Set once, used by every play" rows={workspaceRows(inputs)} onNote={noteInChat} />
+          </>
+        )}
       </div>
     </div>
   )

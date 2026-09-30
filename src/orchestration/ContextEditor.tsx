@@ -9,6 +9,9 @@ import { journeysUsing, wordingFromStep } from '../library/offers'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { templateLabel } from '../journey/templates'
 import { uploadedScreenChain } from '../journey/contextDoc'
+import { setMark } from '../setup/useSetupState'
+import { useWorkspace } from '../workspace/useWorkspace'
+import { useCopilotThread } from './copilotThread'
 import type {
   AudienceKey,
   JourneyStepFile,
@@ -35,11 +38,17 @@ const AUDIENCE_OPTIONS: { id: AudienceKey; label: string }[] = [
   { id: 'in_trial', label: 'In-trial (active)' },
 ]
 
-const SHELL_OPTIONS: { id: ShellLayout; label: string }[] = [
-  { id: 'modal', label: 'Modal — overlay on the site' },
-  { id: 'fullpage', label: 'Full page — hosted cancel page' },
-  { id: 'fullpage_scroll', label: 'Scrolling page' },
-]
+const SHELL_OPTIONS: { id: ShellLayout; label: string }[] = V8
+  ? [
+      { id: 'modal', label: 'Modal, over your account page' },
+      { id: 'fullpage', label: 'Full page, full viewport width' },
+      { id: 'fullpage_scroll', label: 'Full page continuous, every step on one page' },
+    ]
+  : [
+      { id: 'modal', label: 'Modal — overlay on the site' },
+      { id: 'fullpage', label: 'Full page — hosted cancel page' },
+      { id: 'fullpage_scroll', label: 'Scrolling page' },
+    ]
 
 const OFFER_OPTIONS = OFFER_VARIANTS.map((v) => ({ id: v.category as OfferKey, label: v.label }))
 
@@ -734,25 +743,33 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
         {/* Global knobs */}
         <div className="space-y-[8px]">
           <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
-            Targeting &amp; presentation
+            {V8 ? 'Look and layout' : <>Targeting &amp; presentation</>}
           </p>
-          <Section title="Audience" hint="Who enters this experience">
+          {!V8 && (
+            <Section title="Audience" hint="Who enters this experience">
+              <SelectField
+                label="Audience"
+                value={file.audience}
+                options={AUDIENCE_OPTIONS}
+                onChange={(audience) => void patch(`Show this experience to ${audienceLabel(audience)}.`, { audience })}
+              />
+            </Section>
+          )}
+          <Section title={V8 ? 'Layout' : 'Shell'} hint="How it's presented">
             <SelectField
-              label="Audience"
-              value={file.audience}
-              options={AUDIENCE_OPTIONS}
-              onChange={(audience) => void patch(`Show this experience to ${audienceLabel(audience)}.`, { audience })}
-            />
-          </Section>
-          <Section title="Shell" hint="How it's presented">
-            <SelectField
-              label="Shell"
+              label={V8 ? 'Layout' : 'Shell'}
               value={file.shell}
               options={SHELL_OPTIONS}
-              onChange={(shell) => void patch(`Present it as: ${shellLabel(shell)}.`, { shell })}
+              onChange={(shell) =>
+                void patch(`Present it as: ${shellLabel(shell)}.`, { shell }).then((ok) => {
+                  if (!ok || !V8 || !page) return
+                  setMark(useWorkspace.getState().activeId, 'layout', 'done', 'summary')
+                  useCopilotThread.getState().say('bot', `Layout changed in the Summary: ${shellLabel(shell)}`, { note: true })
+                })
+              }
             />
           </Section>
-          <Section title="Holdout" hint="Share that sees no treatment">
+          {!V8 && <Section title="Holdout" hint="Share that sees no treatment">
             <NumberField
               label="Holdout %"
               value={file.holdout}
@@ -765,7 +782,7 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
                 )
               }
             />
-          </Section>
+          </Section>}
           <Section title="Brand" hint="Look of the subscriber UI">
             <TextField
               label="Merchant"

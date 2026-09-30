@@ -1,21 +1,82 @@
 import { create } from 'zustand'
 import type { PlanBeat } from '../orchestration/JourneyPlan'
+import type { DeviceKind } from '../store/useExperience'
 
-/** `targeting` and `plan` are v7 only. */
-export type PaneTab = 'editor' | 'canvas' | 'targeting' | 'preview' | 'plan'
+/** `targeting` is v7 only. `plan` shows as Summary in v8. `tasks` is v8 only. */
+export type PaneTab = 'editor' | 'canvas' | 'targeting' | 'preview' | 'plan' | 'tasks'
 
-/** The right-pane tabs one experience keeps open (tabs layout). At most one of each. */
+/** What a tab remembers on its own, so two tabs of one kind can differ. */
+export interface TabState {
+  previewAs?: string
+  device?: DeviceKind
+}
+
+export interface PaneTabRef {
+  id: string
+  kind: PaneTab
+  state?: TabState
+}
+
+/** The right-pane tabs one experience keeps open. v8 can hold more than one of a kind. */
 export interface ThreadTabs {
-  open: PaneTab[]
-  active: PaneTab | null
+  open: PaneTabRef[]
+  active: string | null
 }
 
 export const NO_TABS: ThreadTabs = { open: [], active: null }
 
+let tabN = 0
+export const newTabId = (kind: PaneTab) => `${kind}-${Date.now().toString(36)}-${tabN++}`
+
+export function singleTab(kind: PaneTab): ThreadTabs {
+  const id = newTabId(kind)
+  return { open: [{ id, kind }], active: id }
+}
+
+/** Threads saved before multi-tab kept `open` as a list of kinds. */
+export function normalizeTabs(raw: unknown): ThreadTabs {
+  if (!raw || typeof raw !== 'object') return NO_TABS
+  const t = raw as { open?: unknown[]; active?: unknown }
+  if (!Array.isArray(t.open)) return NO_TABS
+  if (t.open.every((x) => typeof x === 'string')) {
+    const open = (t.open as PaneTab[]).map((kind) => ({ id: kind, kind }))
+    return { open, active: typeof t.active === 'string' && open.some((o) => o.id === t.active) ? t.active : (open[0]?.id ?? null) }
+  }
+  const open = (t.open as PaneTabRef[]).filter((x) => x && typeof x.id === 'string' && typeof x.kind === 'string')
+  const active = typeof t.active === 'string' && open.some((o) => o.id === t.active) ? t.active : (open[0]?.id ?? null)
+  return { open, active }
+}
+
+export function activeRef(tabs: ThreadTabs): PaneTabRef | null {
+  return tabs.open.find((t) => t.id === tabs.active) ?? null
+}
+
+export function activeKind(tabs: ThreadTabs): PaneTab | null {
+  return activeRef(tabs)?.kind ?? null
+}
+
 export type Objective = 'acquisition' | 'expansion' | 'retention'
 
-/** v7: the experience being built, the Experiences page, or a read-only play from it. */
-export type StudioPage = 'thread' | 'index'
+/**
+ * The experience being built, the Experiences page, or a read-only play from it.
+ * v8 adds a play's own workspace, play order and testing, and the retention library.
+ */
+export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library'
+
+export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations' | 'dictionary'
+
+/** v8 play tabs: the canvas of every variant, the play summary, and its task list. */
+export type PlayTab = 'canvas' | 'summary' | 'tasks'
+
+export interface PlayTabRef {
+  id: string
+  kind: PlayTab
+}
+
+export interface PlayTabs {
+  open: PlayTabRef[]
+  active: string | null
+}
 
 interface WorkspaceUi {
   sidebarOpen: boolean
@@ -25,6 +86,8 @@ interface WorkspaceUi {
   tabs: ThreadTabs
   /** Bumped to ask the chat to walk one plan step. */
   beatAsk: { beat: PlanBeat; n: number } | null
+  /** Bumped to ask the chat to open one setup item. */
+  setupAsk: { item: string; targetId: string; n: number } | null
   page: StudioPage
   indexTab: Objective
   /** Acquisition or expansion play opened read-only from the Experiences page. */
@@ -32,17 +95,28 @@ interface WorkspaceUi {
   searchOpen: boolean
   /** Preview tab: a sample subscriber id, a branch id, or '' for the variant being edited. */
   previewAs: string
+  /** v8: the play the merchant came in through. An experience opened from a play keeps it. */
+  playId: string | null
+  playTabs: Record<string, PlayTabs>
+  libraryKind: LibraryKind
+  /** Bumped by the Create menu to open the library's new-item form. */
+  libraryNew: number
+  /** Row whose name is being edited in place in the side pane. */
+  renaming: string | null
   setSidebarOpen: (open: boolean) => void
   setSearch: (search: string) => void
   setPaneHidden: (hidden: boolean) => void
   setTabs: (tabs: ThreadTabs) => void
   askBeat: (beat: PlanBeat) => void
   askBrand: () => void
+  askSetup: (item: string, targetId: string) => void
   setPage: (page: StudioPage) => void
   setIndexTab: (tab: Objective) => void
   setReadOnlyId: (id: string | null) => void
   setSearchOpen: (open: boolean) => void
   setPreviewAs: (id: string) => void
+  setPlayTabs: (playId: string, tabs: PlayTabs) => void
+  setRenaming: (id: string | null) => void
 }
 
 export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
@@ -51,20 +125,29 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   paneHidden: false,
   tabs: NO_TABS,
   beatAsk: null,
+  setupAsk: null,
   page: 'thread',
   indexTab: 'retention',
   readOnlyId: null,
   searchOpen: false,
   previewAs: '',
+  playId: null,
+  playTabs: {},
+  libraryKind: 'offers',
+  libraryNew: 0,
+  renaming: null,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSearch: (search) => set({ search }),
   setPaneHidden: (paneHidden) => set({ paneHidden }),
   setTabs: (tabs) => set({ tabs }),
   askBeat: (beat) => set((s) => ({ beatAsk: { beat, n: (s.beatAsk?.n ?? 0) + 1 } })),
   askBrand: () => set((s) => ({ beatAsk: { beat: 'brand', n: (s.beatAsk?.n ?? 0) + 1 } })),
+  askSetup: (item, targetId) => set((s) => ({ setupAsk: { item, targetId, n: (s.setupAsk?.n ?? 0) + 1 } })),
   setPage: (page) => set(page === 'thread' ? { page, readOnlyId: null } : { page }),
   setIndexTab: (indexTab) => set({ indexTab, readOnlyId: null }),
   setReadOnlyId: (readOnlyId) => set({ readOnlyId }),
   setSearchOpen: (searchOpen) => set({ searchOpen }),
   setPreviewAs: (previewAs) => set({ previewAs }),
+  setPlayTabs: (playId, tabs) => set((s) => ({ playTabs: { ...s.playTabs, [playId]: tabs } })),
+  setRenaming: (renaming) => set({ renaming }),
 }))
