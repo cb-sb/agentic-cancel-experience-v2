@@ -24,7 +24,7 @@ import { BackButton, backToExperiences } from '../shell/BackButton'
 
 export const TAB_LABEL: Record<PaneTab, string> = {
   editor: 'Editor',
-  canvas: V8 ? 'Steps map' : 'Canvas',
+  canvas: 'Canvas',
   targeting: 'Targeting',
   preview: 'Preview',
   plan: V8 ? 'Summary' : 'Plan',
