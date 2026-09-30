@@ -1,7 +1,11 @@
 import { create } from 'zustand'
-import { V8 } from '../layout/layoutMode'
+import { CONCIERGE, V8 } from '../layout/layoutMode'
 
-const KEY = V8 ? 'cancel-experience:cancel-settings:v8' : 'cancel-experience:cancel-settings:v7'
+const KEY = V8
+  ? 'cancel-experience:cancel-settings:v8'
+  : CONCIERGE
+    ? 'cancel-experience:cancel-settings:concierge'
+    : 'cancel-experience:cancel-settings:v7'
 
 /**
  * Settings Chargebee keeps once for every Cancel Page play. Cancel page plays

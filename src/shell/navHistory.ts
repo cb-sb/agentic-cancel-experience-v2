@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useOrchestration } from '../store/useOrchestration'
 import { useUpload } from '../upload/useUpload'
+import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
 import { V8 } from '../layout/layoutMode'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { switchThread, useWorkspace } from '../workspace/useWorkspace'
@@ -16,6 +17,8 @@ interface Place {
   templates: boolean
   upload?: boolean
   readOnlyId: string | null
+  /** Concierge: the open in-app offer or pricing table experience. */
+  growthId?: string | null
 }
 
 interface EntryState {
@@ -35,6 +38,7 @@ function currentPlace(): Place {
     templates: useOrchestration.getState().templatesOpen,
     upload: uploadPageOpen(),
     readOnlyId: ui.readOnlyId,
+    growthId: useGrowthExperiences.getState().activeId,
   }
 }
 
@@ -44,7 +48,7 @@ function uploadPageOpen(): boolean {
 }
 
 function keyOf(p: Place): string {
-  return [p.route, p.page, p.threadId, p.templates ? 1 : 0, p.upload ? 1 : 0, p.readOnlyId ?? ''].join('|')
+  return [p.route, p.page, p.threadId, p.templates ? 1 : 0, p.upload ? 1 : 0, p.readOnlyId ?? '', p.growthId ?? ''].join('|')
 }
 
 function urlFor(route: NavLeafId): string {
@@ -82,6 +86,7 @@ function schedule() {
 }
 
 function apply(place: Place) {
+  if (place.growthId !== undefined) useGrowthExperiences.getState().open(place.growthId)
   useGrowthShell.getState().go(place.route)
   const ws = useWorkspace.getState()
   if (place.threadId !== ws.activeId && ws.threads.some((t) => t.id === place.threadId)) {
@@ -124,6 +129,7 @@ export function startNavHistory() {
   useWorkspace.subscribe(schedule)
   useOrchestration.subscribe(schedule)
   useUpload.subscribe(schedule)
+  useGrowthExperiences.subscribe(schedule)
   window.addEventListener('popstate', onPopState)
 }
 

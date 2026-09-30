@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { CONCIERGE } from '../layout/layoutMode'
 import {
   CANCEL_ROUTE,
   DEFAULT_ROUTE,
@@ -8,7 +9,7 @@ import {
 } from './nav'
 
 function isExperience(route: NavLeafId) {
-  return route === CANCEL_ROUTE
+  return route === CANCEL_ROUTE || route === 'experiences.offer'
 }
 
 interface GrowthShellState {
@@ -26,7 +27,8 @@ interface GrowthShellState {
 const COLLAPSED_GROUPS: Record<NavGroupId, boolean> = {
   plays: false,
   offers: false,
-  experiences: false,
+  experiences: CONCIERGE,
+  library: CONCIERGE,
   people: false,
   reports: false,
 }

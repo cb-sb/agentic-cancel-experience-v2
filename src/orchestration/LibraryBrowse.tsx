@@ -9,7 +9,7 @@ import {
 import { useJourney } from '../store/useJourney'
 import { SectionLabel } from './CopilotHomeSetup'
 import { TemplateOutlineStrip, TemplatePreviewStrip, TemplateScreens } from './TemplatePreviewStrip'
-import { V8 } from '../layout/layoutMode'
+import { LOWFI_LIBRARY } from '../layout/layoutMode'
 import { BackButton } from '../shell/BackButton'
 
 type Filter = 'all' | LibraryKind
@@ -308,7 +308,7 @@ export function LibraryBrowse({
       : null
 
   if (pending) {
-    return V8 ? (
+    return LOWFI_LIBRARY ? (
       <div className={compact ? '' : 'px-6 py-5'}>
         <TemplateConfirmV8
           entry={pending.entry}
@@ -327,7 +327,7 @@ export function LibraryBrowse({
   }
 
   const card = (entry: LibraryEntry) =>
-    V8 ? (
+    LOWFI_LIBRARY ? (
       <LibraryCardV8 key={entry.id} entry={entry} onPick={(focus) => setPending({ entry, focus })} />
     ) : (
       <LibraryCard key={entry.id} entry={entry} onPick={() => setPending({ entry, focus: 0 })} />

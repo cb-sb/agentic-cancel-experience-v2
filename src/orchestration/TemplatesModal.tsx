@@ -3,7 +3,7 @@ import { SIcon } from '@chargebee/sting-react'
 import type { JourneyKind } from '../journey/types'
 import { LibraryBrowse } from './LibraryBrowse'
 import { YoursBrowse } from './YoursBrowse'
-import { V8 } from '../layout/layoutMode'
+import { LOWFI_LIBRARY, V8 } from '../layout/layoutMode'
 import { BackButton } from '../shell/BackButton'
 import { goBack } from '../shell/navHistory'
 import { useOrchestration } from '../store/useOrchestration'
@@ -40,7 +40,7 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (page && V8) goBack(closeTemplates)
+      if (page && LOWFI_LIBRARY) goBack(closeTemplates)
       else closeTemplates()
     }
     window.addEventListener('keydown', onKey)
@@ -53,7 +53,7 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
     chooseDoor('upload')
   }
 
-  if (page && V8) return <GrowthLibraryPage onUpload={startNew} />
+  if (page && LOWFI_LIBRARY) return <GrowthLibraryPage onUpload={startNew} />
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
@@ -117,7 +117,7 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <LibraryBrowse onApply={(id) => (V8 ? startFromLibrary(id) : applyLibraryTemplate(id))} />
+          <LibraryBrowse onApply={(id) => (LOWFI_LIBRARY ? startFromLibrary(id) : applyLibraryTemplate(id))} />
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { STUDIO, TABBED, V8 } from '../layout/layoutMode'
+import { CONCIERGE, STUDIO, TABBED, V8 } from '../layout/layoutMode'
 import { LIBRARY, startFromTemplate, withLive } from '../journey/templates'
 import {
   DEFAULT_JOURNEY_BRAND,
@@ -22,7 +22,9 @@ import { NO_TABS, useWorkspaceUi, type ThreadTabs } from './useWorkspaceUi'
 /** Separate from the V5 draft key, so the two never overwrite each other. V7 and V8 tabs differ, so each keeps its own. */
 const KEY = V8
   ? 'cancel-experience:workspace:v8'
-  : STUDIO
+  : CONCIERGE
+    ? 'cancel-experience:workspace:concierge'
+    : STUDIO
     ? 'cancel-experience:workspace:v7'
     : 'cancel-experience:workspace:v1'
 
@@ -50,6 +52,8 @@ export interface ChatThread {
 export interface ExperienceThread {
   id: string
   title: string
+  /** A name the merchant or Copilot gave it. Wins over the template's title. */
+  named?: string
   updatedAt: number
   /** Seeded from a Chargebee template so the list isn't empty on first visit. */
   sample?: boolean
@@ -111,7 +115,7 @@ export function chatTitle(lines: CopilotLine[]): string {
 }
 
 function isBlank(t: ExperienceThread): boolean {
-  if (t.seed) return false
+  if (t.seed || t.named) return false
   if (!t.snapshot) return true
   return t.snapshot.journey.steps.length === 0 && chatsOf(t).every((c) => c.chat.lines.length === 0)
 }
@@ -185,7 +189,7 @@ function storeActive(draft?: Draft) {
   patchThread(activeId, {
     snapshot,
     seed: undefined,
-    title: titleFor(snapshot.journey),
+    title: thread.named ?? titleFor(snapshot.journey),
     ...storeChat(thread, snapshot.chat),
     ...(touched ? { updatedAt: Date.now(), sample: false } : {}),
   })
@@ -331,6 +335,11 @@ function openThreadNow(id: string) {
   resetHistoryBaseline()
 }
 
+export function nameThread(id: string, name: string) {
+  patchThread(id, { named: name, title: name, updatedAt: Date.now() })
+  persist()
+}
+
 export function switchThread(id: string) {
   const { activeId } = useWorkspace.getState()
   if (id === activeId) return
@@ -340,8 +349,9 @@ export function switchThread(id: string) {
   persist()
 }
 
-export function newThread() {
-  if (isEmptyNow()) {
+/** `force` skips reusing the open page when it is empty, for callers that name the new one. */
+export function newThread(opts: { force?: boolean } = {}) {
+  if (!opts.force && isEmptyNow()) {
     useWorkspaceUi.setState({ search: '' })
     return
   }
@@ -408,8 +418,8 @@ function watchActiveThread() {
     if (s.file === last) return
     last = s.file
     const { activeId, threads, brand } = useWorkspace.getState()
-    const title = titleFor(s.file)
     const thread = threads.find((t) => t.id === activeId)
+    const title = thread?.named ?? titleFor(s.file)
     if (thread && thread.title !== title) patchThread(activeId, { title })
     if (s.file.brand.matched && s.file.brand !== brand) useWorkspace.setState({ brand: s.file.brand })
   })

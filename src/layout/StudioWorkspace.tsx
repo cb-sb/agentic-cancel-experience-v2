@@ -8,7 +8,9 @@ import { useCopilotStage } from '../orchestration/copilotStage'
 import { DoorsBackdrop } from '../orchestration/OrchestrationCanvas'
 import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { LibraryPanel } from '../orchestration/TemplatesModal'
-import { V8 } from './layoutMode'
+import { CONCIERGE, V8 } from './layoutMode'
+import { CancelAgentDock, CancelChatsPane, useCancelChatStarted } from '../concierge/CancelWorkspace'
+import { ExperienceList } from '../concierge/ExperienceList'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 import { UploadFlow } from '../upload/UploadFlow'
 import { UploadPage } from '../upload/UploadPage'
@@ -26,6 +28,7 @@ function ThreadView() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const paneShown = usePaneShown()
   const uploadPage = useUpload((s) => V8 && s.phase !== 'closed' && !s.mappingOnly)
+  const chatStarted = useCancelChatStarted()
 
   if (uploadPage) {
     return (
@@ -43,7 +46,7 @@ function ThreadView() {
     )
   }
 
-  if (stage === 'doors') {
+  if (stage === 'doors' && !(CONCIERGE && chatStarted)) {
     return (
       <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-100">
         <DoorsBackdrop />
@@ -66,7 +69,11 @@ function ThreadView() {
         }`}
       >
         <div className="flex h-full min-h-0">
-          <PromptCodeDock centered railRight={V8 && paneShown} />
+          {CONCIERGE ? (
+            <CancelAgentDock centered={!paneShown} />
+          ) : (
+            <PromptCodeDock centered railRight={V8 && paneShown} />
+          )}
         </div>
         {!paneShown && <ReopenPane />}
       </div>
@@ -114,11 +121,11 @@ export function StudioWorkspace() {
         transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
       }}
     >
-      <ExperiencesPane />
+      {CONCIERGE ? <CancelChatsPane /> : <ExperiencesPane />}
       <div className="flex min-h-0 min-w-0">
         {page === 'index' ? (
           <div className="min-w-0 flex-1">
-            <ExperiencesIndex />
+            {CONCIERGE ? <ExperienceList objective="retention" /> : <ExperiencesIndex />}
           </div>
         ) : (
           <ThreadView />

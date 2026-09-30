@@ -5,6 +5,11 @@ import { BackButton, backToHome } from './BackButton'
 import { labelOf, type NavLeafId } from './nav'
 import { TemplatePages } from '../upload/TemplatePages'
 import { UploadFlow } from '../upload/UploadFlow'
+import { CONCIERGE } from '../layout/layoutMode'
+import { ExperienceList } from '../concierge/ExperienceList'
+import { GrowthWorkspace } from '../concierge/GrowthWorkspace'
+import { ConciergeHome } from '../concierge/Home'
+import { ComponentsPage, OffersPage, PricingTablesPage, TemplatesPage } from '../concierge/LibraryPages'
 
 function Placeholder({ route }: { route: NavLeafId }) {
   const title = labelOf(route)
@@ -18,15 +23,44 @@ function Placeholder({ route }: { route: NavLeafId }) {
         <SIcon name="layers" size={28} className="text-slate-300" />
         <p className="text-[14px] font-medium text-slate-700">{title}</p>
         <p className="max-w-sm text-[13px] text-slate-500">
-          This surface is not in the prototype. Open Experiences → Cancel experience to build
-          the cancel journey.
+          {CONCIERGE
+            ? 'This page is not in the prototype. Ask Copilot on Home about it and it will answer with sample data.'
+            : 'This surface is not in the prototype. Open Experiences → Cancel experience to build the cancel journey.'}
         </p>
       </div>
     </div>
   )
 }
 
+function ConciergeRoute({ route }: { route: NavLeafId }) {
+  switch (route) {
+    case 'home':
+      return <ConciergeHome />
+    case 'experiences.acquisition':
+      return <ExperienceList objective="acquisition" />
+    case 'experiences.expansion':
+      return <ExperienceList objective="expansion" />
+    case 'experiences.retention':
+      return <ExperienceList objective="retention" />
+    case 'experiences.offer':
+      return <GrowthWorkspace />
+    case 'library.offers':
+      return <OffersPage />
+    case 'library.pricing_tables':
+      return <PricingTablesPage />
+    case 'library.templates':
+      return <TemplatesPage />
+    case 'library.components':
+      return <ComponentsPage />
+    case 'library.brand':
+      return <BrandingStudio />
+    default:
+      return <Placeholder route={route} />
+  }
+}
+
 export function GrowthHome({ route }: { route: NavLeafId }) {
+  if (CONCIERGE) return <ConciergeRoute route={route} />
   if (route === 'plays.acquisition') return <AcquisitionPlays />
   if (route === 'experiences.branding') return <BrandingStudio />
   if (route === 'experiences.pages') {

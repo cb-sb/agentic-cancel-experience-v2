@@ -1,5 +1,5 @@
 import { landUploadedPlan } from '../orchestration/copilotThread'
-import { V8 } from '../layout/layoutMode'
+import { CONCIERGE, V8 } from '../layout/layoutMode'
 import { useCopilotStage } from '../orchestration/copilotStage'
 import { ConfirmManifest } from './ConfirmManifest'
 import { UploadTemplate } from './UploadTemplate'
@@ -11,7 +11,7 @@ export function UploadFlow() {
   const mappingOnly = useUpload((s) => s.mappingOnly)
   const stage = useCopilotStage()
   if (phase === 'closed' || stage === 'center') return null
-  if (V8 && !mappingOnly) return null
+  if ((V8 || CONCIERGE) && !mappingOnly) return null
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-6">
