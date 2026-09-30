@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { V8 } from '../layout/layoutMode'
 import { SButton, SIcon } from '@chargebee/sting-react'
 import { useJourney } from '../store/useJourney'
 import { useExperience } from '../store/useExperience'
@@ -669,7 +670,9 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
         <p className="max-w-[260px] text-[13px] leading-relaxed text-slate-400">
           {page
             ? 'No flow yet. Start from a template or upload your pages, and the plan shows up here.'
-            : 'No flow yet. Ask Copilot to start a cancel or acquisition journey — then edit every component here.'}
+            : V8
+              ? 'No flow yet. Ask Copilot to start a cancel experience, then edit every component here.'
+              : 'No flow yet. Ask Copilot to start a cancel or acquisition journey — then edit every component here.'}
         </p>
       </div>
     )

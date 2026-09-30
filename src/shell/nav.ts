@@ -1,4 +1,5 @@
 import type { SIconName } from '@chargebee/sting-react'
+import { V8 } from '../layout/layoutMode'
 
 export type NavLeafId =
   | 'plays.acquisition'
@@ -41,7 +42,7 @@ export type NavEntry =
   | { kind: 'group'; group: NavGroup }
   | { kind: 'leaf'; leaf: NavLeaf }
 
-export const NAV: NavEntry[] = [
+const ALL_NAV: NavEntry[] = [
   {
     kind: 'group',
     group: {
@@ -114,7 +115,16 @@ export const NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'settings', label: 'Settings', icon: 'settings' } },
 ]
 
-export const DEFAULT_ROUTE: NavLeafId = 'plays.acquisition'
+/** v8 covers cancel experiences only, so acquisition, expansion and their offers are left out. */
+const NOT_IN_V8 = new Set<string>(['plays.acquisition', 'plays.expansion', 'offers'])
+
+export const NAV: NavEntry[] = V8
+  ? ALL_NAV.filter((e) => !(e.kind === 'group' && NOT_IN_V8.has(e.group.id))).map((e) =>
+      e.kind === 'group' ? { ...e, group: { ...e.group, children: e.group.children.filter((c) => !NOT_IN_V8.has(c.id)) } } : e,
+    )
+  : ALL_NAV
+
+export const DEFAULT_ROUTE: NavLeafId = V8 ? 'experiences.cancel' : 'plays.acquisition'
 export const CANCEL_ROUTE: NavLeafId = 'experiences.cancel'
 
 export function groupOf(id: NavLeafId): NavGroupId | null {

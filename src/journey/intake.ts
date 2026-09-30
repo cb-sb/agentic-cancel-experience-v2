@@ -1,3 +1,4 @@
+import { V8 } from '../layout/layoutMode'
 import { applyOffers, hasPlanChangeBlocks, insertPlanChangeBlocks, startFromTemplate, templateForCount, templateLabel, withLive } from './templates'
 import type {
   AudienceKey,
@@ -88,6 +89,7 @@ function wantsPlanPicker(t: string): boolean {
 function readKind(t: string, current: JourneyFile): JourneyKind | null {
   const acquire = wantsAcquire(t)
   const cancel = wantsCancel(t)
+  if (V8) return acquire || cancel || wantsPlanPicker(t) ? 'cancel' : null
   if (cancel && !acquire) return 'cancel'
   if (acquire && !cancel) return 'acquisition'
   if (cancel && acquire) return 'cancel'

@@ -46,7 +46,7 @@ export function YoursBrowse({
   onDone,
   onUpload,
   compact,
-  kind,
+  kind: kindProp,
   query = '',
 }: {
   onApplyJourney: (id: string) => void
@@ -58,6 +58,7 @@ export function YoursBrowse({
   kind?: JourneyKind
   query?: string
 }) {
+  const kind = kindProp ?? (V8 ? 'cancel' : undefined)
   const allTemplates = useMerchantLibrary((s) => s.templates)
   const allComponents = useMerchantLibrary((s) => s.components)
   const allOffers = useMerchantLibrary((s) => s.offers)

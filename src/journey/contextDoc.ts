@@ -1,3 +1,4 @@
+import { V8 } from '../layout/layoutMode'
 import { patchBrandShortcuts } from '../brand/theme'
 import { offerVariantLabel } from '../lib/offerVariants'
 import type { ShellLayout } from '../types/experience'
@@ -87,7 +88,9 @@ export function renderContext(file: JourneyFile): string {
     return [
       file.name || 'Untitled journey',
       '',
-      'No flow yet. Ask Copilot to start a cancel or acquisition journey, or describe it here.',
+      V8
+        ? 'No flow yet. Ask Copilot to start a cancel experience, or describe it here.'
+        : 'No flow yet. Ask Copilot to start a cancel or acquisition journey, or describe it here.',
     ].join('\n')
   }
 
@@ -186,16 +189,17 @@ function parseOffers(raw: string): OfferKey[] {
 function parseTemplate(text: string, current: JourneyFile): JourneyTemplate | null {
   const t = text.toLowerCase()
   const pricingAndCheckout = /\bpric(?:e|ing)\b/.test(t) && /\bcheckout\b/.test(t)
-  const acquire = /\bacquisition|\bacquire subscribers\b|\bnew subscriber/.test(t)
+  const acquire = !V8 && /\bacquisition|\bacquire subscribers\b|\bnew subscriber/.test(t)
   const cancel = /\bcancel|\bchurn|\bretention|\bplan change to save/.test(t)
 
   if (pricingAndCheckout && (current.kind === 'cancel' || cancel) && !acquire) {
     return 'cancel_plan_change'
   }
-  if (pricingAndCheckout && current.template === 'none' && !cancel) return 'acquire_2'
+  if (pricingAndCheckout && current.template === 'none' && !cancel) return V8 ? 'cancel_plan_change' : 'acquire_2'
   if (acquire && current.kind !== 'cancel') return 'acquire_2'
 
   for (const entry of LIBRARY) {
+    if (V8 && entry.kind !== 'cancel') continue
     if (
       t.includes(templateLabel(entry.id).toLowerCase()) ||
       t.includes(entry.posture.toLowerCase()) ||
@@ -212,7 +216,7 @@ function parseTemplate(text: string, current: JourneyFile): JourneyTemplate | nu
 
   const digits = t.match(/\b([1-5])[ -]?step/)
   if (digits) {
-    if (current.kind === 'acquisition' || (acquire && !cancel)) return 'acquire_2'
+    if (!V8 && (current.kind === 'acquisition' || (acquire && !cancel))) return 'acquire_2'
     if (pricingAndCheckout || (current.kind === 'cancel' && /\bpricing|\bcheckout\b/.test(t))) {
       return 'cancel_plan_change'
     }

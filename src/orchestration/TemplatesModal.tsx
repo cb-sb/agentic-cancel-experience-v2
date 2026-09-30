@@ -124,24 +124,15 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
   )
 }
 
-type GrowthArea = 'acquisition' | 'expansion' | 'retention'
-
-const GROWTH_AREAS: { id: GrowthArea; label: string; kind: JourneyKind | null }[] = [
-  { id: 'acquisition', label: 'Acquisition', kind: 'acquisition' },
-  { id: 'expansion', label: 'Expansion', kind: null },
-  { id: 'retention', label: 'Retention', kind: 'cancel' },
-]
-
-/** v8: growth area tabs on top, Templates and Saved components under each. */
+/** v8: cancel templates and saved components, with one search. */
 function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
   const applyMerchantComponents = useOrchestration((s) => s.applyMerchantComponents)
   const finishMerchantComponents = useOrchestration((s) => s.finishMerchantComponents)
   const libraryTab = useOrchestration((s) => s.libraryTab)
   const setLibraryTab = useOrchestration((s) => s.setLibraryTab)
-  const [area, setArea] = useState<GrowthArea>('retention')
   const [query, setQuery] = useState('')
-  const kind = GROWTH_AREAS.find((a) => a.id === area)?.kind ?? null
+  const kind: JourneyKind = 'cancel'
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
@@ -153,22 +144,9 @@ function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
         </div>
       </div>
       <div className="flex flex-none items-center justify-between gap-[16px] border-b border-slate-200 px-[20px]">
-        <div role="tablist" aria-label="Growth area" className="flex gap-[20px]">
-          {GROWTH_AREAS.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              role="tab"
-              aria-selected={area === a.id}
-              onClick={() => setArea(a.id)}
-              className={`-mb-px border-b-2 py-[12px] text-[13px] font-semibold ${
-                area === a.id
-                  ? 'border-indigo-600 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {a.label}
-            </button>
+        <div className="flex gap-[6px] py-[10px]">
+          {(['ours', 'yours'] as const).map((id) => (
+            <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
           ))}
         </div>
         <div className="flex w-[240px] flex-none items-center gap-[8px] rounded-lg border border-slate-200 bg-slate-50/80 px-[10px] py-[6px]">
@@ -182,21 +160,7 @@ function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
           />
         </div>
       </div>
-      <div className="flex flex-none gap-[6px] border-b border-slate-100 px-[20px] py-[10px]">
-        {(['ours', 'yours'] as const).map((id) => (
-          <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
-        ))}
-      </div>
-      {kind === null ? (
-        <div className="px-6 py-10">
-          <p className="text-[14px] font-semibold text-slate-800">
-            {libraryTab === 'yours' ? 'Nothing saved for expansion yet' : 'No expansion templates yet'}
-          </p>
-          <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">
-            Upgrade and add-on experiences will show here.
-          </p>
-        </div>
-      ) : libraryTab === 'yours' ? (
+      {libraryTab === 'yours' ? (
         <YoursBrowse
           kind={kind}
           query={query}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { SButton, SIcon } from '@chargebee/sting-react'
 import type { JourneyFile } from '../journey/types'
+import { V8 } from './layoutMode'
 import { audienceLabel, useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { BackButton, backToHome } from '../shell/BackButton'
@@ -87,7 +88,8 @@ function threadSubtitle(t: ExperienceThread, file: JourneyFile | undefined): str
 
 /** Every experience across the three objectives. Cancel pages open as threads; the rest open read-only. */
 export function ExperiencesIndex() {
-  const tab = useWorkspaceUi((s) => s.indexTab)
+  const storedTab = useWorkspaceUi((s) => s.indexTab)
+  const tab: Objective = V8 ? 'retention' : storedTab
   const setTab = useWorkspaceUi((s) => s.setIndexTab)
   const setPage = useWorkspaceUi((s) => s.setPage)
   const readOnlyId = useWorkspaceUi((s) => s.readOnlyId)
@@ -155,6 +157,7 @@ export function ExperiencesIndex() {
           )}
         </div>
 
+        {!V8 && (
         <div role="tablist" aria-label="Objective" className="mt-[20px] flex gap-[4px] border-b border-slate-200">
           {TABS.map((t) => (
             <button
@@ -171,6 +174,7 @@ export function ExperiencesIndex() {
             </button>
           ))}
         </div>
+        )}
 
         <div className="mt-[20px] flex h-[40px] items-center gap-[10px] rounded-xl border border-slate-200 px-[12px] focus-within:border-slate-400">
           <SIcon name="search" size={16} className="flex-none text-slate-400" />

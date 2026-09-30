@@ -1,4 +1,5 @@
 import { CONTRACT_VERSION, GROWTH_SLOT_SCHEMA, KIND_REQUIREMENTS, CB_KINDS } from './contract'
+import { V8 } from '../layout/layoutMode'
 import { uid } from '../lib/id'
 import { hashFiles } from './hash'
 import { writeZip } from './pack'
@@ -60,7 +61,7 @@ Contract version: ${CONTRACT_VERSION}
 ## What to do
 
 1. Paste this pack (or the clipboard prompt) into your own LLM.
-2. Tell it the job: one-click leave, fair save, acquire, or a custom subset.
+2. Tell it the job: ${V8 ? 'one-click leave, fair save' : 'one-click leave, fair save, acquire'}, or a custom subset.
 3. It should export **only the primitives you chose**, in order, with \`data-cb-action\` and \`data-cb-next\` on composed pages.
 4. Strip \`data-cb-kit="catalog"\` from the composed HTML. That mark means “not an experience.”
 5. Upload the composed HTML or zip in Chargebee Growth. Unmarked HTML is rejected.
@@ -79,8 +80,7 @@ Chargebee does not open ChatGPT or Claude for you.
 
 - Confirm only — one-click leave: \`confirmation\`
 - Fair save: \`loss_aversion\` → \`survey\` → \`offer\` → \`confirmation\`
-- Acquire: \`pricing_table\` → \`checkout\`
-- Outcomes are optional slices after confirm: \`outcome_saved\`, \`outcome_cancelled\`
+${V8 ? '' : '- Acquire: \`pricing_table\` → \`checkout\`\n'}- Outcomes are optional slices after confirm: \`outcome_saved\`, \`outcome_cancelled\`
 
 ## Kind requirements
 
@@ -116,8 +116,7 @@ This pack is a generic catalog — not a journey. Do not tell the merchant to up
 First ask the merchant which job this is:
 - one-click leave (confirmation only)
 - fair save (value → survey → offer → confirm)
-- acquire (pricing table → checkout)
-- custom subset of the kinds below
+${V8 ? '' : '- acquire (pricing table → checkout)\n'}- custom subset of the kinds below
 
 Then export only the primitives they chose, in that order. On composed pages:
 - keep every data-cb-* attribute name and value
@@ -137,8 +136,7 @@ ${kinds}
 Optional assembly recipes (examples, not separate products):
 - Confirm only: confirmation
 - Fair save: loss_aversion → survey → offer → confirmation
-- Acquire: pricing_table → checkout
-
+${V8 ? '' : '- Acquire: pricing_table → checkout\n'}
 Contract version: ${CONTRACT_VERSION}`
 }
 

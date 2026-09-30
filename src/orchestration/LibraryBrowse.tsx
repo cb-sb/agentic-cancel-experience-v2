@@ -348,6 +348,7 @@ export function LibraryBrowse({
         </div>
       </div>
       <div className={compact ? '' : 'px-6'}>
+        {!V8 && (
         <STabs
           value={cat}
           onValueChange={(id) => {
@@ -362,6 +363,7 @@ export function LibraryBrowse({
             <STabs.Trigger value="acquisition">Acquire</STabs.Trigger>
           </STabs.List>
         </STabs>
+        )}
       </div>
       </>
       )}
