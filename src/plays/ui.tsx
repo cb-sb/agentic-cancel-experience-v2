@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
-import { SIcon, type SIconName } from '@chargebee/sting-react'
+import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 
 export interface MenuItem {
   label: string
@@ -105,7 +105,8 @@ export function RowMenu({
   label: string
   className?: string
   icon?: SIconName
-  align?: 'left' | 'right'
+  /** `beside` opens to the right of the button, outside a narrow pane. */
+  align?: 'left' | 'right' | 'beside'
   width?: number
 }) {
   const [open, setOpen] = useState(false)
@@ -130,9 +131,35 @@ export function RowMenu({
         <div
           role="menu"
           style={{ width }}
-          className={`absolute top-full z-50 mt-[4px] rounded-xl border border-slate-200 bg-white p-[4px] shadow-[0_12px_40px_rgba(15,23,42,0.16)] ${
-            align === 'right' ? 'right-0' : 'left-0'
+          className={`absolute z-50 rounded-xl border border-slate-200 bg-white p-[4px] shadow-[0_12px_40px_rgba(15,23,42,0.16)] ${
+            align === 'beside' ? 'left-full top-0 ml-[8px]' : `top-full mt-[4px] ${align === 'right' ? 'right-0' : 'left-0'}`
           }`}
+        >
+          <MenuList items={items} close={() => setOpen(false)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A primary button that opens a list below it, lined up with its right edge. */
+export function DropdownButton({ label, items, width = 270 }: { label: string; items: MenuItem[]; width?: number }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useOutside(open, ref, () => setOpen(false))
+  return (
+    <div ref={ref} className="relative flex-none">
+      <SButton size="small" variant="primary" className="w-auto" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <span className="inline-flex items-center gap-[6px]">
+          {label}
+          <SIcon name="chevron-down" size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </SButton>
+      {open && (
+        <div
+          role="menu"
+          style={{ width }}
+          className="absolute right-0 top-full z-50 mt-[6px] rounded-xl border border-slate-200 bg-white p-[4px] text-left shadow-[0_12px_40px_rgba(15,23,42,0.16)]"
         >
           <MenuList items={items} close={() => setOpen(false)} />
         </div>

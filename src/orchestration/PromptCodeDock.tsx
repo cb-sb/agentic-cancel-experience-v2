@@ -50,6 +50,7 @@ import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage
 import { contextPlayId, openPlayTab } from '../plays/navigate'
 import { playsUsing, usePlays } from '../plays/usePlays'
 import { showMe } from '../setup/actions'
+import { experienceChecks } from '../setup/checks'
 import { experienceChatRows, finalCheck, finalCheckText, leftCount, nextRow, promptFor } from '../setup/chatSetup'
 import { experienceRows, readSetupInputs, useSetupInputs, workspaceRows, type TaskRow } from '../setup/progress'
 import { entryById } from '../setup/registry'
@@ -493,7 +494,8 @@ export function PromptCodeDock({
   const askRow = (row: TaskRow, quiet = false) => {
     let target = row
     if (row.entry.id === 'publish') {
-      const check = finalCheck(experienceRows(activeId, readSetupInputs()))
+      const inputs = readSetupInputs()
+      const check = finalCheck(experienceRows(activeId, inputs), experienceChecks(activeId, inputs))
       say('bot', finalCheckText(check, 'publish'))
       quiet = true
       if (check.blockers.length > 0) target = check.blockers[0]
@@ -519,13 +521,14 @@ export function PromptCodeDock({
       'bot',
       play
         ? `That’s everything for this experience. ${play.name} has a few settings of its own, like who it’s for and how traffic is split.`
-        : 'That’s everything for this experience. Anything you skipped is waiting in the Task list.',
+        : 'That’s everything for this experience. The Task list has every setting as it stands.',
     )
   }
 
   const advanceSetup = (afterId: string) => {
     if (publishAfter.current === activeId) {
-      const blockers = finalCheck(experienceRows(activeId, readSetupInputs())).blockers.filter((r) => r.entry.id !== afterId)
+      const inputs = readSetupInputs()
+      const blockers = finalCheck(experienceRows(activeId, inputs), experienceChecks(activeId, inputs)).blockers.filter((r) => r.entry.id !== afterId)
       const publish = allRows(activeId).find((r) => r.entry.id === 'publish')
       if (publish && publish.status !== 'done') {
         if (blockers.length > 0) return askRow(blockers[0])

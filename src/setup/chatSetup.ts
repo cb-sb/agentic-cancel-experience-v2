@@ -1,4 +1,5 @@
-import { experienceRows, playRows, summarize, workspaceRows, type SetupInputs, type TaskRow } from './progress'
+import { failing, type CheckResult } from './checks'
+import { experienceRows, playRows, workspaceRows, type SetupInputs, type TaskRow } from './progress'
 
 /** What Copilot asks for each setting. Plain, one or two sentences. */
 export const CHAT_PROMPT: Record<string, string> = {
@@ -65,33 +66,23 @@ export function leftCount(rows: TaskRow[]): number {
 }
 
 export interface FinalCheck {
+  /** Rows to walk, one per failing launch check. */
   blockers: TaskRow[]
-  skipped: TaskRow[]
-  open: TaskRow[]
+  failing: CheckResult[]
 }
 
-/** Before the publish or go-live card: what's still required, what was skipped, and what's recommended but untouched. */
-export function finalCheck(rows: TaskRow[]): FinalCheck {
-  const s = summarize(rows)
-  return {
-    blockers: s.blockers,
-    skipped: rows.filter((r) => r.status === 'skipped'),
-    open: rows.filter((r) => r.status === 'todo' && r.entry.level === 'recommended'),
-  }
+/** Before the publish or go-live card: the launch checks that still fail, and the rows that fix them. */
+export function finalCheck(rows: TaskRow[], checks: CheckResult[]): FinalCheck {
+  const open = failing(checks)
+  const blockers = open.map((c) => rows.find((r) => r.entry.id === c.item)).filter((r): r is TaskRow => Boolean(r))
+  return { blockers: [...new Set(blockers)], failing: open }
 }
 
 export function finalCheckText(check: FinalCheck, gate: 'publish' | 'go live'): string {
-  const list = (rows: TaskRow[]) => rows.map((r) => r.entry.label.toLowerCase()).join(', ')
-  if (check.blockers.length > 0) {
-    return `Before you ${gate}, ${check.blockers.length === 1 ? 'one thing still needs' : `${check.blockers.length} things still need`} you: ${list(check.blockers)}. Let’s do ${check.blockers.length === 1 ? 'it' : 'those'} first.`
+  const n = check.failing.length
+  if (n > 0) {
+    const list = check.failing.map((c) => `${c.fix}.`).join(' ')
+    return `Before you ${gate}, ${n === 1 ? 'one check still fails' : `${n} checks still fail`}. ${list} Let’s fix ${n === 1 ? 'it' : 'those'} first.`
   }
-  const later = [...check.skipped, ...check.open]
-  if (later.length > 0) {
-    const parts = [
-      check.skipped.length > 0 && `You skipped ${list(check.skipped)}.`,
-      check.open.length > 0 && `${check.open.length === 1 ? 'One recommended item is' : 'Some recommended items are'} still open: ${list(check.open)}.`,
-    ].filter(Boolean)
-    return `Everything required is done. ${parts.join(' ')} You can ${gate} now and come back to ${later.length === 1 ? 'it' : 'them'} later.`
-  }
-  return `Everything is set. Last check before you ${gate}.`
+  return `Every check passes. Last look before you ${gate}.`
 }

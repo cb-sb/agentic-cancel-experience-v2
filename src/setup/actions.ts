@@ -3,7 +3,7 @@ import { openTab } from '../workspace/paneTabs'
 import { useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import type { TaskRow } from './progress'
-import { setMark, type DoneBy } from './useSetupState'
+import { entryById } from './registry'
 
 function onExperience(targetId: string) {
   const ui = useWorkspaceUi.getState()
@@ -35,14 +35,12 @@ export function showMe(row: TaskRow) {
   openTab(to)
 }
 
-export function skipForNow(row: TaskRow, by: DoneBy = 'tasks') {
-  setMark(row.targetId, row.entry.id, 'skipped', by)
+/** Opens a setting where it is changed: its chat card when there is one, otherwise the page it lives on. */
+export function openItem(item: string, targetId: string) {
+  const entry = entryById(item)
+  if (!entry) return
+  const row: TaskRow = { entry, targetId, status: 'todo', waitingOn: [] }
+  if (entry.chat) doInChat(row)
+  else showMe(row)
 }
 
-export function notNeeded(row: TaskRow, by: DoneBy = 'tasks') {
-  setMark(row.targetId, row.entry.id, 'na', by)
-}
-
-export function reopen(row: TaskRow) {
-  setMark(row.targetId, row.entry.id, null)
-}

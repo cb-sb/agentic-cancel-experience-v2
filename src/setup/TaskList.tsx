@@ -1,326 +1,206 @@
-import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
-import { openExperience } from '../plays/navigate'
+import type { ReactNode } from 'react'
+import { SButton, SIcon } from '@chargebee/sting-react'
+import { StatusChip } from '../layout/StatusChip'
+import { openExperience, openPlayTab } from '../plays/navigate'
 import { variantLetter } from '../plays/types'
-import { usePlays, usePlaysUsing } from '../plays/usePlays'
-import { useWorkspace } from '../workspace/useWorkspace'
-import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
-import { doInChat, notNeeded, reopen, showMe, skipForNow } from './actions'
-import { experienceRows, playRows, readSetupInputs, summarize, useSetupInputs, workspaceRows, type TaskRow, type TaskSummary } from './progress'
+import { usePlays, usePlaysUsing, useRankedPlays } from '../plays/usePlays'
 import { openTab } from '../workspace/paneTabs'
-import type { Track } from './registry'
-import { ProgressRing } from './TaskProgress'
+import { useWorkspace } from '../workspace/useWorkspace'
+import { doInChat, openItem } from './actions'
+import { experienceChecks, failing, playChecks, type CheckResult } from './checks'
+import { experienceCtx, experienceRows, playRows, useSetupInputs, type SetupInputs } from './progress'
+import { experienceMap, playMap, tryItMap, workspaceMap, type MapRow } from './setupMap'
 
-const STATUS: Record<TaskRow['status'], { icon: SIconName; tone: string; dot: string; label: string }> = {
-  done: { icon: 'circle-check', tone: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Done' },
-  todo: { icon: 'circle', tone: 'text-slate-300', dot: 'bg-slate-300', label: 'Needs you' },
-  skipped: { icon: 'skip-forward', tone: 'text-amber-500', dot: 'bg-amber-400', label: 'Skipped' },
-  na: { icon: 'circle-slash', tone: 'text-slate-400', dot: 'bg-slate-200', label: 'Not needed' },
-  waiting: { icon: 'hourglass', tone: 'text-slate-400', dot: 'bg-slate-200', label: 'Waiting' },
-}
+type Gate = 'publish' | 'go live'
 
-const LEVEL: Record<TaskRow['entry']['level'], string> = {
-  required: 'Required',
-  recommended: 'Recommended',
-  optional: 'Optional',
-}
-
-const TRACK_LABEL: Record<Track, { title: string; icon: SIconName }> = {
-  experience: { title: 'Experience', icon: 'layout-template' },
-  play: { title: 'Play', icon: 'workflow' },
-  launch: { title: 'Launch', icon: 'rocket' },
-}
-
-function ago(at: number): string {
-  const s = Math.round((Date.now() - at) / 1000)
-  if (s < 60) return 'just now'
-  const m = Math.round(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.round(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.round(h / 24)}d ago`
-}
-
-const BY: Record<string, string> = {
-  chat: 'Done by chat',
-  summary: 'Done in Summary',
-  tasks: 'Marked in Task list',
-  canvas: 'Done on the canvas',
-  editor: 'Done in the Editor',
-  order: 'Set on the Play order page',
-}
-
-/** The one line under an item: why it matters, or what it's waiting on, or who did it. */
-function reason(row: TaskRow): string {
-  if (row.status === 'waiting') return `Waiting on ${row.waitingOn.join(', ').toLowerCase()}`
-  if (row.status === 'skipped') return `Skipped ${row.mark ? ago(row.mark.at) : ''}. ${row.entry.why}`
-  if (row.status === 'na') return 'Marked as not needed'
-  if (row.status === 'done' && row.mark?.status === 'done' && row.mark.by) return `${BY[row.mark.by]} · ${ago(row.mark.at)}`
-  return row.entry.why
-}
-
-/** Opens the first variant of a play that still has required settings open. */
-function openNextUnready(playId: string) {
-  const play = usePlays.getState().plays.find((p) => p.id === playId)
-  const inputs = readSetupInputs()
-  const v = play?.variants.find((x) => !summarize(experienceRows(x.experienceId, inputs)).ready)
-  if (!v) return
-  openExperience(v.experienceId, playId)
-  openTab('tasks')
-}
-
-function Actions({ row, compact }: { row: TaskRow; compact?: boolean }) {
-  if (row.status === 'done' || row.status === 'waiting') return null
-  if (row.entry.id === 'variantsReady' && row.status === 'todo') {
-    return (
-      <SButton size="small" variant={compact ? 'neutral-outline' : 'primary'} className="w-auto flex-none" onClick={() => openNextUnready(row.targetId)}>
-        Open the next one
-      </SButton>
-    )
-  }
-  if (row.status === 'na' || row.status === 'skipped') {
-    return (
-      <div className="flex flex-none items-center gap-[4px]">
-        {row.status === 'skipped' && row.entry.chat && (
-          <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => doInChat(row)}>
-            Do it in chat
-          </SButton>
-        )}
-        <button type="button" onClick={() => reopen(row)} className="rounded-md px-[6px] py-[3px] text-[12px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
-          Undo
-        </button>
-      </div>
-    )
-  }
+function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <div className={`flex flex-none items-center gap-[4px] ${compact ? 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100' : ''}`}>
-      {row.entry.chat && (
-        <SButton size="small" variant={compact ? 'neutral-outline' : 'primary'} className="w-auto" onClick={() => doInChat(row)}>
-          Do it in chat
-        </SButton>
-      )}
-      {row.entry.showMe && (
-        <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => showMe(row)}>
-          Show me
-        </SButton>
-      )}
-      {row.entry.level !== 'required' && (
-        <button type="button" onClick={() => skipForNow(row)} className="rounded-md px-[6px] py-[3px] text-[12px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
-          Skip for now
-        </button>
-      )}
-      {row.entry.level === 'optional' && (
-        <button type="button" onClick={() => notNeeded(row)} className="rounded-md px-[6px] py-[3px] text-[12px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
-          Not needed
-        </button>
-      )}
-    </div>
-  )
-}
-
-function Item({ row }: { row: TaskRow }) {
-  const s = STATUS[row.status]
-  const muted = row.status === 'na' || row.status === 'waiting'
-  return (
-    <li className="group flex items-start gap-[10px] rounded-xl px-[10px] py-[8px] hover:bg-slate-50">
-      <SIcon name={s.icon} size={16} className={`mt-[1px] flex-none ${s.tone}`} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-[6px]">
-          <span className={`text-[13px] font-medium ${muted ? 'text-slate-400' : row.status === 'done' ? 'text-slate-500' : 'text-slate-900'}`}>{row.entry.label}</span>
-          <span
-            className={`rounded-full px-[6px] py-[0.5px] text-[10px] font-semibold ${
-              row.entry.level === 'required' ? 'bg-rose-50 text-rose-600' : row.entry.level === 'recommended' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'
-            }`}
-          >
-            {LEVEL[row.entry.level]}
-          </span>
-          <span className="rounded-full bg-slate-100 px-[6px] py-[0.5px] text-[10px] font-medium text-slate-500">
-            {row.entry.scope === 'experience' ? 'This experience' : row.entry.scope === 'play' ? 'Play' : 'Workspace'}
-          </span>
-        </div>
-        <p className="mt-[2px] truncate text-[12px] text-slate-500">{reason(row)}</p>
-      </div>
-      <Actions row={row} compact />
-    </li>
-  )
-}
-
-/** A strip of dots, one per item, in the order a subscriber-facing launch needs them. */
-function JourneyMap({ rows }: { rows: TaskRow[] }) {
-  return (
-    <div className="flex items-center gap-[3px]" aria-hidden>
-      {rows.map((r, i) => (
-        <span key={r.entry.id + i} className="flex items-center gap-[3px]">
-          {i > 0 && <span className="h-px w-[8px] bg-slate-200" />}
-          <span title={`${r.entry.label}: ${STATUS[r.status].label}`} className={`h-[8px] w-[8px] rounded-full ${STATUS[r.status].dot}`} />
-        </span>
-      ))}
-    </div>
-  )
-}
-
-function TrackSection({ track, rows, extra, subtitle }: { track: Track; rows: TaskRow[]; extra?: React.ReactNode; subtitle?: string }) {
-  if (rows.length === 0 && !extra) return null
-  const s = summarize(rows)
-  const t = TRACK_LABEL[track]
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white">
-      <header className="flex items-center gap-[10px] border-b border-slate-100 px-[14px] py-[10px]">
-        <SIcon name={t.icon} size={14} className="flex-none text-slate-500" />
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-slate-900">{t.title}</div>
-          {subtitle && <div className="truncate text-[11.5px] text-slate-500">{subtitle}</div>}
-        </div>
-        {rows.length > 0 && <JourneyMap rows={rows} />}
-        {rows.length > 0 && (
-          <span className="flex-none text-[11.5px] tabular-nums text-slate-400">
-            {s.resolved}/{s.counted}
-          </span>
-        )}
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <header className="flex items-baseline justify-between gap-[12px] border-b border-slate-100 px-[14px] py-[10px]">
+        <h3 className="text-[13px] font-semibold text-slate-900">{title}</h3>
+        {hint && <span className="truncate text-[12px] text-slate-400">{hint}</span>}
       </header>
-      {extra}
-      {rows.length > 0 && (
-        <ul className="p-[4px]">
-          {rows.map((r) => (
-            <Item key={`${r.targetId}:${r.entry.id}`} row={r} />
-          ))}
-        </ul>
-      )}
+      <ul>{children}</ul>
     </section>
   )
 }
 
-function Header({ summary, gate, title }: { summary: TaskSummary; gate: string; title: string }) {
-  const { blockers } = summary
+function Row({ onClick, children }: { onClick?: () => void; children: ReactNode }) {
+  const body = <>{children}</>
   return (
-    <div className="flex items-center gap-[14px]">
-      <div className="relative flex-none">
-        <ProgressRing percent={summary.percent} size={52} stroke={5} />
-        <span className="absolute inset-0 flex items-center justify-center text-[12px] font-semibold tabular-nums text-slate-700">{summary.percent}%</span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <h2 className="truncate text-[16px] font-semibold text-slate-900">{title}</h2>
-        <p className="mt-[2px] text-[12.5px] text-slate-500">
-          {summary.resolved} of {summary.counted} done.{' '}
-          {blockers.length === 0 ? (
-            <span className="font-medium text-emerald-700">Ready to {gate}.</span>
-          ) : (
-            <span>
-              {blockers.length} required {blockers.length === 1 ? 'item stands' : 'items stand'} between you and {gate === 'publish' ? 'publishing' : 'going live'}.
-            </span>
-          )}
-        </p>
-      </div>
-    </div>
+    <li className="border-t border-slate-100 first:border-t-0">
+      {onClick ? (
+        <button type="button" onClick={onClick} className="group flex w-full items-center gap-[12px] px-[14px] py-[9px] text-left transition-colors hover:bg-slate-50">
+          {body}
+          <SIcon name="chevron-right" size={14} className="flex-none text-slate-300 group-hover:text-slate-500" />
+        </button>
+      ) : (
+        <div className="flex items-center gap-[12px] px-[14px] py-[9px]">{body}</div>
+      )}
+    </li>
   )
 }
 
-function NextUp({ row }: { row: TaskRow | null }) {
-  if (!row) {
-    return (
-      <div className="flex items-center gap-[10px] rounded-2xl border border-emerald-200 bg-emerald-50 px-[14px] py-[12px] text-[13px] text-emerald-800">
-        <SIcon name="party-popper" size={16} className="flex-none" />
-        Nothing left that needs you. Anything skipped is still here if you want it.
-      </div>
-    )
+function openCheck(c: CheckResult, playId?: string) {
+  if (c.openExperienceId) {
+    openExperience(c.openExperienceId, playId ?? null)
+    openTab('tasks')
+    return
   }
+  openItem(c.item, c.targetId)
+}
+
+function Checks({ checks, gate, live, playId }: { checks: CheckResult[]; gate: Gate; live: boolean; playId?: string }) {
+  if (checks.length === 0) return null
+  const open = failing(checks).length
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 px-[14px] py-[12px]">
-      <div className="text-[10.5px] font-bold uppercase tracking-wide text-indigo-500">Next up</div>
-      <div className="mt-[4px] flex items-center gap-[12px]">
-        <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-slate-900">{row.entry.label}</div>
-          <p className="mt-[2px] text-[12.5px] text-slate-600">{row.entry.why}</p>
+    <Card title={live ? 'Launch checks' : `Before you can ${gate}`} hint={open === 0 ? 'All passing' : `${open} to fix`}>
+      {checks.map((c) => (
+        <Row key={c.id} onClick={c.met ? undefined : () => openCheck(c, playId)}>
+          <SIcon name={c.met ? 'circle-check' : 'circle'} size={16} className={`flex-none ${c.met ? 'text-emerald-600' : 'text-slate-300'}`} />
+          <span className="min-w-0 flex-1">
+            <span className={`block text-[13px] ${c.met ? 'text-slate-500' : 'font-medium text-slate-900'}`}>{c.label}</span>
+            {!c.met && <span className="block truncate text-[12px] text-slate-500">{c.fix}</span>}
+          </span>
+        </Row>
+      ))}
+    </Card>
+  )
+}
+
+function Settings({ title, hint, rows, checks, gate }: { title: string; hint?: string; rows: MapRow[]; checks: CheckResult[]; gate: Gate }) {
+  if (rows.length === 0) return null
+  const failed = new Set(failing(checks).map((c) => c.id))
+  return (
+    <Card title={title} hint={hint}>
+      {rows.map((r) => {
+        const bad = Boolean(r.check && failed.has(r.check))
+        return (
+          <Row key={r.id} onClick={() => openItem(r.item, r.targetId)}>
+            <span className="w-[210px] flex-none truncate text-[13px] text-slate-500">{r.label}</span>
+            <span className={`min-w-0 flex-1 truncate text-[13px] ${bad ? 'font-medium text-rose-600' : 'text-slate-900'}`}>
+              {bad ? `${r.value}. Needed to ${gate}` : r.value}
+            </span>
+          </Row>
+        )
+      })}
+    </Card>
+  )
+}
+
+function Header({ title, live, checks, gate, onGate }: { title: string; live: boolean; checks: CheckResult[]; gate: Gate; onGate?: () => void }) {
+  const open = failing(checks).length
+  const line = live
+    ? gate === 'publish'
+      ? 'Published.'
+      : 'Live.'
+    : open > 0
+      ? `${open === 1 ? 'One check' : `${open} checks`} left before you can ${gate}.`
+      : `Ready to ${gate}.`
+  return (
+    <div className="flex items-center gap-[12px]">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-[8px]">
+          <h2 className="truncate text-[16px] font-semibold text-slate-900">{title}</h2>
+          <StatusChip live={live} liveLabel={gate === 'publish' ? 'Published' : 'Live'} />
         </div>
-        <Actions row={row} />
+        <p className={`mt-[2px] text-[12.5px] ${!live && open === 0 ? 'font-medium text-emerald-700' : 'text-slate-500'}`}>{line}</p>
       </div>
+      {!live && open === 0 && onGate && (
+        <SButton size="small" variant="primary" className="w-auto flex-none" onClick={onGate}>
+          {gate === 'publish' ? 'Publish' : 'Go live'}
+        </SButton>
+      )}
     </div>
   )
 }
 
-function useGoTo() {
-  return (id: string) => openExperience(id, useWorkspaceUi.getState().playId)
+function Page({ children }: { children: ReactNode }) {
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-[720px] flex-col gap-[14px] px-[24px] py-[20px]">{children}</div>
+    </div>
+  )
 }
 
-/** The Task list for one experience: its own settings, the play it's in, and launch. */
+function experienceState(id: string, i: SetupInputs): string {
+  const t = i.threads.find((x) => x.id === id)
+  if (!t) return ''
+  if (experienceCtx(t, i).live) return 'Published'
+  const n = failing(experienceChecks(id, i)).length
+  return n === 0 ? 'Draft, ready to publish' : `Draft, ${n === 1 ? 'one check' : `${n} checks`} left`
+}
+
+/** The Task list for one experience: what has to pass, then every setting as it stands. */
 export function ExperienceTaskList() {
   const inputs = useSetupInputs()
   const activeId = useWorkspace((s) => s.activeId)
   const title = useWorkspace((s) => s.threads.find((t) => t.id === s.activeId)?.title ?? 'This experience')
-  const ctxPlayId = useWorkspaceUi((s) => s.playId)
   const using = usePlaysUsing(activeId)
-  const play = using.find((p) => p.id === ctxPlayId) ?? using[0] ?? null
-  const exp = experienceRows(activeId, inputs)
-  const own = exp.filter((r) => r.entry.track === 'experience')
-  const launch = [...exp.filter((r) => r.entry.track === 'launch'), ...workspaceRows(inputs)]
-  const playTrack = play ? playRows(play.id, inputs).filter((r) => r.entry.track === 'play') : []
-  const summary = summarize([...own, ...exp.filter((r) => r.entry.track === 'launch')])
-  const next = summary.next ?? summarize([...playTrack, ...launch]).next
+  const thread = inputs.threads.find((t) => t.id === activeId)
+  const live = thread ? experienceCtx(thread, inputs).live : false
+  const checks = experienceChecks(activeId, inputs)
+  const publish = experienceRows(activeId, inputs).find((r) => r.entry.id === 'publish')
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[760px] flex-col gap-[14px] px-[24px] py-[20px]">
-        <Header summary={summary} gate="publish" title={title} />
-        <NextUp row={next} />
-        <TrackSection track="experience" rows={own} />
-        {play ? (
-          <TrackSection track="play" rows={playTrack} subtitle={`${play.name}${using.length > 1 ? `, and ${using.length - 1} more` : ''}`} />
-        ) : (
-          <section className="rounded-2xl border border-dashed border-slate-200 px-[14px] py-[12px] text-[12.5px] text-slate-500">
-            This experience isn't in a play yet. Add it to one so it can be shown to subscribers.
-          </section>
+    <Page>
+      <Header title={title} live={live} checks={checks} gate="publish" onGate={publish ? () => doInChat(publish) : undefined} />
+      <Checks checks={checks} gate="publish" live={live} />
+      <Settings title="This experience" hint="In the order a subscriber sees it" rows={experienceMap(activeId, inputs)} checks={checks} gate="publish" />
+      <Card title="Plays" hint="Where this experience is shown">
+        {using.map((p) => (
+          <Row key={p.id} onClick={() => openPlayTab(p.id, 'tasks')}>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-900">{p.name}</span>
+            <StatusChip live={p.status === 'live'} />
+          </Row>
+        ))}
+        {using.length === 0 && (
+          <Row>
+            <span className="text-[13px] text-slate-500">Not in a play yet. Add it to one so subscribers can see it.</span>
+          </Row>
         )}
-        <TrackSection track="launch" rows={launch} />
-      </div>
-    </div>
+      </Card>
+      <Settings title="Workspace" hint="Set once for your whole site" rows={workspaceMap(inputs)} checks={[]} gate="publish" />
+      <Settings title="Try it" rows={tryItMap('experience', activeId, inputs)} checks={[]} gate="publish" />
+    </Page>
   )
 }
 
-/** The Task list for a play: every variant's progress, the play's own settings, and launch. */
+/** The Task list for a play: what has to pass, its experiences, then every setting as it stands. */
 export function PlayTaskList({ playId }: { playId: string }) {
   const inputs = useSetupInputs()
   const play = usePlays((s) => s.plays.find((p) => p.id === playId))
-  const threads = useWorkspace((s) => s.threads)
-  const goTo = useGoTo()
+  const order = useRankedPlays().map((p) => p.id)
   if (!play) return null
-  const rows = playRows(playId, inputs)
-  const own = rows.filter((r) => r.entry.track === 'play')
-  const launch = [...rows.filter((r) => r.entry.track === 'launch'), ...workspaceRows(inputs)]
-  const summary = summarize([...own, ...launch])
-  const variants = play.variants.map((v, i) => {
-    const s = summarize(experienceRows(v.experienceId, inputs))
-    return { v, i, s, title: threads.find((t) => t.id === v.experienceId)?.title ?? 'Experience' }
-  })
-  const variantList = (
-    <ul className="p-[4px]">
-      {variants.map(({ v, i, s, title }) => (
-        <li key={v.id}>
-          <button type="button" onClick={() => goTo(v.experienceId)} className="flex w-full items-center gap-[10px] rounded-xl px-[10px] py-[8px] text-left hover:bg-slate-50">
-            <span className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-md bg-slate-100 text-[11px] font-bold text-slate-600">{variantLetter(i)}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium text-slate-900">{title}</span>
-              <span className="block truncate text-[12px] text-slate-500">
-                {s.blockers.length === 0 ? 'Required settings done' : `Needs ${s.blockers.map((b) => b.entry.label.toLowerCase()).join(', ')}`}
-              </span>
-            </span>
-            <ProgressRing percent={s.percent} size={18} stroke={2.5} />
-            <span className="w-[34px] flex-none text-right text-[11.5px] tabular-nums text-slate-400">
-              {s.resolved}/{s.counted}
-            </span>
-            <SIcon name="chevron-right" size={13} className="flex-none text-slate-300" />
-          </button>
-        </li>
-      ))}
-      {variants.length === 0 && <li className="px-[10px] py-[8px] text-[12.5px] text-slate-500">No variants yet.</li>}
-    </ul>
-  )
+  const live = play.status === 'live'
+  const checks = playChecks(playId, inputs)
+  const goLive = playRows(playId, inputs).find((r) => r.entry.id === 'goLive')
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[760px] flex-col gap-[14px] px-[24px] py-[20px]">
-        <Header summary={summary} gate="go live" title={play.name} />
-        <NextUp row={summary.next} />
-        <TrackSection track="experience" rows={[]} extra={variantList} subtitle="Each variant is set up on its own" />
-        <TrackSection track="play" rows={own} />
-        <TrackSection track="launch" rows={launch} />
-      </div>
-    </div>
+    <Page>
+      <Header title={play.name} live={live} checks={checks} gate="go live" onGate={goLive ? () => doInChat(goLive) : undefined} />
+      <Checks checks={checks} gate="go live" live={live} playId={playId} />
+      <Card title="Experiences in this play" hint="Each one is published on its own">
+        {play.variants.map((v, n) => (
+          <Row
+            key={v.id}
+            onClick={() => {
+              openExperience(v.experienceId, playId)
+              openTab('tasks')
+            }}
+          >
+            <span className="flex h-[20px] w-[20px] flex-none items-center justify-center rounded-md bg-slate-100 text-[11px] font-bold text-slate-600">{variantLetter(n)}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-900">{inputs.threads.find((t) => t.id === v.experienceId)?.title ?? 'Experience'}</span>
+            <span className="flex-none text-[12px] text-slate-500">{experienceState(v.experienceId, inputs)}</span>
+          </Row>
+        ))}
+        {play.variants.length === 0 && (
+          <Row>
+            <span className="text-[13px] text-slate-500">No experiences yet.</span>
+          </Row>
+        )}
+      </Card>
+      <Settings title="This play" rows={playMap(play, inputs, order)} checks={checks} gate="go live" />
+      <Settings title="Workspace" hint="Set once for your whole site" rows={workspaceMap(inputs)} checks={checks} gate="go live" />
+      <Settings title="Try it" rows={tryItMap('play', playId, inputs)} checks={[]} gate="go live" />
+    </Page>
   )
 }

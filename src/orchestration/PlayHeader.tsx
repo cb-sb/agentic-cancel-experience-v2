@@ -6,6 +6,10 @@ import { useOrchestration } from '../store/useOrchestration'
 import { useJourney } from '../store/useJourney'
 import { useUpload } from '../upload/useUpload'
 import { canPublishUploaded, manifestErrors } from '../upload/validate'
+import { V8 } from '../layout/layoutMode'
+import { experienceChecks, failing } from '../setup/checks'
+import { useSetupInputs } from '../setup/progress'
+import { useWorkspace } from '../workspace/useWorkspace'
 import { useSetupProgress } from './JourneySetupChrome'
 import { SpotlightFrame } from './SpotlightFrame'
 
@@ -112,8 +116,13 @@ export function PublishControls() {
   const uploadedBlocked = file.source === 'uploaded' && !canPublishUploaded(file.manifest)
   const why = uploadedBlocked ? manifestErrors(file.manifest)[0] : undefined
   const progress = useSetupProgress()
+  const inputs = useSetupInputs()
+  const activeId = useWorkspace((s) => s.activeId)
+  const open = V8 && !live ? failing(experienceChecks(activeId, inputs)) : []
+  const checksBlocked = open.length > 0
 
   const onPublish = () => {
+    if (V8) return togglePublish()
     if (!live && !progress.ready && !publishGapsOpen) {
       setPublishGapsOpen(true)
       return
@@ -134,8 +143,8 @@ export function PublishControls() {
       <SButton
         size="small"
         variant="primary"
-        disabled={uploadedBlocked && !live}
-        title={why}
+        disabled={(uploadedBlocked && !live) || checksBlocked}
+        title={checksBlocked ? `Still to pass: ${open.map((c) => c.label).join('. ')}` : why}
         onClick={onPublish}
       >
         {live ? 'Unpublish' : publishGapsOpen ? 'Publish anyway' : 'Publish'}

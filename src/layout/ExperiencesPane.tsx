@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { V8 } from './layoutMode'
-import { contextPlayId, createExperience, openLibrary, openOrder, openPlay } from '../plays/navigate'
-import { createPlay } from '../plays/usePlays'
-import { RowMenu, type MenuItem } from '../plays/ui'
-import type { ShellLayout } from '../types/experience'
+import { openLibrary, openOrder } from '../plays/navigate'
+import { RowMenu } from '../plays/ui'
 import type { LibraryKind } from '../workspace/useWorkspaceUi'
+import { createMenuItems } from './createMenu'
 import { PlaysTree } from './PlaysTree'
 import { useCopilotThread } from '../orchestration/copilotThread'
 import { useOrchestration } from '../store/useOrchestration'
@@ -148,60 +147,21 @@ function ExperienceFolder({
 
 /** v8: one menu for everything a merchant can make for the cancel flow. */
 function CreateMenu() {
-  const items: MenuItem[] = [
-    {
-      label: 'Play',
-      icon: 'workflow',
-      hint: 'Who sees which cancel experience',
-      onClick: () => {
-        const id = createPlay()
-        openPlay(id)
-        useWorkspaceUi.getState().setRenaming(id)
-      },
-    },
-    {
-      label: 'Cancel experience…',
-      icon: 'layers',
-      hint: 'Pick a layout first',
-      items: SHELL_CHOICES.map((s) => ({
-        label: s.label,
-        icon: s.icon,
-        hint: s.hint,
-        onClick: () => {
-          const ui = useWorkspaceUi.getState()
-          const inPlay = ui.page === 'play' ? ui.playId : ui.page === 'thread' ? contextPlayId() : null
-          createExperience({ playId: inPlay, shell: s.id })
-        },
-      })),
-    },
-    { label: 'Offer', icon: 'gift', hint: 'Discount, pause, plan change and more', onClick: () => openLibrary('offers', true) },
-    { label: 'Survey reason', icon: 'message-square', hint: 'Why they are leaving, linked to an offer', onClick: () => openLibrary('reasons', true) },
-    { label: 'Loss aversion card', icon: 'shield', hint: 'What they would lose by leaving', onClick: () => openLibrary('cards', true) },
-    { label: 'Confirmation page', icon: 'badge-check', hint: 'After an offer or a cancel', onClick: () => openLibrary('confirmations', true) },
-    { label: 'Dictionary entry', icon: 'languages', hint: 'Shared text and translations', onClick: () => openLibrary('dictionary', true) },
-  ]
-  return <RowMenu label="Create" icon="plus" items={items} width={270} />
+  return <RowMenu label="Create" icon="plus" items={createMenuItems()} width={270} align="beside" />
 }
-
-const SHELL_CHOICES: { id: ShellLayout; label: string; hint: string; icon: SIconName }[] = [
-  { id: 'modal', label: 'Modal', hint: 'Opens over your account page', icon: 'layers' },
-  { id: 'fullpage', label: 'Full page', hint: 'Full viewport width, one step at a time', icon: 'file-text' },
-  { id: 'fullpage_scroll', label: 'Full page continuous', hint: 'Every step on one scrolling page', icon: 'list-ordered' },
-]
 
 const LIBRARY_ROWS: { kind: LibraryKind; label: string; icon: SIconName }[] = [
   { kind: 'offers', label: 'Offers', icon: 'gift' },
   { kind: 'reasons', label: 'Survey reasons', icon: 'message-square' },
   { kind: 'cards', label: 'Loss aversion cards', icon: 'shield' },
   { kind: 'confirmations', label: 'Confirmation pages', icon: 'badge-check' },
-  { kind: 'dictionary', label: 'Dictionary', icon: 'languages' },
 ]
 
 function LibrarySection() {
   const page = useWorkspaceUi((s) => s.page)
   const kind = useWorkspaceUi((s) => s.libraryKind)
   return (
-    <div className="mt-[10px]">
+    <div className="mt-[12px] border-t border-slate-200 pt-[12px]">
       <div className="flex h-7 items-center px-[10px]">
         <span className="text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Library</span>
       </div>
@@ -305,13 +265,6 @@ export function ExperiencesPane() {
         {V8 ? (
           <>
             <SettingRow
-              icon="list-ordered"
-              label="Play order and testing"
-              folded={folded}
-              active={page === 'order'}
-              onClick={openOrder}
-            />
-            <SettingRow
               icon="layout-template"
               label="Templates and components"
               folded={folded}
@@ -320,6 +273,13 @@ export function ExperiencesPane() {
                 setPage('thread')
                 useOrchestration.getState().openTemplates(libraryTab)
               }}
+            />
+            <SettingRow
+              icon="list-ordered"
+              label="Play order and testing"
+              folded={folded}
+              active={page === 'order'}
+              onClick={openOrder}
             />
           </>
         ) : (

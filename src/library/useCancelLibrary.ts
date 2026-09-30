@@ -69,19 +69,11 @@ export interface LibConfirmation {
   url: string
 }
 
-export interface LibWord {
-  id: string
-  term: string
-  value: string
-  note: string
-}
-
 interface CancelLibrary {
   offers: LibOffer[]
   reasons: LibReason[]
   cards: LibCard[]
   confirmations: LibConfirmation[]
-  dictionary: LibWord[]
 }
 
 export type LibraryItems = CancelLibrary
@@ -125,10 +117,6 @@ function seed(): CancelLibrary {
       { id: 'conf_saved', name: 'Thanks for staying', kind: 'saved', title: 'You’re all set', body: 'Your offer is applied. Nothing else to do.', cta: 'Back to my account', url: '' },
       { id: 'conf_cancelled', name: 'Cancel confirmed', kind: 'cancelled', title: 'Your subscription is cancelled', body: 'You’ll keep access until the end of your billing period.', cta: 'Done', url: '' },
     ],
-    dictionary: [
-      { id: 'w_product', term: 'product', value: 'your product', note: 'Used wherever copy names the product' },
-      { id: 'w_support', term: 'support_email', value: 'support@yoursite.com', note: 'Shown on confirmation pages' },
-    ],
   }
 }
 
@@ -136,7 +124,14 @@ function read(): CancelLibrary {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return seed()
-    return { ...seed(), ...(JSON.parse(raw) as Partial<CancelLibrary>) }
+    const saved = JSON.parse(raw) as Partial<CancelLibrary>
+    const base = seed()
+    return {
+      offers: saved.offers ?? base.offers,
+      reasons: saved.reasons ?? base.reasons,
+      cards: saved.cards ?? base.cards,
+      confirmations: saved.confirmations ?? base.confirmations,
+    }
   } catch {
     return seed()
   }
@@ -171,7 +166,7 @@ function add<K extends ListKey>(list: K, item: ItemOf<K>): string {
   return item.id
 }
 
-const names = (items: { name?: string; term?: string; label?: string }[]) => items.map((x) => x.name ?? x.term ?? x.label ?? '')
+const names = (items: { name?: string; label?: string }[]) => items.map((x) => x.name ?? x.label ?? '')
 
 export function newOffer(): string {
   const v = OFFER_VARIANTS[0]
@@ -202,13 +197,9 @@ export function newConfirmation(): string {
   return add('confirmations', { id: id('conf'), name: uniqueName('New confirmation', names(useCancelLibrary.getState().confirmations)), kind: 'cancelled', title: 'Your subscription is cancelled', body: '', cta: 'Done', url: '' })
 }
 
-export function newWord(): string {
-  return add('dictionary', { id: id('word'), term: uniqueName('new_term', names(useCancelLibrary.getState().dictionary)).replace(/\s+/g, '_'), value: '', note: '' })
-}
-
 /** Names inside one list stay unique, the same rule as plays and experiences. */
 export function nameTakenIn(list: ListKey, itemId: string, name: string): boolean {
-  const items = useCancelLibrary.getState()[list] as { id: string; name?: string; term?: string; label?: string }[]
+  const items = useCancelLibrary.getState()[list] as { id: string; name?: string; label?: string }[]
   const key = name.trim().toLowerCase()
-  return items.some((x) => x.id !== itemId && (x.name ?? x.term ?? x.label ?? '').trim().toLowerCase() === key)
+  return items.some((x) => x.id !== itemId && (x.name ?? x.label ?? '').trim().toLowerCase() === key)
 }

@@ -1,8 +1,8 @@
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 import { SettingsSection } from '../setup/SettingsSection'
 import { PlayTaskList } from '../setup/TaskList'
-import { playRows, summarize, useSetupInputs, workspaceRows } from '../setup/progress'
-import { ProgressRing } from '../setup/TaskProgress'
+import { failing, playChecks } from '../setup/checks'
+import { playRows, useSetupInputs, workspaceRows } from '../setup/progress'
 import { useWorkspaceUi, type PlayTab, type PlayTabRef } from '../workspace/useWorkspaceUi'
 import { closePlayTab, openAnotherPlayTab, openOrder } from './navigate'
 import { PlayCanvas } from './PlayCanvas'
@@ -15,7 +15,7 @@ import { doInChat } from '../setup/actions'
 const PLAY_TAB: Record<PlayTab, { label: string; icon: SIconName; hint: string }> = {
   canvas: { label: 'Canvas', icon: 'workflow', hint: 'Every variant, and a test with a subscriber' },
   summary: { label: 'Summary', icon: 'file-text', hint: 'Every setting for this play' },
-  tasks: { label: 'Task list', icon: 'list-checks', hint: 'What’s left before it goes live' },
+  tasks: { label: 'Task list', icon: 'list-checks', hint: 'What has to pass, and every setting' },
 }
 
 function tabLabel(tabs: PlayTabRef[], ref: PlayTabRef): string {
@@ -44,18 +44,13 @@ function PlaySummary({ play }: { play: CancelPlay }) {
 
 function GoLive({ play }: { play: CancelPlay }) {
   const inputs = useSetupInputs()
-  const rows = [...playRows(play.id, inputs), ...workspaceRows(inputs)]
-  const s = summarize(rows)
-  const goLive = rows.find((r) => r.entry.id === 'goLive')
-  const blocked = play.status !== 'live' && (!s.ready || goLive?.status === 'waiting')
-  const why = !s.ready ? `Still needed: ${s.blockers.map((b) => b.entry.label.toLowerCase()).join(', ')}` : goLive?.waitingOn.length ? `Waiting on: ${goLive.waitingOn.join(', ').toLowerCase()}` : ''
+  const rows = playRows(play.id, inputs)
+  const open = failing(playChecks(play.id, inputs))
+  const blocked = play.status !== 'live' && open.length > 0
+  const why = open.map((c) => c.label).join('. ')
   return (
     <div className="flex items-center gap-[8px]">
-      <span title={`${s.resolved} of ${s.counted} done`} className="flex items-center gap-[5px] text-[12px] tabular-nums text-slate-500">
-        <ProgressRing percent={s.percent} size={16} stroke={2.5} />
-        {s.resolved}/{s.counted}
-      </span>
-      <span title={blocked ? why : undefined}>
+      <span title={blocked ? `Still to pass: ${why}` : undefined}>
         <SButton
           size="small"
           variant={play.status === 'live' ? 'neutral-outline' : 'primary'}

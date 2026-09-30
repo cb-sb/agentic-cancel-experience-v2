@@ -3,11 +3,11 @@ import { create } from 'zustand'
 import { SIcon } from '@chargebee/sting-react'
 import { CopilotMark } from '../orchestration/CopilotMark'
 import { COPILOT_UI } from '../orchestration/copilotUi'
+import { experienceChecks, failing, playChecks } from '../setup/checks'
 import { finalCheck, finalCheckText, leftCount, nextRow, playChatRows, promptFor } from '../setup/chatSetup'
-import { experienceRows, playRows, readSetupInputs, summarize, useSetupInputs, workspaceRows, type TaskRow } from '../setup/progress'
+import { playRows, readSetupInputs, useSetupInputs, workspaceRows, type TaskRow } from '../setup/progress'
 import { entryById } from '../setup/registry'
 import { SetupCard } from '../setup/SetupCards'
-import { ProgressRing } from '../setup/TaskProgress'
 import { setMark } from '../setup/useSetupState'
 import { showMe } from '../setup/actions'
 import { openTab } from '../workspace/paneTabs'
@@ -88,7 +88,7 @@ function allRows(playId: string): TaskRow[] {
 function ask(play: CancelPlay, row: TaskRow, quiet = false) {
   let target = row
   if (row.entry.id === 'goLive') {
-    const check = finalCheck(allRows(play.id))
+    const check = finalCheck(allRows(play.id), playChecks(play.id, readSetupInputs()))
     say(play.id, 'bot', finalCheckText(check, 'go live'))
     quiet = true
     if (check.blockers.length > 0) {
@@ -106,7 +106,7 @@ function advance(play: CancelPlay, afterId: string) {
   if (goLiveAfter.has(play.id)) {
     const rows = allRows(play.id)
     const goLive = rows.find((r) => r.entry.id === 'goLive')
-    const blockers = finalCheck(rows).blockers.filter((r) => r.entry.id !== afterId)
+    const blockers = finalCheck(rows, playChecks(play.id, readSetupInputs())).blockers.filter((r) => r.entry.id !== afterId)
     if (goLive && goLive.status !== 'done') {
       if (blockers.length > 0) return ask(play, blockers[0])
       goLiveAfter.delete(play.id)
@@ -117,7 +117,7 @@ function advance(play: CancelPlay, afterId: string) {
   const next = nextRow(rowsFor(play.id), { not: afterId })
   if (next) return ask(play, next)
   patchThread(play.id, (t) => ({ ...t, item: null, done: true }))
-  say(play.id, 'bot', play.status === 'live' ? `${play.name} is live. Change anything here and it applies right away.` : `That’s everything I can do for ${play.name} from here. The Task list shows what’s left.`)
+  say(play.id, 'bot', play.status === 'live' ? `${play.name} is live. Change anything here and it applies right away.` : `That’s everything I can do for ${play.name} from here. The Task list shows what still has to pass.`)
 }
 
 const INTENTS: { re: RegExp; id: string }[] = [
@@ -143,14 +143,13 @@ function VariantsNotReady({ play }: { play: CancelPlay }) {
       <p className="mb-[8px] text-[12px] text-slate-500">Each experience is set up on its own. Open one to finish it.</p>
       <ul className="space-y-[4px]">
         {play.variants.map((v, i) => {
-          const s = summarize(experienceRows(v.experienceId, inputs))
+          const left = failing(experienceChecks(v.experienceId, inputs)).length
           const live = inputs.threads.find((t) => t.id === v.experienceId)?.snapshot?.play.publishState === 'live' || (v.experienceId === inputs.activeId && inputs.activeLive)
           return (
             <li key={v.id} className="flex items-center gap-[8px] rounded-xl border border-slate-100 px-[10px] py-[6px] text-[12.5px]">
               <span className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-md bg-slate-100 text-[10.5px] font-bold text-slate-600">{variantLetter(i)}</span>
               <span className="min-w-0 flex-1 truncate text-slate-800">{threads.find((t) => t.id === v.experienceId)?.title}</span>
-              <span className="flex-none text-[11px] text-slate-500">{s.ready ? (live ? 'Published' : 'Ready to publish') : `${s.blockers.length} left`}</span>
-              <ProgressRing percent={s.percent} size={14} stroke={2} />
+              <span className="flex-none text-[11px] text-slate-500">{live ? 'Published' : left === 0 ? 'Ready to publish' : `${left === 1 ? 'One check' : `${left} checks`} left`}</span>
               <button
                 type="button"
                 onClick={() => {

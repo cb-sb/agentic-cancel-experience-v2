@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
+import { SButton, SIcon } from '@chargebee/sting-react'
 import type { AfterAccept, OfferFulfilment, OfferKey } from '../journey/types'
 import { OFFER_VARIANTS, offerVariantLabel, offerVariantPatch } from '../lib/offerVariants'
 import { useWorkspaceUi, type LibraryKind } from '../workspace/useWorkspaceUi'
@@ -10,7 +10,6 @@ import {
   newConfirmation,
   newOffer,
   newReason,
-  newWord,
   patchItem,
   removeItem,
   useCancelLibrary,
@@ -18,16 +17,14 @@ import {
   type LibConfirmation,
   type LibOffer,
   type LibReason,
-  type LibWord,
   type ReasonKind,
 } from './useCancelLibrary'
 
-const KINDS: { id: LibraryKind; label: string; icon: SIconName; hint: string; add: string }[] = [
-  { id: 'offers', label: 'Offers', icon: 'gift', hint: 'What you offer instead of letting them go, and how it’s applied', add: 'New offer' },
-  { id: 'reasons', label: 'Survey reasons', icon: 'message-square', hint: 'The reasons people pick, plus competitor and come-back questions', add: 'New reason' },
-  { id: 'cards', label: 'Loss aversion cards', icon: 'shield', hint: 'What they keep and what they lose if they cancel', add: 'New card' },
-  { id: 'confirmations', label: 'Confirmation pages', icon: 'badge-check', hint: 'The last page after they stay, or after the cancel is done', add: 'New confirmation page' },
-  { id: 'dictionary', label: 'Dictionary', icon: 'languages', hint: 'Words you reuse in copy, like your product name. Write {{term}} to use one.', add: 'New entry' },
+const KINDS: { id: LibraryKind; label: string; hint: string; add: string }[] = [
+  { id: 'offers', label: 'Offers', hint: 'What you offer instead of letting them go, and how it’s applied', add: 'New offer' },
+  { id: 'reasons', label: 'Survey reasons', hint: 'The reasons people pick, plus competitor and come-back questions', add: 'New reason' },
+  { id: 'cards', label: 'Loss aversion cards', hint: 'What they keep and what they lose if they cancel', add: 'New card' },
+  { id: 'confirmations', label: 'Confirmation pages', hint: 'The last page after they stay, or after the cancel is done', add: 'New confirmation page' },
 ]
 
 const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none placeholder:text-slate-300 hover:border-slate-300 focus:border-slate-400'
@@ -103,7 +100,7 @@ const AFTER: { id: AfterAccept; label: string }[] = [
   { id: 'dismiss', label: 'Just close' },
 ]
 
-function nameError(list: 'offers' | 'cards' | 'confirmations' | 'reasons' | 'dictionary', itemId: string, name: string, what: string): string | null {
+function nameError(list: 'offers' | 'cards' | 'confirmations' | 'reasons', itemId: string, name: string, what: string): string | null {
   if (!name.trim()) return 'Give it a name'
   return nameTakenIn(list, itemId, name) ? `Another ${what} is already called this` : null
 }
@@ -253,34 +250,10 @@ function ConfirmationForm({ c }: { c: LibConfirmation }) {
   )
 }
 
-function WordForm({ w }: { w: LibWord }) {
-  const [err, setErr] = useState<string | null>(null)
-  const p = (change: Partial<LibWord>) => patchItem('dictionary', w.id, change)
-  return (
-    <div className="grid grid-cols-2 gap-[10px]">
-      <Text
-        label="Term"
-        value={w.term}
-        error={err}
-        onChange={(term) => {
-          const clean = term.trim().replace(/\s+/g, '_')
-          const e = nameError('dictionary', w.id, clean, 'entry')
-          setErr(e)
-          if (!e) p({ term: clean })
-        }}
-      />
-      <Text label="Shows as" value={w.value} onChange={(value) => p({ value })} />
-      <div className="col-span-2">
-        <Text label="Note for your team (optional)" value={w.note} onChange={(note) => p({ note })} />
-      </div>
-    </div>
-  )
-}
-
-function ItemRow({ title, detail, open, onToggle, onDelete, children }: { title: string; detail: string; open: boolean; onToggle: () => void; onDelete: () => void; children: ReactNode }) {
+function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id: string; title: string; detail: string; open: boolean; onToggle: () => void; onDelete: () => void; children: ReactNode }) {
   const [asking, setAsking] = useState(false)
   return (
-    <li className="border-b border-slate-100 last:border-b-0">
+    <li data-lib-item={id} className="border-b border-slate-100 last:border-b-0">
       <div className="flex items-center gap-[10px] px-[14px] py-[10px]">
         <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-[10px] text-left">
           <SIcon name={open ? 'chevron-down' : 'chevron-right'} size={13} className="flex-none text-slate-400" />
@@ -310,13 +283,21 @@ let consumedBump = 0
 export function LibraryPage() {
   const kind = useWorkspaceUi((s) => s.libraryKind)
   const bump = useWorkspaceUi((s) => s.libraryNew)
+  const focus = useWorkspaceUi((s) => s.libraryFocus)
   const lib = useCancelLibrary()
   const [open, setOpen] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!focus) return
+    setOpen(focus)
+    useWorkspaceUi.setState({ libraryFocus: null })
+    window.requestAnimationFrame(() => document.querySelector(`[data-lib-item="${focus}"]`)?.scrollIntoView({ block: 'center' }))
+  }, [focus])
   const meta = KINDS.find((k) => k.id === kind) ?? KINDS[0]
 
   const create = () => {
     const id =
-      kind === 'offers' ? newOffer() : kind === 'reasons' ? newReason() : kind === 'cards' ? newCard() : kind === 'confirmations' ? newConfirmation() : newWord()
+      kind === 'reasons' ? newReason() : kind === 'cards' ? newCard() : kind === 'confirmations' ? newConfirmation() : newOffer()
     setOpen(id)
   }
 
@@ -329,59 +310,35 @@ export function LibraryPage() {
 
   const toggle = (id: string) => setOpen((o) => (o === id ? null : id))
   let rows: ReactNode
-  if (kind === 'offers') {
-    rows = lib.offers.map((o) => (
-      <ItemRow key={o.id} title={o.name} detail={`${offerVariantLabel(o.type)} · ${FULFILMENT.find((f) => f.id === o.fulfilment)?.label}`} open={open === o.id} onToggle={() => toggle(o.id)} onDelete={() => removeItem('offers', o.id)}>
-        <OfferForm o={o} />
-      </ItemRow>
-    ))
-  } else if (kind === 'reasons') {
+  if (kind === 'reasons') {
     rows = lib.reasons.map((r) => (
-      <ItemRow key={r.id} title={r.label} detail={REASON_KIND.find((k) => k.id === r.kind)?.label ?? ''} open={open === r.id} onToggle={() => toggle(r.id)} onDelete={() => removeItem('reasons', r.id)}>
+      <ItemRow key={r.id} id={r.id} title={r.label} detail={REASON_KIND.find((k) => k.id === r.kind)?.label ?? ''} open={open === r.id} onToggle={() => toggle(r.id)} onDelete={() => removeItem('reasons', r.id)}>
         <ReasonForm r={r} />
       </ItemRow>
     ))
   } else if (kind === 'cards') {
     rows = lib.cards.map((c) => (
-      <ItemRow key={c.id} title={c.name} detail={`${c.keep.filter(Boolean).length} kept, ${c.lose.filter(Boolean).length} lost`} open={open === c.id} onToggle={() => toggle(c.id)} onDelete={() => removeItem('cards', c.id)}>
+      <ItemRow key={c.id} id={c.id} title={c.name} detail={`${c.keep.filter(Boolean).length} kept, ${c.lose.filter(Boolean).length} lost`} open={open === c.id} onToggle={() => toggle(c.id)} onDelete={() => removeItem('cards', c.id)}>
         <CardForm c={c} />
       </ItemRow>
     ))
   } else if (kind === 'confirmations') {
     rows = lib.confirmations.map((c) => (
-      <ItemRow key={c.id} title={c.name} detail={c.kind === 'saved' ? 'When they stay' : 'When the cancel is done'} open={open === c.id} onToggle={() => toggle(c.id)} onDelete={() => removeItem('confirmations', c.id)}>
+      <ItemRow key={c.id} id={c.id} title={c.name} detail={c.kind === 'saved' ? 'When they stay' : 'When the cancel is done'} open={open === c.id} onToggle={() => toggle(c.id)} onDelete={() => removeItem('confirmations', c.id)}>
         <ConfirmationForm c={c} />
       </ItemRow>
     ))
   } else {
-    rows = lib.dictionary.map((w) => (
-      <ItemRow key={w.id} title={`{{${w.term}}}`} detail={w.value || 'No value yet'} open={open === w.id} onToggle={() => toggle(w.id)} onDelete={() => removeItem('dictionary', w.id)}>
-        <WordForm w={w} />
+    rows = lib.offers.map((o) => (
+      <ItemRow key={o.id} id={o.id} title={o.name} detail={`${offerVariantLabel(o.type)} · ${FULFILMENT.find((f) => f.id === o.fulfilment)?.label}`} open={open === o.id} onToggle={() => toggle(o.id)} onDelete={() => removeItem('offers', o.id)}>
+        <OfferForm o={o} />
       </ItemRow>
     ))
   }
-  const count = kind === 'offers' ? lib.offers.length : kind === 'reasons' ? lib.reasons.length : kind === 'cards' ? lib.cards.length : kind === 'confirmations' ? lib.confirmations.length : lib.dictionary.length
+  const count = kind === 'reasons' ? lib.reasons.length : kind === 'cards' ? lib.cards.length : kind === 'confirmations' ? lib.confirmations.length : lib.offers.length
 
   return (
     <div className="flex h-full min-w-0 flex-1 bg-slate-50">
-      <nav aria-label="Library" className="w-[220px] flex-none border-r border-slate-200 bg-white px-[8px] py-[16px]">
-        <p className="px-[8px] pb-[8px] text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Cancel library</p>
-        {KINDS.map((k) => (
-          <button
-            key={k.id}
-            type="button"
-            onClick={() => {
-              useWorkspaceUi.setState({ libraryKind: k.id })
-              setOpen(null)
-            }}
-            aria-current={k.id === kind}
-            className={`flex w-full items-center gap-[8px] rounded-lg px-[8px] py-[6px] text-left text-[13px] ${k.id === kind ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <SIcon name={k.icon} size={14} className="flex-none" />
-            {k.label}
-          </button>
-        ))}
-      </nav>
       <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[760px] space-y-[14px] px-[28px] py-[24px]">
           <div className="flex items-start gap-[12px]">

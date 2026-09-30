@@ -4,10 +4,11 @@ import type { CancelPlay } from '../plays/types'
 import type { Mark, WorkspaceSetup } from './useSetupState'
 
 /**
- * One checklist for every cancel setting. The chat walks it one card at a
- * time, the Task list draws it, and the Summary edits the same values, so the
- * three never disagree. Adding a setting means adding one entry here and its
- * card in `SetupCards`.
+ * Every cancel setting the chat can ask about. The chat walks it one card at a
+ * time and the Summary edits the same values, so the two never disagree.
+ * Marks here only remember what the chat has asked; launch readiness comes
+ * from `checks`. Adding a setting means adding one entry here and its card in
+ * `SetupCards`.
  */
 export type Scope = 'experience' | 'play' | 'workspace'
 export type Level = 'required' | 'recommended' | 'optional'
@@ -227,7 +228,6 @@ export const EXPERIENCE_ITEMS: ExperienceItem[] = [
     label: 'Publish this experience',
     why: 'Plays only show published experiences',
     chat: true,
-    dependsOn: ['steps', 'cancelHandling'],
     isDone: (c) => c.live,
   },
 ]
@@ -352,22 +352,9 @@ export const PLAY_ITEMS: PlayItem[] = [
     label: 'Go live',
     why: 'Starts showing the play to subscribers',
     chat: true,
-    dependsOn: ['audience', 'variants', 'variantsReady', 'variantsLive'],
     isDone: (c) => c.play.status === 'live',
   },
 ]
-
-/** Not a task on its own: a dependency that reads as "Waiting on another item". */
-export const VARIANTS_LIVE: PlayItem = {
-  id: 'variantsLive',
-  scope: 'play',
-  track: 'launch',
-  level: 'required',
-  label: 'Every variant published',
-  why: 'A play can only show published experiences',
-  chat: false,
-  isDone: (c) => c.variantsLive.total > 0 && c.variantsLive.live === c.variantsLive.total,
-}
 
 export const WORKSPACE_ITEMS: WorkspaceItem[] = [
   {

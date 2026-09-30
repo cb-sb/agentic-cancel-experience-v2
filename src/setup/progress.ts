@@ -4,10 +4,10 @@ import { usePlays } from '../plays/usePlays'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { fileOfThread, useWorkspace, type ExperienceThread } from '../workspace/useWorkspace'
+import { checksForExperience, failing, playChecks, type CheckResult } from './checks'
 import {
   EXPERIENCE_ITEMS,
   PLAY_ITEMS,
-  VARIANTS_LIVE,
   WORKSPACE_ITEMS,
   WORKSPACE_TARGET,
   type ExperienceCtx,
@@ -25,18 +25,6 @@ export interface TaskRow {
   targetId: string
   /** Labels of the items this one is waiting on. */
   waitingOn: string[]
-}
-
-export interface TaskSummary {
-  rows: TaskRow[]
-  /** Required and recommended items. Optional ones never pull the count down. */
-  counted: number
-  resolved: number
-  percent: number
-  next: TaskRow | null
-  /** Required items not done yet, apart from the publish step itself. */
-  blockers: TaskRow[]
-  ready: boolean
 }
 
 export interface SetupInputs {
@@ -68,7 +56,6 @@ function evaluate<C>(
   ctx: C,
   targetId: string,
   marks: Record<string, Mark>,
-  extra: Record<string, { done: boolean; label: string }> = {},
 ): TaskRow[] {
   const live = items.filter((i) => !i.applies || i.applies(ctx))
   const done = new Map(live.map((i) => [i.id, i.isDone(ctx, marks[markKey(targetId, i.id)])]))
@@ -76,7 +63,6 @@ function evaluate<C>(
     const mark = marks[markKey(targetId, item.id)]
     const waitingOn = (item.dependsOn ?? [])
       .map((d) => {
-        if (extra[d]) return extra[d].done ? null : extra[d].label
         if (!done.has(d)) return null
         return done.get(d) ? null : live.find((x) => x.id === d)?.label ?? null
       })
@@ -89,24 +75,6 @@ function evaluate<C>(
       waitingOn,
     }
   })
-}
-
-export function summarize(rows: TaskRow[]): TaskSummary {
-  const counted = rows.filter((r) => r.entry.level !== 'optional')
-  const resolved = counted.filter((r) => r.status === 'done' || r.status === 'na').length
-  const rank = (r: TaskRow) => (r.entry.level === 'required' ? 0 : r.entry.level === 'recommended' ? 1 : 2)
-  const open = rows.filter((r) => r.status === 'todo')
-  const next = [...open].sort((a, b) => rank(a) - rank(b))[0] ?? rows.find((r) => r.status === 'skipped') ?? null
-  const blockers = rows.filter((r) => r.entry.level === 'required' && !GATES.has(r.entry.id) && r.status !== 'done' && r.status !== 'na')
-  return {
-    rows,
-    counted: counted.length,
-    resolved,
-    percent: counted.length === 0 ? 100 : Math.round((resolved / counted.length) * 100),
-    next,
-    blockers,
-    ready: blockers.length === 0,
-  }
 }
 
 function threadLive(t: ExperienceThread, i: SetupInputs): boolean {
@@ -124,16 +92,26 @@ export function experienceCtx(t: ExperienceThread, i: SetupInputs): ExperienceCt
   }
 }
 
+/** Publish and Go live wait on the launch checks, and on nothing else. */
+function gate(rows: TaskRow[], checks: CheckResult[]): TaskRow[] {
+  const open = failing(checks)
+  return rows.map((r) =>
+    GATES.has(r.entry.id) && r.status !== 'done'
+      ? { ...r, status: (open.length > 0 ? 'waiting' : 'todo') as TaskStatus, waitingOn: open.map((c) => c.label) }
+      : r,
+  )
+}
+
 export function experienceRows(experienceId: string, i: SetupInputs): TaskRow[] {
   const t = i.threads.find((x) => x.id === experienceId)
   if (!t) return []
-  return evaluate(EXPERIENCE_ITEMS, EXPERIENCE_ITEMS, experienceCtx(t, i), experienceId, i.marks)
+  const ctx = experienceCtx(t, i)
+  return gate(evaluate(EXPERIENCE_ITEMS, EXPERIENCE_ITEMS, ctx, experienceId, i.marks), checksForExperience(ctx))
 }
 
 function experienceReady(experienceId: string, i: SetupInputs): boolean {
-  return experienceRows(experienceId, i).every(
-    (r) => r.entry.level !== 'required' || GATES.has(r.entry.id) || r.status === 'done' || r.status === 'na',
-  )
+  const t = i.threads.find((x) => x.id === experienceId)
+  return Boolean(t) && failing(checksForExperience(experienceCtx(t!, i))).length === 0
 }
 
 export function playCtx(play: CancelPlay, i: SetupInputs): PlayCtx {
@@ -151,9 +129,7 @@ export function playCtx(play: CancelPlay, i: SetupInputs): PlayCtx {
 export function playRows(playId: string, i: SetupInputs): TaskRow[] {
   const play = i.plays.find((p) => p.id === playId)
   if (!play) return []
-  const ctx = playCtx(play, i)
-  const variantsLive = { done: VARIANTS_LIVE.isDone(ctx), label: 'Publish every variant' }
-  return evaluate(PLAY_ITEMS, PLAY_ITEMS, ctx, playId, i.marks, { variantsLive })
+  return gate(evaluate(PLAY_ITEMS, PLAY_ITEMS, playCtx(play, i), playId, i.marks), playChecks(playId, i))
 }
 
 export function workspaceCtx(i: SetupInputs): WorkspaceCtx {

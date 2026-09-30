@@ -28,8 +28,8 @@ import {
 } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { StatusChip } from './StatusChip'
-import { PlayProgressPill, ExperienceProgressPill } from '../setup/TaskProgress'
 import { copyMarks } from '../setup/useSetupState'
+import { separateCopy } from '../plays/ExperienceContext'
 
 const DRAG_TYPE = 'application/x-cancel-experience'
 
@@ -137,11 +137,16 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
   const thread = useWorkspace((s) => s.threads.find((t) => t.id === v.experienceId))
   const renaming = useWorkspaceUi((s) => s.renaming === v.experienceId)
   const dirty = useOrchestration((s) => s.dirty)
+  const activeLive = useOrchestration((s) => s.play.publishState === 'live')
+  const activeId = useWorkspace((s) => s.activeId)
   const shared = usePlays((s) => s.plays.filter((p) => p.variants.some((x) => x.experienceId === v.experienceId)).length)
   if (!thread) return null
   const items: MenuItem[] = [
     { label: 'Rename', icon: 'pencil', onClick: () => useWorkspaceUi.getState().setRenaming(v.experienceId) },
     { label: 'Duplicate', icon: 'copy', hint: 'A separate copy under this play', onClick: () => duplicateInto(v.experienceId, play.id, index + 1) },
+    ...(shared > 1
+      ? [{ label: `Own copy for ${play.name}`, icon: 'git-branch' as const, hint: 'Edits here stop reaching the other plays', onClick: () => separateCopy(v.experienceId, play.id) }]
+      : []),
     { label: 'Add to another play…', icon: 'folder-input', items: addToOtherPlays(v.experienceId, play.id) },
     { label: 'Move to another play…', icon: 'move', items: moveToOtherPlays(play.id, v) },
     {
@@ -181,15 +186,17 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
       {!renaming && (
         <>
           {shared > 1 && (
-            <Chip tone="indigo" title={`Used in ${shared} plays. Edits show in all of them.`}>
-              {shared} plays
-            </Chip>
+            <span className="hidden flex-none group-hover:inline-flex">
+              <Chip tone="indigo" title={`Used in ${shared} plays. Edits show in all of them.`}>
+                {shared} plays
+              </Chip>
+            </span>
           )}
           {current && dirty ? (
             <span className="flex-none text-[11px] text-slate-400 group-hover:hidden">Unsaved</span>
           ) : (
             <span className="flex-none group-hover:hidden">
-              <ExperienceProgressPill experienceId={v.experienceId} />
+              <StatusChip live={threadIsLive(thread, activeId, activeLive)} liveLabel="Published" />
             </span>
           )}
           <RowMenu label={`Actions for ${thread.title}`} items={items} className="hidden group-hover:block" />
@@ -258,7 +265,7 @@ function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; on
     },
   ]
   return (
-    <div>
+    <div className="group/play">
       <div
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
@@ -307,8 +314,7 @@ function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; on
         ) : (
           !renaming && (
             <>
-              <span className="flex flex-none items-center gap-[4px] group-hover:hidden">
-                <PlayProgressPill playId={play.id} />
+              <span className="flex-none group-hover:hidden">
                 <StatusChip live={play.status === 'live'} />
               </span>
               <RowMenu label={`Actions for ${play.name}`} items={items} className="hidden group-hover:block" />
@@ -327,10 +333,9 @@ function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; on
               current={page === 'thread' && playId === play.id && activeId === v.experienceId}
             />
           ))}
-          {play.variants.length === 0 && (
-            <p className="px-[6px] py-[4px] text-[12px] text-slate-400">No variants yet. Drag one here or add one.</p>
-          )}
-          <div className="flex items-center">
+          <div
+            className={`flex items-center ${play.variants.length === 0 ? '' : 'invisible group-hover/play:visible group-focus-within/play:visible'}`}
+          >
             <AddVariant play={play} />
             <span className="pl-[4px] text-[11.5px] text-slate-400">Add variant</span>
           </div>
@@ -424,7 +429,7 @@ export function PlaysTree() {
     })
 
   return (
-    <div className="flex flex-col gap-[10px]">
+    <div className="flex flex-col gap-[12px]">
       <div>
         <SectionHead
           title="Plays"
@@ -451,21 +456,20 @@ export function PlaysTree() {
           {plays.length === 0 && <p className="px-[10px] py-[4px] text-[12px] text-slate-400">No plays yet.</p>}
         </div>
       </div>
-      <div>
-        <SectionHead title="Not in a play" />
-        <div className="flex flex-col gap-[2px]">
-          {loose.map((t) => (
-            <LooseRow
-              key={t.id}
-              thread={t}
-              current={page === 'thread' && !templatesOpen && t.id === activeId && (!playId || !inAPlay.has(t.id))}
-            />
-          ))}
-          {loose.length === 0 && (
-            <p className="px-[10px] py-[4px] text-[12px] leading-relaxed text-slate-400">Every experience is in a play.</p>
-          )}
+      {loose.length > 0 && (
+        <div className="border-t border-slate-200 pt-[12px]">
+          <SectionHead title="Not in a play" />
+          <div className="flex flex-col gap-[2px]">
+            {loose.map((t) => (
+              <LooseRow
+                key={t.id}
+                thread={t}
+                current={page === 'thread' && !templatesOpen && t.id === activeId && (!playId || !inAPlay.has(t.id))}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

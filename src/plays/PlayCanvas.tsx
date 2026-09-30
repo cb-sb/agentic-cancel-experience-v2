@@ -36,9 +36,9 @@ const STEP_LABEL: Record<JourneyStepKind, string> = {
   outcome_cancelled: 'Cancelled',
 }
 
-type Tone = 'default' | 'path' | 'stop' | 'muted'
+export type Tone = 'default' | 'path' | 'stop' | 'muted'
 
-interface CardData extends Record<string, unknown> {
+export interface CardData extends Record<string, unknown> {
   icon: SIconName
   eyebrow: string
   title: string
@@ -49,6 +49,7 @@ interface CardData extends Record<string, unknown> {
   side?: boolean
   body?: ReactNode
   onOpen?: () => void
+  openLabel?: string
   width?: number
 }
 
@@ -59,7 +60,7 @@ const TONE: Record<Tone, string> = {
   muted: 'border-slate-200 bg-slate-50 opacity-60',
 }
 
-function CardNode({ data }: NodeProps<Node<CardData>>) {
+export function CardNode({ data }: NodeProps<Node<CardData>>) {
   return (
     <div style={{ width: data.width ?? 220 }} className={`rounded-2xl border px-[12px] py-[10px] shadow-sm transition-all ${TONE[data.tone]}`}>
       <Handle type="target" position={Position.Left} className="!h-[6px] !w-[6px] !border-0 !bg-transparent !opacity-0" />
@@ -83,14 +84,14 @@ function CardNode({ data }: NodeProps<Node<CardData>>) {
       )}
       {data.onOpen && (
         <button type="button" onClick={data.onOpen} className="nodrag mt-[8px] inline-flex items-center gap-[4px] text-[12px] font-semibold text-indigo-600 hover:underline">
-          Open experience <SIcon name="arrow-right" size={11} />
+          {data.openLabel ?? 'Open experience'} <SIcon name="arrow-right" size={11} />
         </button>
       )}
     </div>
   )
 }
 
-const nodeTypes = { card: CardNode }
+export const nodeTypes = { card: CardNode }
 
 const COL = 270
 

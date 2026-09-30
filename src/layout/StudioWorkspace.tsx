@@ -15,6 +15,7 @@ import { UploadPage } from '../upload/UploadPage'
 import { useUpload } from '../upload/useUpload'
 import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { CancelPageSettings } from './CancelPageSettings'
+import { ExperiencesHome } from './ExperiencesHome'
 import { ExperiencesIndex } from './ExperiencesIndex'
 import { ExperiencesPane } from './ExperiencesPane'
 import { SearchDialog } from './SearchDialog'
@@ -122,7 +123,7 @@ export function StudioWorkspace() {
       <div className="flex min-h-0 min-w-0">
         {page === 'index' ? (
           <div className="min-w-0 flex-1">
-            <ExperiencesIndex />
+            {V8 ? <ExperiencesHome /> : <ExperiencesIndex />}
           </div>
         ) : V8 && page === 'play' ? (
           <PlayWorkspace />

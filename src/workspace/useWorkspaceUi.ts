@@ -63,7 +63,7 @@ export type Objective = 'acquisition' | 'expansion' | 'retention'
  */
 export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library'
 
-export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations' | 'dictionary'
+export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations'
 
 /** v8 play tabs: the canvas of every variant, the play summary, and its task list. */
 export type PlayTab = 'canvas' | 'summary' | 'tasks'
@@ -101,6 +101,8 @@ interface WorkspaceUi {
   libraryKind: LibraryKind
   /** Bumped by the Create menu to open the library's new-item form. */
   libraryNew: number
+  /** Library item to open when the page shows, then cleared. */
+  libraryFocus: string | null
   /** Row whose name is being edited in place in the side pane. */
   renaming: string | null
   setSidebarOpen: (open: boolean) => void
@@ -135,6 +137,7 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   playTabs: {},
   libraryKind: 'offers',
   libraryNew: 0,
+  libraryFocus: null,
   renaming: null,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSearch: (search) => set({ search }),

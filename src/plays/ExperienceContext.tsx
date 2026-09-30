@@ -20,10 +20,7 @@ export function separateCopy(experienceId: string, playId: string) {
   toast(`${play?.name ?? 'This play'} now has its own copy. Give it a name.`)
 }
 
-/**
- * v8: under the tabs, which play this experience is being worked on through,
- * which variant it is there, and a warning when other plays use it too.
- */
+/** v8: under the tabs, which play this experience is being worked on through, and which variant it is there. */
 export function ExperienceContextBar() {
   const activeId = useWorkspace((s) => s.activeId)
   const title = useWorkspace((s) => s.threads.find((t) => t.id === s.activeId)?.title ?? '')
@@ -94,21 +91,6 @@ export function ExperienceContextBar() {
           </span>
         )}
       </div>
-      {others.length > 0 && (
-        <div className="flex items-center gap-[10px] border-t border-indigo-100 bg-indigo-50/60 px-[16px] py-[7px] text-[12.5px] text-indigo-900">
-          <SIcon name="info" size={13} className="flex-none text-indigo-500" />
-          <span className="min-w-0 flex-1">
-            Used in {[current, ...others].map((p) => p.name).join(' and ')}. Changes apply to {others.length > 1 ? 'all of them' : 'both'}.
-          </span>
-          <button
-            type="button"
-            onClick={() => separateCopy(activeId, current.id)}
-            className="flex-none rounded-md px-[8px] py-[3px] text-[12px] font-semibold text-indigo-700 hover:bg-indigo-100"
-          >
-            Make a separate copy for {current.name}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
