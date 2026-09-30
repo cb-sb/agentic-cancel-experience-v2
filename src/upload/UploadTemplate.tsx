@@ -5,6 +5,7 @@ import { useUpload } from './useUpload'
 import { formatContractIssue } from './validate'
 import { CONTRACT_VERSION } from './contract'
 import { SAMPLE_ZIP_NAME, kitClipboardPayload, kitZipBytes } from './kit'
+import { V8 } from '../layout/layoutMode'
 import { useOrchestration } from '../store/useOrchestration'
 import { SpotlightFrame } from '../orchestration/SpotlightFrame'
 import { useCopilotStage } from '../orchestration/copilotStage'
@@ -54,27 +55,86 @@ function BackLink({ onClick }: { onClick: () => void }) {
   )
 }
 
-export function UploadTemplate() {
-  const loadFiles = useUpload((s) => s.loadFiles)
-  const loadSample = useUpload((s) => s.loadSample)
-  const error = useUpload((s) => s.error)
-  const checklist = useUpload((s) => s.checklist)
-  const mappingOnly = useUpload((s) => s.mappingOnly)
-  const openTemplates = useOrchestration((s) => s.openTemplates)
-  const requestCopilotLibrary = useOrchestration((s) => s.requestCopilotLibrary)
-  const stage = useCopilotStage()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [over, setOver] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [branch, setBranch] = useState<Branch>(mappingOnly ? 'upload' : 'fork')
-
-  const onFiles = useCallback(
-    (list: FileList | File[] | null) => {
-      if (!list || (list as FileList).length === 0) return
-      void loadFiles(list)
-    },
-    [loadFiles],
+function ForkOption({ title, body, onClick }: { title: string; body: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full flex-col rounded-[14px] border border-[#e5e7eb] bg-white px-[18px] py-[14px] text-left transition-colors hover:bg-[#fbfcfd]"
+    >
+      <span className="text-[14px] font-semibold text-[#19191f]">{title}</span>
+      <span className="mt-[2px] text-[12.5px] leading-[1.5] text-[#677488]">{body}</span>
+    </button>
   )
+}
+
+/** v7: pick a path. Upload a file you already have, or get the kit first. */
+export function UploadFork({
+  onUpload,
+  onKit,
+  onMyTemplates,
+}: {
+  onUpload: () => void
+  onKit: () => void
+  onMyTemplates: () => void
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-[4px]">
+        <h2 className="text-[16px] font-bold text-[#19191f]">Upload a template</h2>
+        <p className="mt-[2px] text-[13px] leading-[1.5] text-[#677488]">
+          Copilot binds the catalog from your composed HTML — targeting, holdout, and publish stay here.
+        </p>
+      </div>
+
+      <div className="mt-[12px] flex flex-col gap-[12px]">
+        <ForkOption
+          title="I already have my file — upload it"
+          body="Drop the composed HTML or zip you prepared with your LLM."
+          onClick={onUpload}
+        />
+        <ForkOption
+          title="I’m new here — get the Growth kit"
+          body="Download the kit, compose an experience with your LLM, then come back to upload."
+          onClick={onKit}
+        />
+      </div>
+
+      <p className="mt-[16px] text-center text-[12.5px] text-slate-500">
+        Meant to reopen chrome you already scanned? <TextLink onClick={onMyTemplates}>Open my templates</TextLink>
+      </p>
+    </div>
+  )
+}
+
+function TextLink({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-2 hover:text-[#4338ca]"
+    >
+      {children}
+    </button>
+  )
+}
+
+export function downloadKit() {
+  download(SAMPLE_ZIP_NAME, zipToBlob(kitZipBytes()))
+}
+
+export async function copyKitForLlm(): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(kitClipboardPayload())
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** v7: download the kit and hand it to an LLM. */
+export function UploadKit({ onBack, onUpload }: { onBack?: () => void; onUpload: () => void }) {
+  const [copied, setCopied] = useState(false)
 
   const copyForLlm = async () => {
     try {
@@ -86,128 +146,83 @@ export function UploadTemplate() {
     }
   }
 
-  const openMyTemplates = () => {
-    if (stage === 'center') requestCopilotLibrary('yours')
-    else openTemplates('yours')
-  }
-
-  const mappingBanner = mappingOnly && (
-    <p className="mb-[12px] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
-      Layout change needs a new file. Catalog binds can skip this and stay on confirm.
-    </p>
-  )
-
-  // ---- Fork: pick the intent ------------------------------------------------
-  if (branch === 'fork') {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        {mappingBanner}
-        <div className="mb-[4px]">
-          <h2 className="text-[16px] font-bold text-[#19191f]">Upload a template</h2>
-          <p className="mt-[2px] text-[13px] leading-[1.5] text-[#677488]">
-            Copilot binds the catalog from your composed HTML — targeting, holdout, and publish stay here.
-          </p>
-        </div>
-
-        <div className="mt-[12px] flex flex-col gap-[12px]">
-          <button
-            type="button"
-            onClick={() => setBranch('upload')}
-            className="flex w-full flex-col rounded-[14px] border border-[#e5e7eb] bg-white px-[18px] py-[14px] text-left transition-colors hover:bg-[#fbfcfd]"
-          >
-            <span className="text-[14px] font-semibold text-[#19191f]">I already have my file — upload it</span>
-            <span className="mt-[2px] text-[12.5px] leading-[1.5] text-[#677488]">
-              Drop the composed HTML or zip you prepared with your LLM.
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setBranch('kit')}
-            className="flex w-full flex-col rounded-[14px] border border-[#e5e7eb] bg-white px-[18px] py-[14px] text-left transition-colors hover:bg-[#fbfcfd]"
-          >
-            <span className="text-[14px] font-semibold text-[#19191f]">I’m new here — get the Growth kit</span>
-            <span className="mt-[2px] text-[12.5px] leading-[1.5] text-[#677488]">
-              Download the kit, compose an experience with your LLM, then come back to upload.
-            </span>
-          </button>
-        </div>
-
-        <p className="mt-[16px] text-center text-[12.5px] text-slate-500">
-          Meant to reopen chrome you already scanned?{' '}
-          <button
-            type="button"
-            onClick={openMyTemplates}
-            className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-2 hover:text-[#4338ca]"
-          >
-            Open my templates
-          </button>
-        </p>
-      </div>
-    )
-  }
-
-  // ---- Kit: new user downloads and prepares ---------------------------------
-  if (branch === 'kit') {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        {mappingBanner}
-        <BackLink onClick={() => setBranch('fork')} />
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">Get the Growth kit</p>
-          <h2 className="mt-[2px] text-[16px] font-bold text-[#19191f]">Primitives, not a journey</h2>
-          <p className="mt-[6px] text-[13px] leading-[1.6] text-[#677488]">
-            Tell your LLM the job, then export only those pages. Keep every{' '}
-            <code className="rounded bg-slate-100 px-1 text-[12px]">data-cb-*</code> mark. Don’t upload this zip back —
-            Chargebee won’t open a chat for you.
-          </p>
-        </div>
-
-        <div className="mt-[16px] flex flex-wrap gap-[8px]">
-          <SButton
-            size="small"
-            variant="primary"
-            className="w-auto shrink-0"
-            onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(kitZipBytes()))}
-          >
-            Download kit
-          </SButton>
-          <SButton
-            size="small"
-            variant="neutral-outline"
-            className="w-auto shrink-0"
-            onClick={() => void copyForLlm()}
-          >
-            {copied ? 'Copied for your LLM' : 'Copy for your LLM'}
-          </SButton>
-        </div>
-
-        <div className="mt-[20px] border-t border-slate-100 pt-[16px]">
-          <p className="text-[13px] leading-[1.5] text-[#677488]">Already prepared your file?</p>
-          <SButton
-            size="small"
-            variant="primary"
-            className="mt-[8px] w-auto shrink-0"
-            onClick={() => setBranch('upload')}
-          >
-            I’ve prepared my file — upload it
-          </SButton>
-        </div>
-      </div>
-    )
-  }
-
-  // ---- Upload: returning user drops their file ------------------------------
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {mappingBanner}
-      {!mappingOnly && <BackLink onClick={() => setBranch('fork')} />}
-
-      <div className="mb-[4px]">
-        <h2 className="text-[16px] font-bold text-[#19191f]">Upload your file</h2>
-        <p className="mt-[2px] text-[13px] leading-[1.5] text-[#677488]">
-          Drop the HTML or zip you built from the Growth kit. Copilot binds the catalog; targeting, holdout, and publish stay here.
+      {onBack && <BackLink onClick={onBack} />}
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">Get the Growth kit</p>
+        <h2 className="mt-[2px] text-[16px] font-bold text-[#19191f]">Primitives, not a journey</h2>
+        <p className="mt-[6px] text-[13px] leading-[1.6] text-[#677488]">
+          Tell your LLM the job, then export only those pages. Keep every{' '}
+          <code className="rounded bg-slate-100 px-1 text-[12px]">data-cb-*</code> mark. Don’t upload this zip back —
+          Chargebee won’t open a chat for you.
         </p>
       </div>
+
+      <div className="mt-[16px] flex flex-wrap gap-[8px]">
+        <SButton
+          size="small"
+          variant="primary"
+          className="w-auto shrink-0"
+          onClick={() => download(SAMPLE_ZIP_NAME, zipToBlob(kitZipBytes()))}
+        >
+          Download kit
+        </SButton>
+        <SButton size="small" variant="neutral-outline" className="w-auto shrink-0" onClick={() => void copyForLlm()}>
+          {copied ? 'Copied for your LLM' : 'Copy for your LLM'}
+        </SButton>
+      </div>
+
+      <div className="mt-[20px] border-t border-slate-100 pt-[16px]">
+        <p className="text-[13px] leading-[1.5] text-[#677488]">Already prepared your file?</p>
+        <SButton size="small" variant="primary" className="mt-[8px] w-auto shrink-0" onClick={onUpload}>
+          I’ve prepared my file — upload it
+        </SButton>
+      </div>
+    </div>
+  )
+}
+
+/** Drop zone plus the inline contract checklist from the last scan. */
+export function UploadDrop({
+  onBack,
+  onKit,
+  bare = false,
+}: {
+  onBack?: () => void
+  onKit?: () => void
+  /** Inside the v8 wizard, which gives the step its own heading. */
+  bare?: boolean
+}) {
+  const loadFiles = useUpload((s) => s.loadFiles)
+  const loadSample = useUpload((s) => s.loadSample)
+  const error = useUpload((s) => s.error)
+  const checklist = useUpload((s) => s.checklist)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [over, setOver] = useState(false)
+
+  const onFiles = useCallback(
+    (list: FileList | File[] | null) => {
+      if (!list || (list as FileList).length === 0) return
+      void loadFiles(list)
+    },
+    [loadFiles],
+  )
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {onBack && <BackLink onClick={onBack} />}
+
+      {!bare && (
+        <div className="mb-[4px]">
+          <h2 className="text-[16px] font-bold text-[#19191f]">Upload your file</h2>
+          <p className="mt-[2px] text-[13px] leading-[1.5] text-[#677488]">
+            {V8
+              ? 'Drop the HTML or zip you made with the Growth kit.'
+              : 'Drop the HTML or zip you built from the Growth kit. Copilot binds the catalog; targeting, holdout, and publish stay here.'}
+          </p>
+        </div>
+      )}
 
       <SpotlightFrame id="upload">
         <div
@@ -221,7 +236,9 @@ export function UploadTemplate() {
             setOver(false)
             onFiles(e.dataTransfer.files)
           }}
-          className={`mt-[12px] flex flex-none flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-[36px] text-center transition-colors ${
+          className={`flex flex-none flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition-colors ${
+            bare ? 'py-[52px]' : 'mt-[12px] py-[36px]'
+          } ${
             over ? 'border-indigo-400 bg-indigo-50/70' : 'border-slate-300 bg-slate-50/60'
           }`}
         >
@@ -252,13 +269,14 @@ export function UploadTemplate() {
 
       <div className="mt-[8px] flex flex-wrap items-center justify-between gap-x-[12px] gap-y-[4px] px-[2px] text-[12px] text-slate-400">
         <span>
-          HTML, ZIP, CSS · needs the kit’s{' '}
-          <code className="rounded bg-slate-100 px-1 text-[11px] text-slate-500">data-cb-*</code> marks · v{CONTRACT_VERSION}
+          {V8 ? 'HTML, ZIP or CSS. Needs the kit’s ' : 'HTML, ZIP, CSS · needs the kit’s '}
+          <code className="rounded bg-slate-100 px-1 text-[11px] text-slate-500">data-cb-*</code>{' '}
+          {V8 ? 'marks.' : `marks · v${CONTRACT_VERSION}`}
         </span>
-        {!mappingOnly && (
+        {onKit && (
           <button
             type="button"
-            onClick={() => setBranch('kit')}
+            onClick={onKit}
             className="font-semibold text-[#4f46e5] underline decoration-[#c7d2fe] underline-offset-2 hover:text-[#4338ca]"
           >
             No kit yet? Get the kit
@@ -268,7 +286,9 @@ export function UploadTemplate() {
 
       {checklist.length > 0 && (
         <div className="mt-[12px] rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] text-rose-800">
-          <p className="font-semibold">Contract checklist — fix the HTML, then drop it again</p>
+          <p className="font-semibold">
+            {V8 ? 'Fix these in your file, then upload it again' : 'Contract checklist — fix the HTML, then drop it again'}
+          </p>
           <ul className="mt-1 list-disc pl-4">
             {checklist.map((item) => (
               <li key={formatContractIssue(item)}>{formatContractIssue(item)}</li>
@@ -283,15 +303,53 @@ export function UploadTemplate() {
         </div>
       )}
 
-      <p className="mt-[14px] text-center text-[11px] text-slate-300">
+      <p className={`mt-[14px] text-center text-[11px] ${V8 ? 'text-slate-400' : 'text-slate-300'}`}>
         <button
           type="button"
           onClick={() => loadSample()}
           className="underline decoration-slate-200 underline-offset-2 hover:text-slate-500"
         >
-          Scan a composed demo as-is
+          {V8 ? 'Try a sample file' : 'Scan a composed demo as-is'}
         </button>
       </p>
+    </div>
+  )
+}
+
+export function UploadTemplate() {
+  const mappingOnly = useUpload((s) => s.mappingOnly)
+  const openTemplates = useOrchestration((s) => s.openTemplates)
+  const requestCopilotLibrary = useOrchestration((s) => s.requestCopilotLibrary)
+  const stage = useCopilotStage()
+  const [branch, setBranch] = useState<Branch>(mappingOnly ? 'upload' : 'fork')
+
+  const openMyTemplates = () => {
+    if (stage === 'center') requestCopilotLibrary('yours')
+    else openTemplates('yours')
+  }
+
+  const mappingBanner = mappingOnly && (
+    <p className="mb-[12px] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
+      Layout change needs a new file. Catalog binds can skip this and stay on confirm.
+    </p>
+  )
+
+  const view =
+    branch === 'fork' ? (
+      <UploadFork onUpload={() => setBranch('upload')} onKit={() => setBranch('kit')} onMyTemplates={openMyTemplates} />
+    ) : branch === 'kit' ? (
+      <UploadKit onBack={() => setBranch('fork')} onUpload={() => setBranch('upload')} />
+    ) : (
+      <UploadDrop
+        onBack={mappingOnly ? undefined : () => setBranch('fork')}
+        onKit={mappingOnly ? undefined : () => setBranch('kit')}
+      />
+    )
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {mappingBanner}
+      <div className="min-h-0 flex-1">{view}</div>
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { V8 } from '../layout/layoutMode'
 import { BackButton } from '../shell/BackButton'
 import { goBack } from '../shell/navHistory'
 import { useOrchestration } from '../store/useOrchestration'
-import { startFromLibrary, startFromSaved } from '../workspace/useWorkspace'
+import { startFromLibrary, startFromSaved, startUploadPage } from '../workspace/useWorkspace'
 import { useCopilotStage, type LibraryTab } from './copilotStage'
 
 function ExpandIcon() {
@@ -48,6 +48,7 @@ export function LibraryPanel({ page = false }: { page?: boolean }) {
   }, [closeTemplates, page])
 
   const startNew = () => {
+    if (V8) return startUploadPage()
     closeTemplates()
     chooseDoor('upload')
   }

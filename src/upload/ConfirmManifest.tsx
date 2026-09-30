@@ -4,6 +4,8 @@ import { CB_KIND_LABELS, type CbKind } from './contract'
 import { DEFAULT_SUBSCRIBER_CONTEXT, type ManifestStep, type TemplateManifest } from './types'
 import { formatContractIssue, validateManifest } from './validate'
 import { useUpload } from './useUpload'
+import { V8 } from '../layout/layoutMode'
+import { WizardBody, WizardFooter } from './Wizard'
 
 function patchStep(manifest: TemplateManifest, id: string, patch: Partial<ManifestStep>): TemplateManifest {
   return {
@@ -47,7 +49,14 @@ function needsBindCard(step: ManifestStep): boolean {
   return step.slots.some((s) => s.type === 'offer') || step.fields.length > 0
 }
 
-export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
+export function ConfirmManifest({
+  onConfirmed,
+  wizard,
+}: {
+  onConfirmed?: () => void
+  /** v8 upload page: render as the wizard's last step, with its footer. */
+  wizard?: { onBack: () => void }
+}) {
   const manifest = useUpload((s) => s.manifest)
   const setManifest = useUpload((s) => s.setManifest)
   const confirm = useUpload((s) => s.confirm)
@@ -64,152 +73,196 @@ export function ConfirmManifest({ onConfirmed }: { onConfirmed?: () => void }) {
   const bindable = manifest.steps.filter(needsBindCard)
   const chain = manifest.steps.map((s) => kindLabel(s.kind)).join(' → ')
 
+  const save = () => {
+    confirm()
+    onConfirmed?.()
+  }
+
+  const cards = (
+    <>
+      {bindable.map((step) => (
+        <article key={step.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h3 className="text-[14px] font-semibold text-slate-900">{kindLabel(step.kind)}</h3>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">{kindJob(step.kind)}</p>
+
+          {step.slots.some((s) => s.type === 'offer') && (
+            <ul className="mt-3 space-y-2">
+              {step.slots
+                .filter((s) => s.type === 'offer')
+                .map((slot) => (
+                  <li key={`${slot.type}:${slot.id}`} className="flex flex-wrap items-center gap-2 text-[12.5px]">
+                    <label className="w-16 font-semibold uppercase tracking-wide text-slate-400" htmlFor={`bind-${step.id}-${slot.id}`}>
+                      Offer
+                    </label>
+                    <select
+                      id={`bind-${step.id}-${slot.id}`}
+                      value={slot.bind ?? 'discount'}
+                      onChange={(e) =>
+                        setManifest(
+                          patchStep(manifest, step.id, {
+                            slots: step.slots.map((s) => (s === slot ? { ...s, bind: e.target.value } : s)),
+                          }),
+                        )
+                      }
+                      className="rounded-md border border-slate-200 px-2 py-1"
+                    >
+                      {OFFER_VARIANTS.map((v) => (
+                        <option key={v.category} value={v.category}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                ))}
+            </ul>
+          )}
+
+          {step.fields.length > 0 && (
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                Preview samples
+              </p>
+              <ul className="mt-2 space-y-2">
+                {step.fields.map((field) => (
+                  <li key={field.name} className="flex flex-wrap items-center gap-2">
+                    <span className="w-40 text-[12px] capitalize text-slate-700">{fieldLabel(field.name)}</span>
+                    <input
+                      value={ctx[field.name] ?? field.sample ?? ''}
+                      onChange={(e) =>
+                        setManifest({
+                          ...manifest,
+                          subscriberContext: { ...ctx, [field.name]: e.target.value },
+                        })
+                      }
+                      className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-[12.5px]"
+                      placeholder="Sample for preview"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </article>
+      ))}
+
+      {hasSurvey && (
+        <article className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h3 className="text-[14px] font-semibold text-slate-900">Survey</h3>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
+            Why they’re leaving. These reasons fill the survey screen.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {(manifest.surveyReasons ?? []).map((r, i) => (
+              <li key={r.id} className="flex gap-2">
+                <input
+                  value={r.label}
+                  onChange={(e) => {
+                    const surveyReasons = [...(manifest.surveyReasons ?? [])]
+                    surveyReasons[i] = { ...r, label: e.target.value }
+                    setManifest({ ...manifest, surveyReasons })
+                  }}
+                  className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-[12.5px]"
+                />
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-2 text-[12px] font-semibold text-indigo-600 hover:text-indigo-800"
+            onClick={() =>
+              setManifest({
+                ...manifest,
+                surveyReasons: [
+                  ...(manifest.surveyReasons ?? []),
+                  { id: `reason_${Date.now()}`, label: 'New reason' },
+                ],
+              })
+            }
+          >
+            Add a reason
+          </button>
+        </article>
+      )}
+
+      {bindable.length === 0 && !hasSurvey && (
+        <p className="text-[12.5px] text-slate-500">
+          {V8 ? 'Nothing to pick on these screens. Save to continue.' : 'No catalog binds on this pack. Chrome is marked — confirm to host.'}
+        </p>
+      )}
+    </>
+  )
+
+  const errorList = errors.length > 0 && (
+    <ul className="mt-3 list-disc rounded-lg border border-rose-200 bg-rose-50 px-5 py-2 text-[12.5px] text-rose-800">
+      {errors.map((e) => (
+        <li key={formatContractIssue(e)}>{formatContractIssue(e)}</li>
+      ))}
+    </ul>
+  )
+
+  if (wizard) {
+    return (
+      <>
+        <WizardBody
+          title="Check your screens"
+          description="Pick the offer for each save screen and edit the survey reasons. You can change everything else in the editor."
+        >
+          {chain && (
+            <p className="mb-[14px] rounded-[10px] bg-slate-50 px-[12px] py-[8px] text-[12.5px] text-slate-600">
+              <span className="font-semibold text-slate-800">Screens in your file:</span> {chain}
+            </p>
+          )}
+          <div className="space-y-3">{cards}</div>
+          {errorList}
+        </WizardBody>
+        <WizardFooter
+          left={
+            <SButton size="small" variant="neutral-outline" onClick={wizard.onBack}>
+              Back
+            </SButton>
+          }
+          right={
+            <SButton size="small" variant="primary" disabled={!ready} onClick={save}>
+              Save and open the editor
+            </SButton>
+          }
+        />
+      </>
+    )
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-none rounded-xl bg-[#E36A5A] px-4 py-3 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-white/80">Catalog binds</p>
-        <p className="mt-0.5 text-[14px] font-semibold">Bind the save (and survey) from your catalog</p>
-        {chain && (
-          <p className="mt-1 text-[12.5px] text-white/85">
-            Screens in this pack: {chain}. Layout stays as uploaded — Copilot still owns targeting and publish.
+      {V8 ? (
+        <div className="flex-none">
+          <h2 className="text-[16px] font-bold text-[#19191f]">Check your screens</h2>
+          <p className="mt-[2px] text-[13px] leading-[1.5] text-[#677488]">
+            Pick the offer for each save screen and edit the survey reasons. You can change everything else in the editor.
           </p>
-        )}
-      </div>
-
-      <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-        {bindable.map((step) => (
-          <article key={step.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h3 className="text-[14px] font-semibold text-slate-900">{kindLabel(step.kind)}</h3>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">{kindJob(step.kind)}</p>
-
-            {step.slots.some((s) => s.type === 'offer') && (
-              <ul className="mt-3 space-y-2">
-                {step.slots
-                  .filter((s) => s.type === 'offer')
-                  .map((slot) => (
-                    <li key={`${slot.type}:${slot.id}`} className="flex flex-wrap items-center gap-2 text-[12.5px]">
-                      <label className="w-16 font-semibold uppercase tracking-wide text-slate-400" htmlFor={`bind-${step.id}-${slot.id}`}>
-                        Offer
-                      </label>
-                      <select
-                        id={`bind-${step.id}-${slot.id}`}
-                        value={slot.bind ?? 'discount'}
-                        onChange={(e) =>
-                          setManifest(
-                            patchStep(manifest, step.id, {
-                              slots: step.slots.map((s) => (s === slot ? { ...s, bind: e.target.value } : s)),
-                            }),
-                          )
-                        }
-                        className="rounded-md border border-slate-200 px-2 py-1"
-                      >
-                        {OFFER_VARIANTS.map((v) => (
-                          <option key={v.category} value={v.category}>
-                            {v.label}
-                          </option>
-                        ))}
-                      </select>
-                    </li>
-                  ))}
-              </ul>
-            )}
-
-            {step.fields.length > 0 && (
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                  Preview samples
-                </p>
-                <ul className="mt-2 space-y-2">
-                  {step.fields.map((field) => (
-                    <li key={field.name} className="flex flex-wrap items-center gap-2">
-                      <span className="w-40 text-[12px] capitalize text-slate-700">{fieldLabel(field.name)}</span>
-                      <input
-                        value={ctx[field.name] ?? field.sample ?? ''}
-                        onChange={(e) =>
-                          setManifest({
-                            ...manifest,
-                            subscriberContext: { ...ctx, [field.name]: e.target.value },
-                          })
-                        }
-                        className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-[12.5px]"
-                        placeholder="Sample for preview"
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </article>
-        ))}
-
-        {hasSurvey && (
-          <article className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h3 className="text-[14px] font-semibold text-slate-900">Survey</h3>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-              Why they’re leaving. These reasons fill the survey screen.
+          {chain && <p className="mt-[8px] text-[12.5px] text-slate-500">Screens in your file: {chain}</p>}
+        </div>
+      ) : (
+        <div className="flex-none rounded-xl bg-[#E36A5A] px-4 py-3 text-white">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-white/80">Catalog binds</p>
+          <p className="mt-0.5 text-[14px] font-semibold">Bind the save (and survey) from your catalog</p>
+          {chain && (
+            <p className="mt-1 text-[12.5px] text-white/85">
+              Screens in this pack: {chain}. Layout stays as uploaded — Copilot still owns targeting and publish.
             </p>
-            <ul className="mt-3 space-y-2">
-              {(manifest.surveyReasons ?? []).map((r, i) => (
-                <li key={r.id} className="flex gap-2">
-                  <input
-                    value={r.label}
-                    onChange={(e) => {
-                      const surveyReasons = [...(manifest.surveyReasons ?? [])]
-                      surveyReasons[i] = { ...r, label: e.target.value }
-                      setManifest({ ...manifest, surveyReasons })
-                    }}
-                    className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-[12.5px]"
-                  />
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              className="mt-2 text-[12px] font-semibold text-indigo-600 hover:text-indigo-800"
-              onClick={() =>
-                setManifest({
-                  ...manifest,
-                  surveyReasons: [
-                    ...(manifest.surveyReasons ?? []),
-                    { id: `reason_${Date.now()}`, label: 'New reason' },
-                  ],
-                })
-              }
-            >
-              Add a reason
-            </button>
-          </article>
-        )}
-
-        {bindable.length === 0 && !hasSurvey && (
-          <p className="text-[12.5px] text-slate-500">
-            No catalog binds on this pack. Chrome is marked — confirm to host.
-          </p>
-        )}
-      </div>
-
-      {errors.length > 0 && (
-        <ul className="mt-3 list-disc rounded-lg border border-rose-200 bg-rose-50 px-5 py-2 text-[12.5px] text-rose-800">
-          {errors.map((e) => (
-            <li key={formatContractIssue(e)}>{formatContractIssue(e)}</li>
-          ))}
-        </ul>
+          )}
+        </div>
       )}
+
+      <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">{cards}</div>
+
+      {errorList}
 
       <div className="mt-4 flex flex-none items-center justify-between gap-2">
         <SButton size="small" variant="neutral-outline" onClick={backToPick}>
           {mappingOnly ? 'Replace file' : 'Back'}
         </SButton>
-        <SButton
-          size="small"
-          variant="primary"
-          disabled={!ready}
-          onClick={() => {
-            confirm()
-            onConfirmed?.()
-          }}
-        >
-          Confirm, save to My templates
+        <SButton size="small" variant="primary" disabled={!ready} onClick={save}>
+          {V8 ? (mappingOnly ? 'Save changes' : 'Save and open the editor') : 'Confirm, save to My templates'}
         </SButton>
       </div>
     </div>

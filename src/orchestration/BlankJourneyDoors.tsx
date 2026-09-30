@@ -1,6 +1,7 @@
 import { SCard, SIcon, type SIconName } from '@chargebee/sting-react'
 import { V8 } from '../layout/layoutMode'
 import { useOrchestration } from '../store/useOrchestration'
+import { startUploadPage } from '../workspace/useWorkspace'
 
 function DoorShell({
   title,
@@ -93,7 +94,7 @@ export function BlankJourneyDoors({ packed = false }: { packed?: boolean }) {
 
           <button
             type="button"
-            onClick={() => chooseDoor('upload')}
+            onClick={() => (V8 ? startUploadPage() : chooseDoor('upload'))}
             className="group w-[268px] cursor-pointer text-left transition-transform duration-200 hover:-translate-y-[6px] focus-visible:outline-none"
           >
             <DoorShell

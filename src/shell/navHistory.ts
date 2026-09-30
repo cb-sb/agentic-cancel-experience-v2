@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { useOrchestration } from '../store/useOrchestration'
+import { useUpload } from '../upload/useUpload'
+import { V8 } from '../layout/layoutMode'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { switchThread, useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi, type StudioPage } from '../workspace/useWorkspaceUi'
@@ -12,6 +14,7 @@ interface Place {
   page: StudioPage
   threadId: string
   templates: boolean
+  upload?: boolean
   readOnlyId: string | null
 }
 
@@ -30,12 +33,18 @@ function currentPlace(): Place {
     page: ui.page,
     threadId: useWorkspace.getState().activeId,
     templates: useOrchestration.getState().templatesOpen,
+    upload: uploadPageOpen(),
     readOnlyId: ui.readOnlyId,
   }
 }
 
+function uploadPageOpen(): boolean {
+  const { phase, mappingOnly } = useUpload.getState()
+  return V8 && phase !== 'closed' && !mappingOnly
+}
+
 function keyOf(p: Place): string {
-  return [p.route, p.page, p.threadId, p.templates ? 1 : 0, p.readOnlyId ?? ''].join('|')
+  return [p.route, p.page, p.threadId, p.templates ? 1 : 0, p.upload ? 1 : 0, p.readOnlyId ?? ''].join('|')
 }
 
 function urlFor(route: NavLeafId): string {
@@ -83,6 +92,9 @@ function apply(place: Place) {
   const orch = useOrchestration.getState()
   if (place.templates && !orch.templatesOpen) orch.openTemplates()
   if (!place.templates && orch.templatesOpen) orch.closeTemplates()
+  const upload = useUpload.getState()
+  if (place.upload && !uploadPageOpen()) upload.open()
+  if (!place.upload && uploadPageOpen()) upload.close()
 }
 
 /** Moves without adding a history step, then records where they landed in the current entry. */
@@ -111,6 +123,7 @@ export function startNavHistory() {
   useWorkspaceUi.subscribe(schedule)
   useWorkspace.subscribe(schedule)
   useOrchestration.subscribe(schedule)
+  useUpload.subscribe(schedule)
   window.addEventListener('popstate', onPopState)
 }
 

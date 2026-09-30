@@ -13,6 +13,7 @@ import { CB_KIND_LABELS, CB_KINDS, type CbKind } from '../upload/contract'
 import { ChromeThumb } from '../upload/ChromeThumb'
 import type { MerchantComponent, MerchantTemplate } from '../library/types'
 import type { JourneyKind } from '../journey/types'
+import { V8 } from '../layout/layoutMode'
 
 type KindFilter = 'all' | CbKind
 type JourneyFilter = 'all' | string
@@ -242,7 +243,9 @@ export function YoursBrowse({
       <div className={compact ? 'px-[4px] py-[16px]' : 'px-6 py-10'}>
         <p className="text-[14px] font-semibold text-slate-800">No saved templates yet</p>
         <p className="mt-[6px] text-[13px] leading-relaxed text-slate-500">
-          Scan a marked HTML pack. After Copilot reviews the contract, the journey and each primitive land here.
+          {V8
+            ? 'Upload pages you built with the Growth kit. The journey and each of its screens land here.'
+            : 'Scan a marked HTML pack. After Copilot reviews the contract, the journey and each primitive land here.'}
         </p>
         <button
           type="button"

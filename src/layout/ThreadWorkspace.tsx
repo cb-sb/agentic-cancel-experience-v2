@@ -18,6 +18,7 @@ import { PlanTab } from '../orchestration/PlanTab'
 import { TargetingTab } from '../orchestration/TargetingTab'
 import { LAYOUT, STUDIO, TABBED, V8 } from './layoutMode'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
+import { BackButton, backToExperiences } from '../shell/BackButton'
 
 const TAB_LABEL: Record<PaneTab, string> = {
   editor: 'Editor',
@@ -147,6 +148,7 @@ export function TabbedPane() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-slate-100">
       <div className="flex h-[60px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
+        {V8 && <BackButton fallback={backToExperiences} className="mr-[4px] self-center" />}
         <div role="tablist" aria-label="Open views" className="flex min-w-0 items-end gap-1">
           {tabs.open.map((id) => {
             const active = tabs.active === id
@@ -204,7 +206,7 @@ export function ReopenPane() {
       onClick={reopen}
       className="absolute right-4 top-[72px] z-10 flex items-center gap-[6px] rounded-lg border border-slate-200 bg-white px-[10px] py-[6px] text-[12.5px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
     >
-      <SIcon name="panel-left" size={14} className="rotate-180" />
+      <SIcon name="panel-left" size={14} className={V8 ? '' : 'rotate-180'} />
       {label}
     </button>
   )

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SButton, STabs } from '@chargebee/sting-react'
 import {
   LIBRARY,
@@ -8,7 +8,9 @@ import {
 } from '../journey/templates'
 import { useJourney } from '../store/useJourney'
 import { SectionLabel } from './CopilotHomeSetup'
-import { TemplatePreviewStrip } from './TemplatePreviewStrip'
+import { TemplateOutlineStrip, TemplatePreviewStrip, TemplateScreens } from './TemplatePreviewStrip'
+import { V8 } from '../layout/layoutMode'
+import { BackButton } from '../shell/BackButton'
 
 type Filter = 'all' | LibraryKind
 type JobFilter = 'all' | LibraryJob
@@ -80,6 +82,127 @@ function LibraryCard({
         </button>
       </div>
       <TemplatePreviewStrip entry={entry} brand={brand} />
+    </article>
+  )
+}
+
+function templateScreenMeta(entry: LibraryEntry): string {
+  if (entry.id === 'cancel_1') return '1 screen + outcomes'
+  return `${entry.stepCount} screen${entry.stepCount === 1 ? '' : 's'}`
+}
+
+function TemplateFacts({ entry, layout = 'wide' }: { entry: LibraryEntry; layout?: 'wide' | 'stack' }) {
+  const stack = layout === 'stack'
+  return (
+    <dl className={stack ? 'flex flex-col gap-[8px]' : 'grid grid-cols-1 gap-x-[24px] gap-y-[12px] sm:grid-cols-2'}>
+      <div>
+        <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">What it does</dt>
+        <dd className={`mt-[2px] ${stack ? 'text-[12px] leading-[18px]' : 'mt-[4px] text-[13px] leading-[20px]'} text-slate-700`}>
+          {entry.does}
+        </dd>
+      </div>
+      <div>
+        <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Pick it when</dt>
+        <dd className={`mt-[2px] ${stack ? 'text-[12px] leading-[18px]' : 'mt-[4px] text-[13px] leading-[20px]'} text-slate-700`}>
+          {entry.pickWhen}
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
+function TemplateHeading({ entry, size }: { entry: LibraryEntry; size: 'card' | 'page' }) {
+  const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
+  const badge = jobLabel(entry.job)
+  return (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-[8px]">
+        <h3 className={`${size === 'page' ? 'text-[18px]' : 'text-[15px]'} font-bold leading-snug text-slate-900`}>
+          {entry.title}
+        </h3>
+        {badge && (
+          <span className="shrink-0 rounded bg-[#eef2ff] px-1.5 py-0.5 text-[10px] font-semibold leading-normal text-[#4f46e5]">
+            {badge}
+          </span>
+        )}
+      </div>
+      <p className="mt-[2px] text-[12px] font-medium text-slate-500">
+        {entry.posture} · {templateScreenMeta(entry)} · {kindLabel}
+      </p>
+    </div>
+  )
+}
+
+/** v8: what the template is and when to pick it, over low-fidelity screens. */
+function LibraryCardV8({ entry, onPick }: { entry: LibraryEntry; onPick: (focus: number) => void }) {
+  const brand = useJourney((s) => s.file.brand)
+  return (
+    <article className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:border-slate-300/80 hover:shadow-[0_12px_32px_-16px_rgba(15,23,42,0.28)]">
+      <div className="flex flex-col gap-[14px] p-[16px] min-[920px]:flex-row min-[920px]:items-start min-[920px]:gap-[18px]">
+        <div className="flex w-full min-w-0 flex-col gap-[10px] min-[920px]:w-[328px] min-[920px]:shrink-0">
+          <TemplateHeading entry={entry} size="card" />
+          <TemplateFacts entry={entry} layout="stack" />
+          <SButton size="small" variant="neutral-outline" className="mt-[2px] w-auto self-start" onClick={() => onPick(0)}>
+            Use this template
+          </SButton>
+        </div>
+        <div className="min-w-0 flex-1 min-[920px]:pt-[2px]">
+          <p className="mb-[6px] text-[11px] leading-[16px] text-slate-500">Click a screen for full size.</p>
+          <div className="-mx-[16px] min-[920px]:mx-0 overflow-hidden rounded-[12px] min-[920px]:rounded-[14px]">
+            <TemplateOutlineStrip entry={entry} brand={brand} onOpen={onPick} />
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+/** v8: the template at full size, before the merchant commits to it. */
+function TemplateConfirmV8({
+  entry,
+  focus,
+  onBack,
+  onConfirm,
+}: {
+  entry: LibraryEntry
+  focus: number
+  onBack: () => void
+  onConfirm: () => void
+}) {
+  const brand = useJourney((s) => s.file.brand)
+  const ref = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: 'start' })
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopImmediatePropagation()
+      onBack()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [onBack])
+
+  return (
+    <article ref={ref} className="scroll-mt-[20px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex items-start gap-[10px] px-[20px] pb-[18px] pt-[16px]">
+        <BackButton onBack={onBack} className="-ml-[6px] mt-[-2px]" />
+        <div className="flex min-w-0 flex-1 flex-col gap-[14px]">
+          <div className="flex items-start justify-between gap-[12px]">
+            <TemplateHeading entry={entry} size="page" />
+            <SButton size="small" variant="primary" className="w-auto shrink-0" onClick={onConfirm}>
+              Use this template
+            </SButton>
+          </div>
+          <TemplateFacts entry={entry} />
+        </div>
+      </div>
+      <div className="border-t border-slate-100">
+        <TemplateScreens entry={entry} brand={brand} focus={focus} />
+      </div>
     </article>
   )
 }
@@ -156,7 +279,7 @@ export function LibraryBrowse({
   const [job, setJob] = useState<JobFilter>('all')
   const [ownQuery, setQuery] = useState('')
   const query = outerQuery ?? ownQuery
-  const [pending, setPending] = useState<LibraryEntry | null>(null)
+  const [pending, setPending] = useState<{ entry: LibraryEntry; focus: number } | null>(null)
 
   const cancelCatalog = useMemo(() => LIBRARY.filter((e) => e.kind === 'cancel'), [])
   const jobCounts = useMemo(() => {
@@ -185,14 +308,30 @@ export function LibraryBrowse({
       : null
 
   if (pending) {
-    return (
+    return V8 ? (
+      <div className={compact ? '' : 'px-6 py-5'}>
+        <TemplateConfirmV8
+          entry={pending.entry}
+          focus={pending.focus}
+          onBack={() => setPending(null)}
+          onConfirm={() => onApply(pending.entry.id)}
+        />
+      </div>
+    ) : (
       <TemplateConfirm
-        entry={pending}
+        entry={pending.entry}
         onBack={() => setPending(null)}
-        onConfirm={() => onApply(pending.id)}
+        onConfirm={() => onApply(pending.entry.id)}
       />
     )
   }
+
+  const card = (entry: LibraryEntry) =>
+    V8 ? (
+      <LibraryCardV8 key={entry.id} entry={entry} onPick={(focus) => setPending({ entry, focus })} />
+    ) : (
+      <LibraryCard key={entry.id} entry={entry} onPick={() => setPending({ entry, focus: 0 })} />
+    )
 
   return (
     <div className={compact ? 'flex flex-col gap-[12px]' : 'flex h-full min-h-0 flex-col'}>
@@ -272,24 +411,12 @@ export function LibraryBrowse({
             <section key={group.id} className="space-y-3">
               <SectionLabel>{group.label}</SectionLabel>
               <div className="flex flex-col gap-[12px]">
-                {group.entries.map((entry) => (
-                  <LibraryCard
-                    key={entry.id}
-                    entry={entry}
-                    onPick={() => setPending(entry)}
-                  />
-                ))}
+                {group.entries.map(card)}
               </div>
             </section>
           ))
         ) : (
-          rows.map((entry) => (
-            <LibraryCard
-              key={entry.id}
-              entry={entry}
-              onPick={() => setPending(entry)}
-            />
-          ))
+          rows.map(card)
         )}
       </div>
     </div>

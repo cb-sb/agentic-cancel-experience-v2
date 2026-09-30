@@ -5,6 +5,8 @@ import { CANCEL_ROUTE } from '../shell/nav'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useUpload } from './useUpload'
 import { canPublishUploaded } from './validate'
+import { V8 } from '../layout/layoutMode'
+import { startUploadPage } from '../workspace/useWorkspace'
 
 export function TemplatePages() {
   const file = useJourney((s) => s.file)
@@ -17,6 +19,7 @@ export function TemplatePages() {
   const start = (remap = false) => {
     go(CANCEL_ROUTE)
     if (remap) openRemap()
+    else if (V8) startUploadPage()
     else open()
   }
 

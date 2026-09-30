@@ -372,6 +372,14 @@ export function startFromLibrary(id: Exclude<JourneyTemplate, 'none'>) {
   useOrchestration.getState().applyLibraryTemplate(id)
 }
 
+/** v8: upload runs as its own page in a new experience, unless the open one is still empty. */
+export function startUploadPage() {
+  if (!isEmptyNow()) newThread()
+  useOrchestration.getState().closeTemplates()
+  useWorkspaceUi.getState().setPage('thread')
+  useUpload.getState().open()
+}
+
 export function startFromSaved(id: string) {
   if (!isEmptyNow()) newThread()
   useOrchestration.getState().applyMerchantTemplate(id)

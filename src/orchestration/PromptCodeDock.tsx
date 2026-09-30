@@ -44,7 +44,7 @@ import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
 import { STUDIO, V8 } from '../layout/layoutMode'
 import { BackButton, backToExperiences } from '../shell/BackButton'
-import { newChat, newThread, useWorkspace } from '../workspace/useWorkspace'
+import { newChat, newThread, startUploadPage, useWorkspace } from '../workspace/useWorkspace'
 import { openTab } from '../workspace/paneTabs'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { useCopilotStage, type LibraryTab, type SetupDoor } from './copilotStage'
@@ -231,10 +231,13 @@ function ChatLine({ line, children }: { line: CopilotLine; children?: ReactNode 
 export function PromptCodeDock({
   compact = false,
   centered = false,
+  railRight = false,
 }: {
   compact?: boolean
   /** Threads and tabs layouts: the chat is the middle column beside the experience list. */
   centered?: boolean
+  /** v8 with a tab open: Copilot is the right column, so the way back lives in the tab bar. */
+  railRight?: boolean
 }) {
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
   const setSidebarOpen = useWorkspaceUi((s) => s.setSidebarOpen)
@@ -460,6 +463,10 @@ export function PromptCodeDock({
   }
 
   const startUpload = () => {
+    if (V8) {
+      startUploadPage()
+      return
+    }
     say('you', 'Upload a template')
     say(
       'bot',
@@ -581,7 +588,7 @@ export function PromptCodeDock({
 
   const reviewKey = useRef('')
   useEffect(() => {
-    if (turn !== 'upload') return
+    if (V8 || turn !== 'upload') return
     if (uploadChecklist.length > 0) {
       const key = `err:${uploadChecklist.map((i) => i.message).join('|')}`
       if (reviewKey.current === key) return
@@ -748,7 +755,7 @@ export function PromptCodeDock({
       )
     }
     if (pendingLibraryTemplate) return null
-    if (turn === 'upload') {
+    if (turn === 'upload' && !V8) {
       return uploadPhase === 'confirm' ? (
         <ConfirmManifest onConfirmed={afterUploadConfirm} />
       ) : (
@@ -870,20 +877,22 @@ export function PromptCodeDock({
         style={{ background: COPILOT_UI.header, borderBottom: `1px solid ${COPILOT_UI.hairline}` }}
       >
         <div className="flex min-w-0 items-center gap-[10px]">
-          {V8 && centered && (
+          {V8 && centered && !railRight && (
             <BackButton
               fallback={backToExperiences}
               onBack={stage === 'center' && file.steps.length === 0 ? reset : undefined}
               className="-mr-[6px]"
             />
           )}
-          <HeaderIconButton
-            label="Conversations"
-            pressed={centered && sidebarOpen}
-            onClick={centered ? () => setSidebarOpen(!sidebarOpen) : undefined}
-          >
-            <SIcon name="menu" size={18} />
-          </HeaderIconButton>
+          {!railRight && (
+            <HeaderIconButton
+              label="Conversations"
+              pressed={centered && sidebarOpen}
+              onClick={centered ? () => setSidebarOpen(!sidebarOpen) : undefined}
+            >
+              <SIcon name="menu" size={18} />
+            </HeaderIconButton>
+          )}
           <div className="min-w-0">
             <h2
               className="truncate text-[17px] font-bold leading-tight tracking-tight"

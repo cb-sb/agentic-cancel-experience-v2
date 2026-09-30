@@ -11,6 +11,8 @@ import { LibraryPanel } from '../orchestration/TemplatesModal'
 import { V8 } from './layoutMode'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 import { UploadFlow } from '../upload/UploadFlow'
+import { UploadPage } from '../upload/UploadPage'
+import { useUpload } from '../upload/useUpload'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { CancelPageSettings } from './CancelPageSettings'
 import { ExperiencesIndex } from './ExperiencesIndex'
@@ -23,6 +25,15 @@ function ThreadView() {
   const stage = useCopilotStage()
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const paneShown = usePaneShown()
+  const uploadPage = useUpload((s) => V8 && s.phase !== 'closed' && !s.mappingOnly)
+
+  if (uploadPage) {
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-1">
+        <UploadPage />
+      </div>
+    )
+  }
 
   if (templatesOpen) {
     return (
@@ -46,24 +57,28 @@ function ThreadView() {
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1">
+      {V8 && paneShown && <TabbedPane />}
       <div
         className={`relative flex min-h-0 flex-col bg-white ${
-          paneShown ? 'w-[clamp(360px,32%,500px)] flex-none border-r border-slate-200' : 'min-w-0 flex-1'
+          paneShown
+            ? `w-[clamp(360px,32%,500px)] flex-none border-slate-200 ${V8 ? 'border-l' : 'border-r'}`
+            : 'min-w-0 flex-1'
         }`}
       >
         <div className="flex h-full min-h-0">
-          <PromptCodeDock centered />
+          <PromptCodeDock centered railRight={V8 && paneShown} />
         </div>
         {!paneShown && <ReopenPane />}
       </div>
-      {paneShown && <TabbedPane />}
+      {!V8 && paneShown && <TabbedPane />}
     </div>
   )
 }
 
 /**
  * V7: the Growth nav, then this experience's pane, then either the Experiences
- * page or the open experience (doors, then Copilot with tabs on the right).
+ * page or the open experience (doors, then Copilot beside the tabs: on their
+ * right in v8, on their left in v7).
  */
 export function StudioWorkspace() {
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
@@ -77,17 +92,10 @@ export function StudioWorkspace() {
   const paneShown = usePaneShown()
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const editorShown = page === 'thread' && !templatesOpen && paneShown && activeTab === 'editor'
-  const threeUp = page === 'thread' && !templatesOpen && paneShown
 
   useEffect(() => {
     if (stage === 'rail') setAssistantOpen(true)
   }, [stage, setAssistantOpen])
-
-  // v8: Copilot and a tab leave no room for this pane. Only a change of layout
-  // folds or reopens it, so opening it by hand sticks until the next change.
-  useEffect(() => {
-    if (V8) useWorkspaceUi.getState().setSidebarOpen(!threeUp)
-  }, [threeUp])
 
   useEffect(() => {
     if (!editorShown || focusTarget || stepCount === 0) return

@@ -189,11 +189,11 @@ export function beatPrompt(beat: PlanBeat, file: JourneyFile): string {
 
 export function planProposeIntro(file: JourneyFile): string {
   const chain = file.source === 'uploaded' ? uploadedScreenChain(file) : templateLabel(file.template)
-  return `Here’s the path I’d start you on: ${chain}.\n\nThese are the screens a subscriber sees. Drag to change the order. Nothing is live. If this looks right, I’ll open the editor next. Copilot stays on the left for the rest.`
+  return `Here’s the path I’d start you on: ${chain}.\n\nThese are the screens a subscriber sees. Drag to change the order. Nothing is live. If this looks right, I’ll open the editor next. Copilot stays on the ${V8 ? 'right' : 'left'} for the rest.`
 }
 
 export function planCanvasIntro(): string {
-  return 'The editor is open on the first screen. Preview walks it as a subscriber. Canvas is there when you want the whole play. Copilot stays on the left for who sees it, holdout, and brand.'
+  return `The editor is open on the first screen. Preview walks it as a subscriber. Canvas is there when you want the whole play. Copilot stays on the ${V8 ? 'right' : 'left'} for who sees it, holdout, and brand.`
 }
 
 export function planIntro(file: JourneyFile): string {

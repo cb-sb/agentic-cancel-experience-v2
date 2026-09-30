@@ -1,7 +1,8 @@
-import { Fragment, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { compileJourney } from '../journey/compile'
 import { startFromTemplate, withLive, type LibraryEntry } from '../journey/templates'
 import { isOutcomeStep } from '../lib/stepColumns'
+import { StepOutline } from './flow/tiers/StepOutline'
 import { BrandRoot } from '../render/BrandUI'
 import {
   RenderProvider,
@@ -132,7 +133,7 @@ export function TemplateStepThumb({
   total: number
   branding: ReturnType<typeof compileJourney>['experience']['branding']
   frame: ReturnType<typeof compileJourney>['experience']['frame']
-  label: string
+  label?: string
   acquire: boolean
   scale: number
 }) {
@@ -194,9 +195,11 @@ export function TemplateStepThumb({
 
   return (
     <div className="flex flex-none flex-col items-center">
-      <span className="mb-2.5 max-w-full truncate px-0.5 text-[11px] font-semibold text-slate-600">
-        {label}
-      </span>
+      {label && (
+        <span className="mb-2.5 max-w-full truncate px-0.5 text-[11px] font-semibold text-slate-600">
+          {label}
+        </span>
+      )}
       {acquire ? (
         <div
           className="overflow-hidden rounded-xl bg-white shadow-[0_18px_40px_-16px_rgba(15,23,42,0.45)]"
@@ -225,6 +228,193 @@ export function TemplateStepThumb({
   )
 }
 
+function useTemplateSteps(entry: LibraryEntry, brand: JourneyBrand) {
+  const acquire = entry.kind === 'acquisition'
+  const experience = useMemo(() => {
+    const started = startFromTemplate(
+      { ...EMPTY_JOURNEY, brand, shell: acquire ? 'fullpage' : 'modal' },
+      entry.id,
+    )
+    return compileJourney({ ...started, steps: withLive(started.steps, true) }).experience
+  }, [entry.id, brand.merchant, brand.primary, brand.corners, acquire])
+  return { acquire, experience, steps: stripSteps(experience.steps, entry.id) }
+}
+
+/** What each template screen is, and why it is in the flow. Keyed by template step id. */
+function stepPurpose(stepId: string, acquire: boolean): string {
+  switch (stepId) {
+    case 'value':
+      return 'Lists what they lose by leaving, like credits and saved work. Seeing it is often enough to make them stay.'
+    case 'entry':
+      return 'Makes an offer before any questions, like a free month. It catches people who are on the fence.'
+    case 'survey':
+      return 'Asks why they are leaving. Their answers show you what to fix.'
+    case 'offer':
+      return 'Makes one offer to stay, such as a discount. It comes after they say why, so it answers their reason.'
+    case 'pricing':
+      return acquire
+        ? 'Shows your plans side by side so a new subscriber can pick one.'
+        : 'Shows cheaper plans they can move to, so they stay at a lower price.'
+    case 'checkout':
+      return acquire
+        ? 'Takes payment in hosted checkout. The subscription starts when they pay.'
+        : 'Takes payment for the new plan in hosted checkout.'
+    case 'confirm':
+      return 'Asks them to confirm the cancel. Every cancel experience has this screen.'
+    case 'saved':
+      return 'Shown when they choose to stay.'
+    case 'cancelled':
+      return 'Shown after they cancel, with a way to undo it.'
+    default:
+      return ''
+  }
+}
+
+const OUTLINE_W = 184
+const OUTLINE_H = 124
+
+/** Low-fidelity screens for a library card. Click one to open the template at full size. */
+export function TemplateOutlineStrip({
+  entry,
+  brand,
+  onOpen,
+  className,
+}: {
+  entry: LibraryEntry
+  brand: JourneyBrand
+  onOpen: (index: number) => void
+  className?: string
+}) {
+  const { steps } = useTemplateSteps(entry, brand)
+  return (
+    <ol
+      className={`flex items-start overflow-x-auto px-[18px] pb-[20px] pt-[18px]${className ? ` ${className}` : ''}`}
+      style={{
+        backgroundColor: '#eef2f6',
+        backgroundImage: 'radial-gradient(#d5dde8 1px, transparent 1px)',
+        backgroundSize: '12px 12px',
+      }}
+    >
+      {steps.map((step, i) => {
+        const label = entry.stepLabels[i] ?? step.title
+        return (
+          <Fragment key={step.id}>
+            {i > 0 && (
+              <li aria-hidden className="flex w-[30px] flex-none items-center justify-center text-slate-400" style={{ height: OUTLINE_H }}>
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                  <path d="M5.5 2.5 11 8l-5.5 5.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </li>
+            )}
+            <li className="flex-none">
+              <button
+                type="button"
+                onClick={() => onOpen(i)}
+                aria-label={`See ${label} full size`}
+                title="See it full size"
+                className="group/step flex flex-col items-center rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                style={{ width: OUTLINE_W }}
+              >
+                <span
+                  className="block rounded-[12px] shadow-[0_0_0_1px_rgba(148,163,184,0.55),0_2px_4px_rgba(15,23,42,0.06),0_10px_22px_-10px_rgba(15,23,42,0.28)] transition-[box-shadow,transform] duration-150 group-hover/step:-translate-y-[2px] group-hover/step:shadow-[0_0_0_2px_#a5b4fc,0_16px_32px_-14px_rgba(15,23,42,0.38)]"
+                  style={{ width: OUTLINE_W, height: OUTLINE_H }}
+                >
+                  <span className="block h-full w-full overflow-hidden rounded-[12px] [&>div]:border-slate-300 [&>div]:bg-white">
+                    <StepOutline step={step} w={OUTLINE_W} h={OUTLINE_H} selected={false} density="strip" />
+                  </span>
+                </span>
+                <span className="mt-[10px] flex w-full items-center justify-center gap-[6px] px-[2px] text-[13px] font-semibold leading-[18px] text-slate-800 group-hover/step:text-indigo-700">
+                  <span className="tabular-nums text-[12px] text-slate-400">{i + 1}</span>
+                  <span className="min-w-0 truncate">{label}</span>
+                </span>
+              </button>
+            </li>
+          </Fragment>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** Full-size subscriber screens for the template confirm view, each with what it is and why it is there. */
+export function TemplateScreens({
+  entry,
+  brand,
+  focus = 0,
+}: {
+  entry: LibraryEntry
+  brand: JourneyBrand
+  focus?: number
+}) {
+  const { acquire, experience, steps } = useTemplateSteps(entry, brand)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<(HTMLLIElement | null)[]>([])
+  const scale = acquire ? 0.62 : 0.78
+  const width = (acquire ? 780 : 390) * scale + (acquire ? 0 : 10)
+
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const item = itemRefs.current[focus]
+    if (!scroller || !item || focus === 0) return
+    scroller.scrollLeft = item.offsetLeft - (scroller.clientWidth - item.offsetWidth) / 2
+  }, [focus])
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="overflow-x-auto"
+      style={{
+        backgroundColor: '#f8fafc',
+        backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)',
+        backgroundSize: '12px 12px',
+      }}
+    >
+      <ol className="flex w-max min-w-full items-start justify-center px-[24px] pb-[28px] pt-[24px]">
+        {steps.map((step, i) => (
+          <Fragment key={step.id}>
+            {i > 0 && (
+              <li aria-hidden className="flex flex-none">
+                <FlowChevron offset={(acquire ? 480 * scale + 24 : 500 * scale + 10) / 2 - 9} />
+              </li>
+            )}
+            <li
+              ref={(el) => {
+                itemRefs.current[i] = el
+              }}
+              className="flex flex-none flex-col"
+              style={{ width }}
+            >
+              <div
+                aria-hidden
+                className={`rounded-[22px] ${i === focus && focus > 0 ? 'ring-2 ring-indigo-400 ring-offset-4 ring-offset-[#f8fafc]' : ''}`}
+              >
+                <TemplateStepThumb
+                  step={step}
+                  index={i}
+                  total={entry.stepCount}
+                  branding={experience.branding}
+                  frame={experience.frame}
+                  acquire={acquire}
+                  scale={scale}
+                />
+              </div>
+              <div className="mt-[16px] px-[4px]">
+                <p className="flex items-baseline gap-[6px] text-[14px] font-semibold leading-[20px] text-slate-900">
+                  <span className="tabular-nums text-[12px] text-slate-400">{i + 1}</span>
+                  {entry.stepLabels[i] ?? step.title}
+                </p>
+                <p className="mt-[4px] text-[13px] leading-[20px] text-slate-600">
+                  {stepPurpose(step.id, acquire)}
+                </p>
+              </div>
+            </li>
+          </Fragment>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 /** Glanceable subscriber screens for one library card, tinted with the live merchant brand. */
 export function TemplatePreviewStrip({
   entry,
@@ -235,16 +425,7 @@ export function TemplatePreviewStrip({
   brand: JourneyBrand
   compact?: boolean
 }) {
-  const acquire = entry.kind === 'acquisition'
-  const experience = useMemo(() => {
-    const started = startFromTemplate(
-      { ...EMPTY_JOURNEY, brand, shell: acquire ? 'fullpage' : 'modal' },
-      entry.id,
-    )
-    return compileJourney({ ...started, steps: withLive(started.steps, true) }).experience
-  }, [entry.id, brand.merchant, brand.primary, brand.corners, acquire])
-
-  const steps = stripSteps(experience.steps, entry.id)
+  const { acquire, experience, steps } = useTemplateSteps(entry, brand)
   const scale = thumbScale(steps.length, acquire, compact)
   const nativeH = acquire ? 480 : 500
   const tint = `${experience.branding.primaryColor}14`

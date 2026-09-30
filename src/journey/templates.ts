@@ -113,6 +113,10 @@ export interface LibraryEntry {
   title: string
   posture: string
   why: string
+  /** What the subscriber goes through, in one or two sentences. */
+  does: string
+  /** When a merchant should pick it. */
+  pickWhen: string
   /** Captions under the thumbnail strip, in screen order. */
   stepLabels: string[]
   kind: LibraryKind
@@ -129,6 +133,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'One-click cancel',
     posture: 'For FTC-style compliance',
     why: 'Use this when the law or your brand asks for a frictionless exit. The subscriber confirms once and is done — no survey, no save offer. Best for FTC-style click-to-cancel, and for merchants who would rather lose the revenue than add friction.',
+    does: 'They confirm once and they’re done.',
+    pickWhen: 'The law or your brand needs a one-click exit.',
     stepLabels: ['Confirm', 'Saved', 'Cancelled'],
     kind: 'cancel',
     stepCount: 1,
@@ -140,6 +146,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'Show the cost of leaving',
     posture: 'For a considered exit',
     why: 'Remind them what they keep on this plan, then let them confirm. Two screens make the cost of leaving visible without asking why or putting an offer in the way — a clean exit that still feels considered.',
+    does: 'Shows what they keep, then asks them to confirm.',
+    pickWhen: 'You want the cost of leaving to be clear.',
     stepLabels: ['What you keep', 'Confirm'],
     kind: 'cancel',
     stepCount: 2,
@@ -151,6 +159,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'Learn why they leave',
     posture: 'Reason data, without a save',
     why: 'Learn why they are leaving, then let them go. The survey is for you — it does not gate the cancel. Use this when you want the reason data and a short value reminder, but you are not ready to put a save offer on the path.',
+    does: 'Shows what they keep and asks why they’re leaving.',
+    pickWhen: 'You want reasons but aren’t ready to make an offer.',
     stepLabels: ['What you keep', 'Why they’re leaving', 'Confirm'],
     kind: 'cancel',
     stepCount: 3,
@@ -162,6 +172,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'One save offer',
     posture: 'The default for most merchants',
     why: 'The default cancel journey: show what they lose, ask why, make one save offer, then confirm. One offer after the reason is enough to be consultative without stacking discounts. Start here unless you already know you need more or less.',
+    does: 'Asks why they’re leaving, then makes one offer to stay.',
+    pickWhen: 'You’re setting up your first cancel experience.',
     stepLabels: ['What you keep', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 4,
@@ -173,6 +185,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'Ask twice',
     posture: 'For high-value accounts',
     why: 'Lead with an entry offer, then survey, then a second save offer before confirmation. Use this when the account is high value and you are willing to ask twice. Heavier than most merchants need — pick it on purpose, not by habit.',
+    does: 'Makes two offers to stay, with a survey in between.',
+    pickWhen: 'The account is worth asking twice.',
     stepLabels: ['What you keep', 'Entry offer', 'Why they’re leaving', 'One save', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
@@ -184,6 +198,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'Offer a cheaper plan',
     posture: 'Keep them as a subscriber',
     why: 'Keep them as a subscriber by letting them pick a cheaper plan, then hand off to hosted checkout. They can still confirm and leave — this is a save mechanic on a cancel path, not acquiring a new subscriber.',
+    does: 'Offers a cheaper plan they can switch to and pay for.',
+    pickWhen: 'Price is the main reason people leave.',
     stepLabels: ['What you keep', 'Why they’re leaving', 'Choose a plan', 'Checkout', 'Confirm'],
     kind: 'cancel',
     stepCount: 5,
@@ -195,6 +211,8 @@ export const LIBRARY: LibraryEntry[] = [
     title: 'Pricing table → Hosted checkout',
     posture: 'Acquire a subscriber',
     why: 'Not a cancel flow. Put a pricing table in front of hosted checkout so a new subscriber can pick a plan and pay. Use this when you are acquiring, not retaining.',
+    does: 'Shows your plans, then takes payment in checkout.',
+    pickWhen: 'You’re signing up new subscribers.',
     stepLabels: ['Pricing', 'Checkout'],
     kind: 'acquisition',
     stepCount: 2,
