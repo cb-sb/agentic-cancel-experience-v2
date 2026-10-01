@@ -266,7 +266,6 @@ export function AgentChat({
   chips,
   centered = false,
   hero,
-  below,
 }: {
   chatId: string
   placeholder?: string
@@ -275,10 +274,8 @@ export function AgentChat({
   chips?: string[]
   /** Home and the blank experience: a column in the middle of the page. */
   centered?: boolean
-  /** Before the first message, the heading above a composer in the middle of the page. */
+  /** Before the first message, the heading above a large composer in the middle of the page. */
   hero?: ReactNode
-  /** Under the composer in the hero layout. */
-  below?: ReactNode
 }) {
   const chat = chatFor(chatId)
   const { messages, status, error, sendMessage, stop, regenerate } = useChat({ chat })
@@ -287,6 +284,8 @@ export function AgentChat({
   const scrollRef = useRef<HTMLDivElement>(null)
   const busy = status === 'submitted' || status === 'streaming'
   const pending = pendingCard(messages)
+  const big = Boolean(hero) && messages.length === 0
+  const maxInput = big ? 280 : 160
 
   useEffect(() => {
     if (status === 'ready' || status === 'error') useAgentStore.getState().save(chatId, messages)
@@ -301,9 +300,9 @@ export function AgentChat({
     const el = inputRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
-    el.style.overflowY = el.scrollHeight > 160 ? 'auto' : 'hidden'
-  }, [text])
+    el.style.height = `${Math.min(el.scrollHeight, maxInput)}px`
+    el.style.overflowY = el.scrollHeight > maxInput ? 'auto' : 'hidden'
+  }, [text, maxInput])
 
   const send = (value: string) => {
     const t = value.trim()
@@ -331,7 +330,7 @@ export function AgentChat({
   const thinking = status === 'submitted' || (status === 'streaming' && !lastAssistant)
 
   const chipRow = chips && chips.length > 0 && messages.length === 0 && (
-    <div className={`flex flex-wrap gap-[6px] ${hero ? 'mt-[14px]' : 'mb-[10px]'}`}>
+    <div className={`flex flex-wrap gap-[6px] ${big ? '' : 'mb-[10px]'}`}>
       {chips.map((c) => (
         <button
           key={c}
@@ -384,14 +383,45 @@ export function AgentChat({
     </div>
   )
 
-  if (hero && messages.length === 0) {
+  if (big) {
     return (
       <div className="h-full min-h-0 w-full min-w-0 overflow-y-auto bg-white">
-        <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col justify-center px-[20px] py-[40px]">
+        <div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col justify-center px-[20px] py-[40px]">
           {hero}
-          {composer}
-          {chipRow}
-          {below}
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) inputRef.current?.focus()
+            }}
+            className="flex flex-col gap-[14px] rounded-[20px] border border-slate-200 bg-white px-[18px] pb-[14px] pt-[16px] shadow-[0_2px_10px_rgba(15,23,42,0.06)] focus-within:border-slate-300"
+          >
+            <textarea
+              ref={inputRef}
+              rows={4}
+              value={text}
+              autoFocus
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send(text)
+                }
+              }}
+              placeholder={placeholder}
+              className="min-h-[112px] w-full resize-none bg-transparent text-[15px] leading-[1.55] text-slate-900 outline-none placeholder:text-slate-400"
+            />
+            <div className="flex items-end gap-[12px]">
+              <div className="min-w-0 flex-1">{chipRow}</div>
+              <button
+                type="button"
+                onClick={() => send(text)}
+                disabled={!text.trim() || busy}
+                aria-label="Send"
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-slate-900 text-white disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                <SIcon name="arrow-up" size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
