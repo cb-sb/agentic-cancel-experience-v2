@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import {
+  betaFor,
   CANCEL_ROUTE,
   DEFAULT_ROUTE,
   routeFromHash,
@@ -13,6 +14,8 @@ function isExperience(route: NavLeafId) {
 
 interface GrowthShellState {
   route: NavLeafId
+  /** v8: the Retention beta nav is showing. */
+  beta: boolean
   /** Full labels. Folded is the Copilot pattern: click to open, never covers. */
   navOpen: boolean
   openGroups: Record<NavGroupId, boolean>
@@ -35,6 +38,7 @@ const initial = routeFromHash(typeof window !== 'undefined' ? window.location.ha
 
 export const useGrowthShell = create<GrowthShellState>((set, get) => ({
   route: initial,
+  beta: betaFor(initial, false),
   navOpen: !isExperience(initial),
   openGroups: { ...COLLAPSED_GROUPS },
 
@@ -44,6 +48,7 @@ export const useGrowthShell = create<GrowthShellState>((set, get) => ({
     const leavingExperience = isExperience(get().route) && !experience
     set((s) => ({
       route,
+      beta: betaFor(route, s.beta),
       navOpen: experience ? false : leavingExperience ? true : s.navOpen,
     }))
   },
@@ -61,6 +66,7 @@ if (typeof window !== 'undefined') {
     const experience = isExperience(route)
     useGrowthShell.setState((s) => ({
       route,
+      beta: betaFor(route, s.beta),
       navOpen: experience ? false : s.navOpen,
     }))
   })

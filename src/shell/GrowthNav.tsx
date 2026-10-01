@@ -1,5 +1,6 @@
 import { SIcon, type SIconName } from '@chargebee/sting-react'
-import { NAV, type NavGroup, type NavLeaf, type NavLeafId } from './nav'
+import { V8 } from '../layout/layoutMode'
+import { BETA_NAV, CANCEL_ROUTE, CLASSIC_HOME, NAV, type NavGroup, type NavLeaf, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
 
 function NavIcon({ name, className }: { name: SIconName; className?: string }) {
@@ -91,6 +92,26 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
   )
 }
 
+function BetaButton({ compact }: { compact: boolean }) {
+  const beta = useGrowthShell((s) => s.beta)
+  const go = useGrowthShell((s) => s.go)
+  const label = beta ? 'Exit Retention beta' : 'Retention beta'
+
+  return (
+    <button
+      type="button"
+      title={label}
+      onClick={() => go(beta ? CLASSIC_HOME : CANCEL_ROUTE)}
+      className={`mb-0.5 flex w-full items-center rounded-md text-[13px] font-medium transition-colors ${
+        beta ? 'text-slate-600 hover:bg-slate-50' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+      } ${compact ? 'h-9 justify-center' : 'gap-2.5 px-2.5 py-1.5'}`}
+    >
+      <NavIcon name={beta ? 'arrow-left' : 'flask-conical'} className={beta ? 'text-slate-400' : 'text-violet-600'} />
+      {!compact && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}
+    </button>
+  )
+}
+
 /**
  * Chargebee Growth left rail. Folded it is a 56px icon column — click the
  * Growth mark (or any section) to open labels. Open, it matches the live app.
@@ -99,6 +120,7 @@ export function GrowthNav() {
   const route = useGrowthShell((s) => s.route)
   const navOpen = useGrowthShell((s) => s.navOpen)
   const toggleNav = useGrowthShell((s) => s.toggleNav)
+  const beta = useGrowthShell((s) => s.beta)
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
@@ -143,7 +165,7 @@ export function GrowthNav() {
 
       <nav className={`min-h-0 flex-1 overflow-y-auto ${navOpen ? 'px-2' : 'px-1.5'} py-1`}>
         <div className="space-y-0.5">
-          {NAV.map((entry) =>
+          {(beta ? BETA_NAV : NAV).map((entry) =>
             entry.kind === 'group' ? (
               <GroupBlock key={entry.group.id} group={entry.group} route={route} compact={!navOpen} />
             ) : (
@@ -159,6 +181,7 @@ export function GrowthNav() {
       </nav>
 
       <div className={`flex-none border-t border-slate-100 ${navOpen ? 'p-2' : 'p-1.5'}`}>
+        {V8 && <BetaButton compact={!navOpen} />}
         <button
           type="button"
           title="Need Help?"

@@ -2,6 +2,7 @@ import { SIcon } from '@chargebee/sting-react'
 import { BrandingStudio } from '../composer/BrandingStudio'
 import { AcquisitionPlays } from './AcquisitionPlays'
 import { BackButton, backToHome } from './BackButton'
+import { V8 } from '../layout/layoutMode'
 import { labelOf, type NavLeafId } from './nav'
 import { TemplatePages } from '../upload/TemplatePages'
 import { UploadFlow } from '../upload/UploadFlow'
@@ -18,8 +19,9 @@ function Placeholder({ route }: { route: NavLeafId }) {
         <SIcon name="layers" size={28} className="text-slate-300" />
         <p className="text-[14px] font-medium text-slate-700">{title}</p>
         <p className="max-w-sm text-[13px] text-slate-500">
-          This surface is not in the prototype. Open Experiences → Cancel experience to build
-          the cancel journey.
+          {V8
+            ? 'This surface is not in the prototype. Open Retention beta at the bottom left to build the cancel journey.'
+            : 'This surface is not in the prototype. Open Experiences → Cancel experience to build the cancel journey.'}
         </p>
       </div>
     </div>
