@@ -20,7 +20,7 @@ import {
   type OfferProcessing,
   type OfferWidget,
 } from '../concierge/model'
-import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
+import { updateGrowthExperience, useGrowthExperiences } from '../concierge/useGrowthExperiences'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import { answerTool } from './chats'
 import { detailFor, ownerOf, parseOwner } from './context'
@@ -197,7 +197,7 @@ function LibraryPicker(p: CardProps & { type: ExperienceType; onBack: () => void
   const sorted = [...rows].sort((a, b) => Number(b.objective === objective) - Number(a.objective === objective))
 
   const pick = (id: string, name: string) => {
-    if (exp) useGrowthExperiences.getState().update(exp.id, { variants: [{ id: 'v1', refId: id, percent: 100 }] })
+    if (exp) updateGrowthExperience(exp.id, { refId: id })
     answer(p, { picked: 'library', refId: id, name, applied: Boolean(exp) })
   }
 

@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import { CONCIERGE, V8 } from '../layout/layoutMode'
 
-const KEY = V8
-  ? 'cancel-experience:cancel-settings:v8'
-  : CONCIERGE
-    ? 'cancel-experience:cancel-settings:concierge'
+const KEY = CONCIERGE
+  ? 'cancel-experience:cancel-settings:concierge-v8'
+  : V8
+    ? 'cancel-experience:cancel-settings:v8'
     : 'cancel-experience:cancel-settings:v7'
 
 /**

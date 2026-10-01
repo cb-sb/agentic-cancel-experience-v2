@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { V8 } from '../layout/layoutMode'
 import { SButton, SIcon } from '@chargebee/sting-react'
 import { useJourney } from '../store/useJourney'
 import { useExperience } from '../store/useExperience'
@@ -8,6 +9,9 @@ import { journeysUsing, wordingFromStep } from '../library/offers'
 import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { templateLabel } from '../journey/templates'
 import { uploadedScreenChain } from '../journey/contextDoc'
+import { setMark } from '../setup/useSetupState'
+import { useWorkspace } from '../workspace/useWorkspace'
+import { useCopilotThread } from './copilotThread'
 import type {
   AudienceKey,
   JourneyStepFile,
@@ -34,11 +38,17 @@ const AUDIENCE_OPTIONS: { id: AudienceKey; label: string }[] = [
   { id: 'in_trial', label: 'In-trial (active)' },
 ]
 
-const SHELL_OPTIONS: { id: ShellLayout; label: string }[] = [
-  { id: 'modal', label: 'Modal — overlay on the site' },
-  { id: 'fullpage', label: 'Full page — hosted cancel page' },
-  { id: 'fullpage_scroll', label: 'Scrolling page' },
-]
+const SHELL_OPTIONS: { id: ShellLayout; label: string }[] = V8
+  ? [
+      { id: 'modal', label: 'Modal, over your account page' },
+      { id: 'fullpage', label: 'Full page, full viewport width' },
+      { id: 'fullpage_scroll', label: 'Full page continuous, every step on one page' },
+    ]
+  : [
+      { id: 'modal', label: 'Modal — overlay on the site' },
+      { id: 'fullpage', label: 'Full page — hosted cancel page' },
+      { id: 'fullpage_scroll', label: 'Scrolling page' },
+    ]
 
 const OFFER_OPTIONS = OFFER_VARIANTS.map((v) => ({ id: v.category as OfferKey, label: v.label }))
 
@@ -60,6 +70,9 @@ interface EditGate {
   confirming: boolean
   confirm: ConfirmEdit
 }
+
+/** True on the Summary tab, which lays fields out as grouped cards. */
+const PageCtx = createContext(false)
 
 const EditGateCtx = createContext<EditGate>({
   confirming: false,
@@ -114,9 +127,16 @@ function quoted(v: string, max = 48) {
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
+  const page = useContext(PageCtx)
   return (
     <label className="block">
-      <span className="mb-[4px] block text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
+      <span
+        className={
+          page
+            ? 'mb-[6px] block text-[12px] font-medium text-slate-600'
+            : 'mb-[4px] block text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400'
+        }
+      >
         {label}
       </span>
       {children}
@@ -359,15 +379,53 @@ function ColorField({ label, value, onCommit }: { label: string; value: string; 
 function Section({
   title,
   hint,
+  badge,
   defaultOpen,
   children,
 }: {
   title: string
   hint?: string
+  /** Step number, shown in a circle on the Summary tab. */
+  badge?: number
   defaultOpen?: boolean
   children: ReactNode
 }) {
+  const page = useContext(PageCtx)
   const [open, setOpen] = useState(defaultOpen ?? false)
+  if (page) {
+    return (
+      <div className="border-t border-slate-100 first:border-t-0">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left transition-colors hover:bg-slate-50"
+        >
+          {badge !== undefined && (
+            <span className="flex h-[24px] w-[24px] flex-none items-center justify-center rounded-full bg-slate-100 text-[12px] font-semibold tabular-nums text-slate-600">
+              {badge}
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13.5px] font-semibold text-slate-900">{title}</span>
+            {hint && <span className="block text-[12px] text-slate-500">{hint}</span>}
+          </span>
+          <SIcon
+            name="chevron-down"
+            size={14}
+            className={`flex-none text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+        {open && (
+          <div
+            className={`space-y-[14px] border-t border-slate-100 bg-slate-50/60 py-[16px] pr-[16px] ${badge !== undefined ? 'pl-[52px]' : 'pl-[16px]'}`}
+          >
+            {children}
+          </div>
+        )}
+      </div>
+    )
+  }
   return (
     <div className="overflow-hidden rounded-[12px] border border-slate-200 bg-white">
       <button
@@ -624,6 +682,10 @@ function StepEditor({
   }
 }
 
+function PageHeading({ title }: { title: string }) {
+  return <h3 className="mb-[10px] px-[2px] text-[14px] font-semibold text-slate-900">{title}</h3>
+}
+
 interface PendingEdit {
   what: string
   apply: () => void | boolean
@@ -669,7 +731,9 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
         <p className="max-w-[260px] text-[13px] leading-relaxed text-slate-400">
           {page
             ? 'No flow yet. Start from a template or upload your pages, and the plan shows up here.'
-            : 'No flow yet. Ask Copilot to start a cancel or acquisition journey — then edit every component here.'}
+            : V8
+              ? 'No flow yet. Ask Copilot to start a cancel experience, then edit every component here.'
+              : 'No flow yet. Ask Copilot to start a cancel or acquisition journey — then edit every component here.'}
         </p>
       </div>
     )
@@ -679,27 +743,127 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
   const audienceLabel = (id: AudienceKey) => AUDIENCE_OPTIONS.find((o) => o.id === id)?.label ?? id
   const shellLabel = (id: ShellLayout) => SHELL_OPTIONS.find((o) => o.id === id)?.label ?? id
 
+  const nameField = (
+    <TextField
+      label="Journey name"
+      value={file.name}
+      onCommit={(name) => (name.trim() ? patch(`Rename the journey to ${quoted(name)}.`, { name }) : false)}
+    />
+  )
+  const flow = uploaded ? uploadedScreenChain(file) : templateLabel(file.template)
+  const steps = editableSteps.map((step, i) => {
+    const meta = KIND_META[step.kind]
+    const compiled = compiledSteps.find((c) => c.id === step.id)
+    const idx = file.steps.indexOf(step) + 1
+    const label = step.kind === 'offer' && step.id === 'entry' ? 'Entry offer' : meta.label
+    return (
+      <Section
+        key={step.id}
+        title={page ? label : `${idx}. ${label}`}
+        badge={page ? idx : undefined}
+        hint={meta.hint}
+        defaultOpen={i === 0 && !uploaded}
+      >
+        <StepEditor fileStep={step} compiled={compiled} title={`step ${idx} (${label})`} />
+      </Section>
+    )
+  })
+  const uploadedNote = uploaded && (
+    <p className="rounded-[10px] bg-amber-50 px-[12px] py-[8px] text-[11.5px] leading-relaxed text-amber-700">
+      Screens come from your uploaded file. You can still edit who sees it, the shell, holdout,
+      brand, and the save offer below.
+    </p>
+  )
+  const layoutSection = (
+    <Section title={V8 ? 'Layout' : 'Shell'} hint="How it's presented">
+      <SelectField
+        label={V8 ? 'Layout' : 'Shell'}
+        value={file.shell}
+        options={SHELL_OPTIONS}
+        onChange={(shell) =>
+          void patch(`Present it as: ${shellLabel(shell)}.`, { shell }).then((ok) => {
+            if (!ok || !V8 || !page) return
+            setMark(useWorkspace.getState().activeId, 'layout', 'done', 'summary')
+            useCopilotThread.getState().say('bot', `Layout changed in the Summary: ${shellLabel(shell)}`, { note: true })
+          })
+        }
+      />
+    </Section>
+  )
+  const brandSection = (
+    <Section title="Brand" hint="Look of the subscriber UI">
+      <TextField
+        label="Merchant"
+        value={file.brand.merchant}
+        onCommit={(merchant) =>
+          patch(`Change the brand name to ${quoted(merchant)}.`, {
+            brand: patchBrandShortcuts(file.brand, { merchant }),
+          })
+        }
+      />
+      <ColorField
+        label="Primary color"
+        value={file.brand.primary}
+        onCommit={(primary) =>
+          patch(`Change the primary color to ${primary.toUpperCase()}.`, {
+            brand: patchBrandShortcuts(file.brand, { primary }),
+          })
+        }
+      />
+      <NumberField
+        label="Corner radius (px)"
+        value={file.brand.corners}
+        min={0}
+        max={40}
+        onCommit={(corners) =>
+          patch(`Set the corner radius to ${corners}px.`, {
+            brand: patchBrandShortcuts(file.brand, { corners }),
+          })
+        }
+      />
+    </Section>
+  )
+
+  if (page) {
+    return (
+      <EditGateCtx.Provider value={gate}>
+        <PageCtx.Provider value>
+          <div className="space-y-[28px]">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="px-[16px] py-[14px]">{nameField}</div>
+              <div className="border-t border-slate-100 px-[16px] py-[12px]">
+                <p className="text-[12px] font-medium text-slate-600">Flow</p>
+                <p className="mt-[2px] text-[13px] leading-snug text-slate-800">{flow}</p>
+              </div>
+            </div>
+            <section>
+              <PageHeading title="Steps" />
+              {uploadedNote && <div className="mb-[8px]">{uploadedNote}</div>}
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">{steps}</div>
+            </section>
+            <section>
+              <PageHeading title="Look and layout" />
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                {layoutSection}
+                {brandSection}
+              </div>
+            </section>
+          </div>
+        </PageCtx.Provider>
+        {pending && <ConfirmDialog what={pending.what} onCancel={cancelPending} onSave={savePending} />}
+      </EditGateCtx.Provider>
+    )
+  }
+
   return (
     <EditGateCtx.Provider value={gate}>
-      <div
-        className={
-          page
-            ? 'space-y-[20px]'
-            : 'min-h-0 flex-1 space-y-[16px] overflow-y-auto px-[14px] pb-[24px] pt-[12px]'
-        }
-      >
+      <div className="min-h-0 flex-1 space-y-[16px] overflow-y-auto px-[14px] pb-[24px] pt-[12px]">
         {/* Journey header */}
         <div className="space-y-[10px]">
-          <TextField
-            label="Journey name"
-            value={file.name}
-            onCommit={(name) => (name.trim() ? patch(`Rename the journey to ${quoted(name)}.`, { name }) : false)}
-          />
-          <div className={`rounded-[10px] px-[12px] py-[10px] ${page ? 'border border-slate-200 bg-white' : 'bg-slate-50'}`}>
+          {nameField}
+          <div className="rounded-[10px] bg-slate-50 px-[12px] py-[10px]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Flow</p>
-            <p className="mt-[2px] text-[12.5px] leading-snug text-slate-600">
-              {uploaded ? uploadedScreenChain(file) : templateLabel(file.template)}
-            </p>
+            <p className="mt-[2px] text-[12.5px] leading-snug text-slate-600">{flow}</p>
           </div>
         </div>
 
@@ -708,48 +872,27 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
           <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
             Steps
           </p>
-          {uploaded && (
-            <p className="rounded-[10px] bg-amber-50 px-[12px] py-[8px] text-[11.5px] leading-relaxed text-amber-700">
-              Screens come from your uploaded file. You can still edit who sees it, the shell, holdout,
-              brand, and the save offer below.
-            </p>
-          )}
-          {editableSteps.map((step, i) => {
-            const meta = KIND_META[step.kind]
-            const compiled = compiledSteps.find((c) => c.id === step.id)
-            const idx = file.steps.indexOf(step) + 1
-            const label = step.kind === 'offer' && step.id === 'entry' ? 'Entry offer' : meta.label
-            const title = `${idx}. ${label}`
-            return (
-              <Section key={step.id} title={title} hint={meta.hint} defaultOpen={i === 0 && !uploaded}>
-                <StepEditor fileStep={step} compiled={compiled} title={`step ${idx} (${label})`} />
-              </Section>
-            )
-          })}
+          {uploadedNote}
+          {steps}
         </div>
 
         {/* Global knobs */}
         <div className="space-y-[8px]">
           <p className="px-[2px] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">
-            Targeting &amp; presentation
+            {V8 ? 'Look and layout' : <>Targeting &amp; presentation</>}
           </p>
-          <Section title="Audience" hint="Who enters this experience">
-            <SelectField
-              label="Audience"
-              value={file.audience}
-              options={AUDIENCE_OPTIONS}
-              onChange={(audience) => void patch(`Show this experience to ${audienceLabel(audience)}.`, { audience })}
-            />
-          </Section>
-          <Section title="Shell" hint="How it's presented">
-            <SelectField
-              label="Shell"
-              value={file.shell}
-              options={SHELL_OPTIONS}
-              onChange={(shell) => void patch(`Present it as: ${shellLabel(shell)}.`, { shell })}
-            />
-          </Section>
-          <Section title="Holdout" hint="Share that sees no treatment">
+          {!V8 && (
+            <Section title="Audience" hint="Who enters this experience">
+              <SelectField
+                label="Audience"
+                value={file.audience}
+                options={AUDIENCE_OPTIONS}
+                onChange={(audience) => void patch(`Show this experience to ${audienceLabel(audience)}.`, { audience })}
+              />
+            </Section>
+          )}
+          {layoutSection}
+          {!V8 && <Section title="Holdout" hint="Share that sees no treatment">
             <NumberField
               label="Holdout %"
               value={file.holdout}
@@ -762,38 +905,8 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
                 )
               }
             />
-          </Section>
-          <Section title="Brand" hint="Look of the subscriber UI">
-            <TextField
-              label="Merchant"
-              value={file.brand.merchant}
-              onCommit={(merchant) =>
-                patch(`Change the brand name to ${quoted(merchant)}.`, {
-                  brand: patchBrandShortcuts(file.brand, { merchant }),
-                })
-              }
-            />
-            <ColorField
-              label="Primary color"
-              value={file.brand.primary}
-              onCommit={(primary) =>
-                patch(`Change the primary color to ${primary.toUpperCase()}.`, {
-                  brand: patchBrandShortcuts(file.brand, { primary }),
-                })
-              }
-            />
-            <NumberField
-              label="Corner radius (px)"
-              value={file.brand.corners}
-              min={0}
-              max={40}
-              onCommit={(corners) =>
-                patch(`Set the corner radius to ${corners}px.`, {
-                  brand: patchBrandShortcuts(file.brand, { corners }),
-                })
-              }
-            />
-          </Section>
+          </Section>}
+          {brandSection}
         </div>
       </div>
       {pending && <ConfirmDialog what={pending.what} onCancel={cancelPending} onSave={savePending} />}

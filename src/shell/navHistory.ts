@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { useOrchestration } from '../store/useOrchestration'
 import { useUpload } from '../upload/useUpload'
-import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
+import { growthKey, growthPlace, restoreGrowthPlace, useGrowthUi, type GrowthPlace } from '../concierge/objective/useGrowthUi'
 import { V8 } from '../layout/layoutMode'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { switchThread, useWorkspace } from '../workspace/useWorkspace'
-import { useWorkspaceUi, type StudioPage } from '../workspace/useWorkspaceUi'
+import { useWorkspaceUi, type LibraryKind, type StudioPage } from '../workspace/useWorkspaceUi'
 import { hashFor, routeFromHash, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
 
@@ -17,8 +17,10 @@ interface Place {
   templates: boolean
   upload?: boolean
   readOnlyId: string | null
-  /** Concierge: the open in-app offer or pricing table experience. */
-  growthId?: string | null
+  playId?: string | null
+  libraryKind?: LibraryKind
+  /** Concierge: where the merchant is inside Acquisition or Expansion. */
+  growth?: GrowthPlace
 }
 
 interface EntryState {
@@ -38,7 +40,9 @@ function currentPlace(): Place {
     templates: useOrchestration.getState().templatesOpen,
     upload: uploadPageOpen(),
     readOnlyId: ui.readOnlyId,
-    growthId: useGrowthExperiences.getState().activeId,
+    playId: ui.playId,
+    libraryKind: ui.libraryKind,
+    growth: growthPlace(),
   }
 }
 
@@ -48,7 +52,17 @@ function uploadPageOpen(): boolean {
 }
 
 function keyOf(p: Place): string {
-  return [p.route, p.page, p.threadId, p.templates ? 1 : 0, p.upload ? 1 : 0, p.readOnlyId ?? '', p.growthId ?? ''].join('|')
+  return [
+    p.route,
+    p.page,
+    p.threadId,
+    p.templates ? 1 : 0,
+    p.upload ? 1 : 0,
+    p.readOnlyId ?? '',
+    p.playId ?? '',
+    p.page === 'library' ? (p.libraryKind ?? '') : '',
+    growthKey(p.growth),
+  ].join('|')
 }
 
 function urlFor(route: NavLeafId): string {
@@ -86,13 +100,19 @@ function schedule() {
 }
 
 function apply(place: Place) {
-  if (place.growthId !== undefined) useGrowthExperiences.getState().open(place.growthId)
+  if (place.growth) restoreGrowthPlace(place.growth)
   useGrowthShell.getState().go(place.route)
   const ws = useWorkspace.getState()
   if (place.threadId !== ws.activeId && ws.threads.some((t) => t.id === place.threadId)) {
     switchThread(place.threadId)
   }
-  useWorkspaceUi.setState({ page: place.page, readOnlyId: place.readOnlyId, searchOpen: false })
+  useWorkspaceUi.setState({
+    page: place.page,
+    readOnlyId: place.readOnlyId,
+    searchOpen: false,
+    ...(place.playId !== undefined ? { playId: place.playId } : {}),
+    ...(place.libraryKind ? { libraryKind: place.libraryKind } : {}),
+  })
   useCancelSettings.getState().setSettingsOpen(false)
   const orch = useOrchestration.getState()
   if (place.templates && !orch.templatesOpen) orch.openTemplates()
@@ -129,7 +149,7 @@ export function startNavHistory() {
   useWorkspace.subscribe(schedule)
   useOrchestration.subscribe(schedule)
   useUpload.subscribe(schedule)
-  useGrowthExperiences.subscribe(schedule)
+  useGrowthUi.subscribe(schedule)
   window.addEventListener('popstate', onPopState)
 }
 

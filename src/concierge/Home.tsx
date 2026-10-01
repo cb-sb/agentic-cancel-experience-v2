@@ -8,6 +8,7 @@ import { useWorkspace } from '../workspace/useWorkspace'
 import { cancelPageRows } from './cancelPages'
 import { TYPE_LABEL, objectiveLabel, timeAgo } from './model'
 import { useGrowthExperiences } from './useGrowthExperiences'
+import { growthExperienceLive, useGrowthPlays } from './useGrowthPlays'
 
 const START = [
   'Stop people from cancelling',
@@ -52,6 +53,7 @@ function RowList({ label, rows }: { label: string; rows: Row[] }) {
 function usePickUp(): Row[] {
   useWorkspace((s) => s.threads)
   const items = useGrowthExperiences((s) => s.items)
+  const plays = useGrowthPlays((s) => s.plays)
   const cancel = cancelPageRows()
     .filter((r) => r.status === 'draft' && !r.blank)
     .map((r) => ({
@@ -61,7 +63,7 @@ function usePickUp(): Row[] {
       owner: `cancel:${r.id}` as const,
     }))
   const growth = items
-    .filter((x) => x.status === 'draft')
+    .filter((x) => !growthExperienceLive(x.id, plays))
     .map((x) => ({
       id: x.id,
       name: x.name,
@@ -82,18 +84,18 @@ function usePickUp(): Row[] {
 }
 
 function useWorthALook(chatId: string): Row[] {
-  const items = useGrowthExperiences((s) => s.items)
+  const plays = useGrowthPlays((s) => s.plays)
   const rows: Row[] = []
-  const untested = items.find((x) => x.status === 'live' && x.variants.length === 1)
+  const untested = plays.find((p) => p.status === 'live' && p.variants.length === 1)
   if (untested) {
     rows.push({
       key: 'test',
       title: `Test a second version of “${untested.name}”`,
-      meta: 'It is live with one offer and no test.',
+      meta: 'This play is live with one variant and no test.',
       onClick: () => sendAs(chatId, `Suggest a test for “${untested.name}”`),
     })
   }
-  const noControl = items.find((x) => x.status === 'live' && x.control === 0)
+  const noControl = plays.find((p) => p.status === 'live' && p.control === 0)
   if (noControl) {
     rows.push({
       key: 'control',

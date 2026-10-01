@@ -6,10 +6,8 @@ import { labelOf, type NavLeafId } from './nav'
 import { TemplatePages } from '../upload/TemplatePages'
 import { UploadFlow } from '../upload/UploadFlow'
 import { CONCIERGE } from '../layout/layoutMode'
-import { ExperienceList } from '../concierge/ExperienceList'
-import { GrowthWorkspace } from '../concierge/GrowthWorkspace'
 import { ConciergeHome } from '../concierge/Home'
-import { ComponentsPage, OffersPage, PricingTablesPage, TemplatesPage } from '../concierge/LibraryPages'
+import { GrowthStudio } from '../concierge/objective/GrowthStudio'
 
 function Placeholder({ route }: { route: NavLeafId }) {
   const title = labelOf(route)
@@ -36,24 +34,9 @@ function ConciergeRoute({ route }: { route: NavLeafId }) {
   switch (route) {
     case 'home':
       return <ConciergeHome />
-    case 'experiences.acquisition':
-      return <ExperienceList objective="acquisition" />
-    case 'experiences.expansion':
-      return <ExperienceList objective="expansion" />
-    case 'experiences.retention':
-      return <ExperienceList objective="retention" />
-    case 'experiences.offer':
-      return <GrowthWorkspace />
-    case 'library.offers':
-      return <OffersPage />
-    case 'library.pricing_tables':
-      return <PricingTablesPage />
-    case 'library.templates':
-      return <TemplatesPage />
-    case 'library.components':
-      return <ComponentsPage />
-    case 'library.brand':
-      return <BrandingStudio />
+    case 'acquisition':
+    case 'expansion':
+      return <GrowthStudio objective={route} />
     default:
       return <Placeholder route={route} />
   }

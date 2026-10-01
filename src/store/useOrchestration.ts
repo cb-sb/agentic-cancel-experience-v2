@@ -889,3 +889,6 @@ export const useOrchestration = create<OrchestrationState>((set, get) => ({
       },
     })),
 }))
+
+// Filled once at boot, so a hot swap leaves an empty store whose next save would overwrite the saved copy.
+import.meta.hot?.dispose(() => window.location.reload())

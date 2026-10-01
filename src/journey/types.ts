@@ -113,7 +113,21 @@ export interface JourneyStepFile {
   content?: JourneyStepContent
   /** Saved merchant chrome for this step. Compile still uses factories for the rest. */
   chrome?: JourneyStepChrome
+  /** Offer steps: how Chargebee carries out the offer once it's accepted. */
+  fulfilment?: OfferFulfilment
+  /** Offer steps: where a URL, webhook or email fulfilment goes. */
+  fulfilmentTarget?: string
+  /** Offer steps: what the subscriber sees right after accepting. */
+  afterAccept?: AfterAccept
 }
+
+/** Billing applies it (Chargebee, Stripe, Recurly, Recharge). The others hand it off. */
+export type OfferFulfilment = 'billing' | 'url' | 'webhook' | 'email'
+
+export type AfterAccept = 'confirmation' | 'feedback' | 'dismiss'
+
+/** How survey answers ride along on the return URL. */
+export type AnswerPassing = 'hash' | 'query'
 
 /** How Growth actually processes the cancel once the page is done with it. */
 export type CancelProcessing = 'billing_api' | 'override'
@@ -134,6 +148,12 @@ export interface JourneyCancelHandling {
   nevermindUrl?: string
   /** Where a confirmed cancel returns the subscriber. */
   cancelUrl?: string
+  /** Where a subscriber goes after they accept an offer and stay. */
+  saveReturnUrl?: string
+  /** Page shown once the cancel is confirmed, in place of the built-in one. */
+  confirmationUrl?: string
+  /** How survey answers are added to those URLs. */
+  answerPassing?: AnswerPassing
 }
 
 /**

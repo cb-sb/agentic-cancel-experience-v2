@@ -11,14 +11,14 @@ function readLayout(): LayoutMode {
 /** Fixed for the page's lifetime. Every layout but v5 shares the experiences-as-threads workspace. */
 export const LAYOUT: LayoutMode = readLayout()
 export const USES_THREADS = LAYOUT !== 'v5'
-/** Concierge: a real agent runs the product, on the v7 studio. */
+/** Concierge: Home, Acquisition and Expansion around the v8 cancel experience, which is its Retention. */
 export const CONCIERGE = LAYOUT === 'concierge'
 /** Layouts where the right side is a strip of tabs. */
 export const TABBED = LAYOUT === 'tabs' || LAYOUT === 'v7' || LAYOUT === 'v8' || CONCIERGE
 /** v7, v8 and concierge: the Experiences pane, doors, and the tabbed studio. */
 export const STUDIO = LAYOUT === 'v7' || LAYOUT === 'v8' || CONCIERGE
-/** v8: Copilot only sets up the subscriber experience; the rest is UI. */
-export const V8 = LAYOUT === 'v8'
+/** v8: Copilot only sets up the subscriber experience; the rest is UI. Concierge's Retention runs on it too. */
+export const V8 = LAYOUT === 'v8' || CONCIERGE
 
 /** Browser back and forward across places, with one back control per page. */
 export const HISTORY_NAV = V8 || CONCIERGE

@@ -13,14 +13,9 @@ const optionalId = z.string().nullish().describe('Experience id. Leave out to us
 
 export const ROUTES = [
   'home',
-  'experiences.acquisition',
-  'experiences.expansion',
-  'experiences.retention',
-  'library.offers',
-  'library.pricing_tables',
-  'library.templates',
-  'library.components',
-  'library.brand',
+  'acquisition',
+  'expansion',
+  'experiences.cancel',
   'people.audiences',
   'people.engaged',
   'renewal',

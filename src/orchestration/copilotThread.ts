@@ -7,7 +7,7 @@ import { V8 } from '../layout/layoutMode'
 import { planIntro, v8Landing, type PlanBeat } from './JourneyPlan'
 import { spotlightForWidget, type SpotlightId } from './spotlight'
 
-export type PromptTurn = 'kind' | 'guide' | 'propose' | 'plan' | 'done' | 'library' | 'upload'
+export type PromptTurn = 'kind' | 'guide' | 'propose' | 'plan' | 'done' | 'library' | 'upload' | 'setup'
 
 /** One bubble in Chargebee Copilot, including questions asked from the canvas. */
 export interface CopilotLine {
@@ -20,6 +20,8 @@ export interface CopilotLine {
   widget?: 'plan' | 'steps'
   /** Assistant message that owns an Apply action for this bubble. */
   applyMessageId?: number
+  /** A small side line, like a change made in the Summary. */
+  note?: boolean
 }
 
 type SayExtra =
@@ -29,15 +31,24 @@ type SayExtra =
       widget?: CopilotLine['widget']
       applyMessageId?: number
       look?: SpotlightId
+      note?: boolean
     }
+
+/** v8: the setting the chat card is showing. Not saved, it's picked again on open. */
+export interface SetupFocus {
+  id: string
+  targetId: string
+}
 
 interface CopilotThread {
   lines: CopilotLine[]
   turn: PromptTurn
   beat: PlanBeat
+  setupItem: SetupFocus | null
   say: (from: CopilotLine['from'], text: string, extra?: SayExtra) => void
   setTurn: (turn: PromptTurn) => void
   setBeat: (beat: PlanBeat) => void
+  setSetupItem: (item: SetupFocus | null) => void
   /** Drop inline widgets so a rejected path doesn’t leave an empty strip in chat. */
   clearWidgets: (widget: NonNullable<CopilotLine['widget']>) => void
   reset: () => void
@@ -75,6 +86,7 @@ export const useCopilotThread = create<CopilotThread>((set) => ({
   lines: [],
   turn: 'kind',
   beat: 'walk',
+  setupItem: null,
   say: (from, text, extra) => {
     const opts = typeof extra === 'string' ? { ref: extra } : extra ?? {}
     set((s) => ({
@@ -87,6 +99,7 @@ export const useCopilotThread = create<CopilotThread>((set) => ({
           ...(opts.ref ? { ref: opts.ref } : {}),
           ...(opts.widget ? { widget: opts.widget } : {}),
           ...(opts.applyMessageId != null ? { applyMessageId: opts.applyMessageId } : {}),
+          ...(opts.note ? { note: true } : {}),
         },
       ],
     }))
@@ -100,12 +113,13 @@ export const useCopilotThread = create<CopilotThread>((set) => ({
   },
   setTurn: (turn) => set({ turn }),
   setBeat: (beat) => set({ beat }),
+  setSetupItem: (setupItem) => set({ setupItem }),
   clearWidgets: (widget) =>
     set((s) => ({
       lines: s.lines.map((l) => (l.widget === widget ? { ...l, widget: undefined } : l)),
     })),
   reset: () => {
     useOrchestration.getState().setSpotlight(null)
-    set({ lines: [], turn: 'kind', beat: 'walk' })
+    set({ lines: [], turn: 'kind', beat: 'walk', setupItem: null })
   },
 }))

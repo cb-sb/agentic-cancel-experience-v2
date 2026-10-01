@@ -1,47 +1,54 @@
 import { create } from 'zustand'
-import { newId, type GrowthExperience, type Objective } from './model'
+import { nameProblem, uniqueName } from '../plays/names'
+import { TYPE_LABEL, newId, type GrowthExperience, type GrowthObjective, type GrowthType } from './model'
 
-const KEY = 'cancel-experience:experiences:concierge'
+const KEY = 'cancel-experience:experiences:concierge-v2'
 const DAY = 86_400_000
 
 const SEEDS: GrowthExperience[] = [
   {
     id: 'gx_trial',
-    name: 'Trial to paid conversion',
+    name: 'Trial discount',
     objective: 'acquisition',
     type: 'in_app_offer',
-    status: 'live',
-    audienceId: 'in_trial',
+    refId: 'off_trial7',
     trigger: { kind: 'url', value: '/billing' },
-    variants: [{ id: 'v1', refId: 'off_trial7', percent: 100 }],
-    control: 10,
-    priority: 1,
     updatedAt: Date.now() - 40 * DAY,
+  },
+  {
+    id: 'gx_trialext',
+    name: 'Trial extension',
+    objective: 'acquisition',
+    type: 'in_app_offer',
+    refId: 'off_trialext',
+    trigger: { kind: 'event', value: 'trial_ending' },
+    updatedAt: Date.now() - 30 * DAY,
   },
   {
     id: 'gx_signup',
     name: 'Sign-up pricing page',
     objective: 'acquisition',
     type: 'pricing_table',
-    status: 'live',
-    audienceId: 'all',
+    refId: 'pt_signup',
     trigger: { kind: 'url', value: '/pricing' },
-    variants: [{ id: 'v1', refId: 'pt_signup', percent: 100 }],
-    control: 0,
-    priority: 1,
     updatedAt: Date.now() - 50 * DAY,
+  },
+  {
+    id: 'gx_signup_banner',
+    name: 'Pricing page banner',
+    objective: 'acquisition',
+    type: 'in_app_offer',
+    refId: null,
+    trigger: { kind: 'url', value: '/pricing' },
+    updatedAt: Date.now() - 2 * DAY,
   },
   {
     id: 'gx_annual',
     name: 'Monthly to annual',
     objective: 'expansion',
     type: 'in_app_offer',
-    status: 'live',
-    audienceId: 'all_paying',
+    refId: 'off_annual',
     trigger: { kind: 'any_page' },
-    variants: [{ id: 'v1', refId: 'off_annual', percent: 100 }],
-    control: 10,
-    priority: 1,
     updatedAt: Date.now() - 14 * DAY,
   },
   {
@@ -49,69 +56,107 @@ const SEEDS: GrowthExperience[] = [
     name: 'Upgrade to Scale',
     objective: 'expansion',
     type: 'pricing_table',
-    status: 'draft',
-    audienceId: 'high_value',
+    refId: 'pt_upgrade',
     trigger: { kind: 'event', value: 'seat_limit_reached' },
-    variants: [{ id: 'v1', refId: 'pt_upgrade', percent: 100 }],
-    control: 0,
-    priority: 1,
     updatedAt: Date.now() - 12 * DAY,
+  },
+  {
+    id: 'gx_addon',
+    name: 'Reports add-on',
+    objective: 'expansion',
+    type: 'in_app_offer',
+    refId: 'off_addon',
+    trigger: { kind: 'url', value: '/reports' },
+    updatedAt: Date.now() - 5 * DAY,
   },
 ]
 
 interface ExperiencesState {
   items: GrowthExperience[]
-  activeId: string | null
-  add: (x: Omit<GrowthExperience, 'id' | 'updatedAt' | 'priority'>) => GrowthExperience
-  update: (id: string, patch: Partial<GrowthExperience>) => void
-  open: (id: string | null) => void
-  /** Move one experience to a 1-based position among its objective and type. */
-  moveTo: (id: string, position: number) => void
 }
 
-function load(): Pick<ExperiencesState, 'items' | 'activeId'> {
+function load(): ExperiencesState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { items: SEEDS, activeId: null }
-    const parsed = JSON.parse(raw) as { items?: GrowthExperience[]; activeId?: string | null }
-    return { items: Array.isArray(parsed.items) ? parsed.items : SEEDS, activeId: parsed.activeId ?? null }
+    if (!raw) return { items: SEEDS }
+    const parsed = JSON.parse(raw) as { items?: GrowthExperience[] }
+    return { items: Array.isArray(parsed.items) ? parsed.items : SEEDS }
   } catch {
-    return { items: SEEDS, activeId: null }
+    return { items: SEEDS }
   }
 }
 
-export const useGrowthExperiences = create<ExperiencesState>((set, get) => ({
-  ...load(),
-  add: (x) => {
-    const peers = get().items.filter((i) => i.objective === x.objective && i.type === x.type)
-    const item: GrowthExperience = { ...x, id: newId('gx'), priority: peers.length + 1, updatedAt: Date.now() }
-    set((s) => ({ items: [item, ...s.items] }))
-    return item
-  },
-  update: (id, patch) =>
-    set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: Date.now() } : i)) })),
-  open: (activeId) => set({ activeId }),
-  moveTo: (id, position) => {
-    const item = get().items.find((i) => i.id === id)
-    if (!item) return
-    const peers = get()
-      .items.filter((i) => i.objective === item.objective && i.type === item.type && i.id !== id)
-      .sort((a, b) => a.priority - b.priority)
-    const at = Math.max(0, Math.min(peers.length, position - 1))
-    peers.splice(at, 0, item)
-    const rank = new Map(peers.map((p, i) => [p.id, i + 1]))
-    set((s) => ({ items: s.items.map((i) => (rank.has(i.id) ? { ...i, priority: rank.get(i.id)! } : i)) }))
-  },
-}))
+export const useGrowthExperiences = create<ExperiencesState>(load)
 
 useGrowthExperiences.subscribe((s) => {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ items: s.items, activeId: s.activeId }))
+    localStorage.setItem(KEY, JSON.stringify({ items: s.items }))
   } catch {
     /* storage full or blocked */
   }
 })
 
-export function experiencesFor(items: GrowthExperience[], objective: Objective) {
-  return items.filter((i) => i.objective === objective && i.status !== 'archived')
+export function experiencesFor(items: GrowthExperience[], objective: GrowthObjective): GrowthExperience[] {
+  return items.filter((i) => i.objective === objective).sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/** Every experience that shows this Library offer or pricing table, by name. */
+export function usedIn(refId: string): string[] {
+  return useGrowthExperiences
+    .getState()
+    .items.filter((x) => x.refId === refId)
+    .map((x) => x.name)
+}
+
+export function growthExperience(id: string): GrowthExperience | undefined {
+  return useGrowthExperiences.getState().items.find((i) => i.id === id)
+}
+
+function namesIn(objective: GrowthObjective, exceptId?: string): string[] {
+  return useGrowthExperiences
+    .getState()
+    .items.filter((i) => i.objective === objective && i.id !== exceptId)
+    .map((i) => i.name)
+}
+
+export function addGrowthExperience(objective: GrowthObjective, type: GrowthType, opts: { name?: string; refId?: string | null } = {}): GrowthExperience {
+  const item: GrowthExperience = {
+    id: newId('gx'),
+    name: uniqueName(opts.name ?? `New ${TYPE_LABEL[type].toLowerCase()}`, namesIn(objective)),
+    objective,
+    type,
+    refId: opts.refId ?? null,
+    trigger: { kind: 'any_page' },
+    updatedAt: Date.now(),
+  }
+  useGrowthExperiences.setState((s) => ({ items: [item, ...s.items] }))
+  return item
+}
+
+export function updateGrowthExperience(id: string, patch: Partial<Omit<GrowthExperience, 'id' | 'objective'>>) {
+  useGrowthExperiences.setState((s) => ({
+    items: s.items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: Date.now() } : i)),
+  }))
+}
+
+/** Null once saved, otherwise what's wrong with the name. */
+export function renameGrowthExperience(id: string, name: string): string | null {
+  const x = growthExperience(id)
+  if (!x) return null
+  const problem = nameProblem(name, namesIn(x.objective, id), 'experience')
+  if (problem) return problem
+  updateGrowthExperience(id, { name: name.trim().replace(/\s+/g, ' ') })
+  return null
+}
+
+export function duplicateGrowthExperience(id: string): GrowthExperience | null {
+  const x = growthExperience(id)
+  if (!x) return null
+  const copy: GrowthExperience = { ...x, id: newId('gx'), name: uniqueName(`${x.name} copy`, namesIn(x.objective)), updatedAt: Date.now() }
+  useGrowthExperiences.setState((s) => ({ items: [copy, ...s.items] }))
+  return copy
+}
+
+export function removeGrowthExperience(id: string) {
+  useGrowthExperiences.setState((s) => ({ items: s.items.filter((i) => i.id !== id) }))
 }

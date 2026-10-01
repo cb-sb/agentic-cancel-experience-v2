@@ -1,17 +1,10 @@
 import type { SIconName } from '@chargebee/sting-react'
-import { CONCIERGE } from '../layout/layoutMode'
+import { CONCIERGE, V8 } from '../layout/layoutMode'
 
 export type NavLeafId =
   | 'home'
-  | 'experiences.acquisition'
-  | 'experiences.expansion'
-  | 'experiences.retention'
-  | 'experiences.offer'
-  | 'library.offers'
-  | 'library.pricing_tables'
-  | 'library.templates'
-  | 'library.components'
-  | 'library.brand'
+  | 'acquisition'
+  | 'expansion'
   | 'plays.acquisition'
   | 'plays.expansion'
   | 'plays.retention'
@@ -33,7 +26,7 @@ export type NavLeafId =
   | 'reports.lift'
   | 'settings'
 
-export type NavGroupId = 'plays' | 'offers' | 'experiences' | 'library' | 'people' | 'reports'
+export type NavGroupId = 'plays' | 'offers' | 'experiences' | 'people' | 'reports'
 
 export interface NavLeaf {
   id: NavLeafId
@@ -52,7 +45,7 @@ export type NavEntry =
   | { kind: 'group'; group: NavGroup }
   | { kind: 'leaf'; leaf: NavLeaf }
 
-const BASE_NAV: NavEntry[] = [
+const ALL_NAV: NavEntry[] = [
   {
     kind: 'group',
     group: {
@@ -125,66 +118,56 @@ const BASE_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'settings', label: 'Settings', icon: 'settings' } },
 ]
 
-/** Concierge: plays and experiences are one layer, and offers and pricing tables sit in the Library. */
+/**
+ * v8 covers cancel experiences only, so acquisition, expansion and their offers are left out.
+ * Pages, cards, reasons and redirects live in the Retention pane's Library instead.
+ */
+const NOT_IN_V8 = new Set<string>([
+  'plays.acquisition',
+  'plays.expansion',
+  'offers',
+  'experiences.pages',
+  'experiences.loss_aversion',
+  'experiences.survey',
+  'experiences.redirect',
+])
+const V8_LABELS: Partial<Record<NavLeafId, string>> = { 'experiences.cancel': 'Retention' }
+
+const V8_NAV: NavEntry[] = ALL_NAV.filter((e) => !(e.kind === 'group' && NOT_IN_V8.has(e.group.id))).map((e) =>
+  e.kind === 'group'
+    ? {
+        ...e,
+        group: {
+          ...e.group,
+          children: e.group.children.filter((c) => !NOT_IN_V8.has(c.id)).map((c) => ({ ...c, label: V8_LABELS[c.id] ?? c.label })),
+        },
+      }
+    : e,
+)
+
+/** Concierge: Home, then one place per objective. Retention is the whole v8 cancel experience. */
 const CONCIERGE_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
-  {
-    kind: 'group',
-    group: {
-      id: 'experiences',
-      label: 'Experiences',
-      icon: 'target',
-      children: [
-        { id: 'experiences.acquisition', label: 'Acquisition', icon: 'rocket' },
-        { id: 'experiences.expansion', label: 'Expansion', icon: 'arrow-up-right' },
-        { id: 'experiences.retention', label: 'Retention', icon: 'repeat' },
-      ],
-    },
-  },
-  {
-    kind: 'group',
-    group: {
-      id: 'library',
-      label: 'Library',
-      icon: 'library',
-      children: [
-        { id: 'library.offers', label: 'Offers', icon: 'gift' },
-        { id: 'library.pricing_tables', label: 'Pricing tables', icon: 'table' },
-        { id: 'library.templates', label: 'Templates', icon: 'layout-template' },
-        { id: 'library.components', label: 'Components', icon: 'layout-list' },
-        { id: 'library.brand', label: 'Brand', icon: 'palette' },
-      ],
-    },
-  },
-  ...BASE_NAV.slice(3),
+  { kind: 'leaf', leaf: { id: 'acquisition', label: 'Acquisition', icon: 'rocket' } },
+  { kind: 'leaf', leaf: { id: 'expansion', label: 'Expansion', icon: 'arrow-up-right' } },
+  { kind: 'leaf', leaf: { id: 'experiences.cancel', label: 'Retention', icon: 'repeat' } },
+  ...ALL_NAV.slice(3),
 ]
 
-export const NAV: NavEntry[] = CONCIERGE ? CONCIERGE_NAV : BASE_NAV
+export const NAV: NavEntry[] = CONCIERGE ? CONCIERGE_NAV : V8 ? V8_NAV : ALL_NAV
 
-/** Workspaces reached from a list, never from the nav. */
-const HIDDEN_LEAVES: NavLeafId[] = CONCIERGE ? ['experiences.cancel', 'experiences.offer'] : []
-
-export const DEFAULT_ROUTE: NavLeafId = CONCIERGE ? 'home' : 'plays.acquisition'
+export const DEFAULT_ROUTE: NavLeafId = CONCIERGE ? 'home' : V8 ? 'experiences.cancel' : 'plays.acquisition'
 export const CANCEL_ROUTE: NavLeafId = 'experiences.cancel'
 
 export function groupOf(id: NavLeafId): NavGroupId | null {
   const [head] = id.split('.')
-  if (
-    head === 'plays' ||
-    head === 'offers' ||
-    head === 'experiences' ||
-    head === 'library' ||
-    head === 'people' ||
-    head === 'reports'
-  ) {
+  if (head === 'plays' || head === 'offers' || head === 'experiences' || head === 'people' || head === 'reports') {
     return head
   }
   return null
 }
 
 export function labelOf(id: NavLeafId): string {
-  if (id === 'experiences.cancel') return 'Cancel page'
-  if (id === 'experiences.offer') return 'Experience'
   for (const entry of NAV) {
     if (entry.kind === 'leaf' && entry.leaf.id === id) return entry.leaf.label
     if (entry.kind === 'group') {
@@ -196,9 +179,7 @@ export function labelOf(id: NavLeafId): string {
 }
 
 const LEAF_IDS = new Set<NavLeafId>(
-  NAV.flatMap((entry) => (entry.kind === 'leaf' ? [entry.leaf.id] : entry.group.children.map((c) => c.id))).concat(
-    HIDDEN_LEAVES,
-  ),
+  NAV.flatMap((entry) => (entry.kind === 'leaf' ? [entry.leaf.id] : entry.group.children.map((c) => c.id))),
 )
 
 export function hashFor(id: NavLeafId): string {

@@ -174,26 +174,21 @@ export interface Trigger {
   value?: string
 }
 
-export interface ExperienceVariant {
-  id: string
-  /** The offer or pricing table this variant shows. */
-  refId: string
-  percent: number
-}
+/** Acquisition and Expansion. Retention is the cancel experience, which has its own model. */
+export type GrowthObjective = Exclude<Objective, 'retention'>
+export type GrowthType = Exclude<ExperienceType, 'cancel_page'>
 
+export const GROWTH_OBJECTIVES: GrowthObjective[] = ['acquisition', 'expansion']
+
+/** What a subscriber sees and when. Who sees it, the split and the control group live on the play. */
 export interface GrowthExperience {
   id: string
   name: string
-  objective: Objective
-  type: Exclude<ExperienceType, 'cancel_page'>
-  status: ExperienceStatus
-  audienceId: string
+  objective: GrowthObjective
+  type: GrowthType
+  /** The Library offer or pricing table it shows. Null until one is picked. */
+  refId: string | null
   trigger: Trigger
-  variants: ExperienceVariant[]
-  /** Percent of the audience who see nothing, to measure lift. */
-  control: number
-  priority: number
-  brief?: string
   updatedAt: number
 }
 

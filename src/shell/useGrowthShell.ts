@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { CONCIERGE } from '../layout/layoutMode'
 import {
   CANCEL_ROUTE,
   DEFAULT_ROUTE,
@@ -8,8 +7,9 @@ import {
   type NavLeafId,
 } from './nav'
 
+/** Places with their own side pane. Acquisition and Expansion are Concierge only. */
 function isExperience(route: NavLeafId) {
-  return route === CANCEL_ROUTE || route === 'experiences.offer'
+  return route === CANCEL_ROUTE || route === 'acquisition' || route === 'expansion'
 }
 
 interface GrowthShellState {
@@ -27,8 +27,7 @@ interface GrowthShellState {
 const COLLAPSED_GROUPS: Record<NavGroupId, boolean> = {
   plays: false,
   offers: false,
-  experiences: CONCIERGE,
-  library: CONCIERGE,
+  experiences: false,
   people: false,
   reports: false,
 }

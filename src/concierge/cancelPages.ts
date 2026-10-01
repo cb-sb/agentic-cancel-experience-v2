@@ -3,7 +3,8 @@ import { useGrowthShell } from '../shell/useGrowthShell'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
 import { byPriority, useCancelSettings } from '../workspace/useCancelSettings'
-import { nameThread, newThread, switchThread, threadIsLive, useWorkspace } from '../workspace/useWorkspace'
+import { experienceNames, newThread, renameThread, switchThread, threadIsLive, useWorkspace } from '../workspace/useWorkspace'
+import { uniqueName } from '../plays/names'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import type { ExperienceStatus } from './model'
 
@@ -54,8 +55,9 @@ export function createCancelPage(name?: string): string {
   newThread({ force: true })
   const id = useWorkspace.getState().activeId
   if (name) {
-    nameThread(id, name)
-    useJourney.getState().replaceFile({ ...useJourney.getState().file, name })
+    const unique = uniqueName(name, experienceNames(id))
+    renameThread(id, unique)
+    useJourney.getState().replaceFile({ ...useJourney.getState().file, name: unique })
   }
   return id
 }

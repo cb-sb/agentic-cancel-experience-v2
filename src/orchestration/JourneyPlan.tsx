@@ -42,11 +42,17 @@ const KEEP_REST = V8 ? 'Keep the rest as is' : 'Keep defaults and walk it'
 
 const AUDIENCES: AudienceKey[] = ['all', 'paying', 'high_value', 'high_risk', 'annual', 'in_trial']
 
-const SHELLS: { id: ShellLayout; label: string; hint: string }[] = [
-  { id: 'modal', label: 'Modal', hint: 'Overlay on the merchant site' },
-  { id: 'fullpage', label: 'Full page', hint: 'Hosted cancel page' },
-  { id: 'fullpage_scroll', label: 'Scrolling page', hint: 'Full page that scrolls' },
-]
+export const SHELLS: { id: ShellLayout; label: string; hint: string }[] = V8
+  ? [
+      { id: 'modal', label: 'Modal', hint: 'Opens over your account page' },
+      { id: 'fullpage', label: 'Full page', hint: 'Full viewport width, one step at a time' },
+      { id: 'fullpage_scroll', label: 'Full page continuous', hint: 'Every step on one page that scrolls' },
+    ]
+  : [
+      { id: 'modal', label: 'Modal', hint: 'Overlay on the merchant site' },
+      { id: 'fullpage', label: 'Full page', hint: 'Hosted cancel page' },
+      { id: 'fullpage_scroll', label: 'Scrolling page', hint: 'Full page that scrolls' },
+    ]
 
 const OFFER_KEYS = OFFER_VARIANTS.map((v) => v.category as OfferKey)
 
@@ -93,12 +99,11 @@ export function firstBeat(file: JourneyFile): PlanBeat {
 }
 
 const V8_LAND_LINE =
-  'Defaults are in. I’ll set who sees it and the offers with you here. The Plan tab shows the whole setup.'
+  'Your screens are in, with sensible defaults. I’ll go through the settings with you one at a time. Skip anything you want to come back to. The Task list shows what’s left.'
 
-/** v8: what Copilot says once screens land, and the setting it opens first. */
+/** v8: what Copilot says once screens land. The setup cards take it from there. */
 export function v8Landing(file: JourneyFile): { beat: PlanBeat; text: string } {
-  const beat = firstBeat(file)
-  return { beat, text: `${V8_LAND_LINE}\n\n${beatPrompt(beat, file)}` }
+  return { beat: firstBeat(file), text: V8_LAND_LINE }
 }
 
 export const SETUP_ONLY_REPLY =

@@ -1,4 +1,4 @@
-import { STUDIO } from '../../layout/layoutMode'
+import { STUDIO, V8 } from '../../layout/layoutMode'
 import { DevicePicker } from '../../render/DevicePicker'
 import { useExperience } from '../../store/useExperience'
 import { iconProps } from '../flow/icons'
@@ -35,7 +35,7 @@ export function FocusOverlay({
   if (embedded) {
     return (
       <div data-focus-overlay className="flex h-full min-h-0 flex-col bg-slate-100">
-        {STUDIO && <VariantBar experienceId={session.experience.id} />}
+        {STUDIO && !V8 && <VariantBar experienceId={session.experience.id} />}
         <div className="relative min-h-0 flex-1">
           <FocusCard
             session={session}

@@ -645,3 +645,6 @@ export const useExperience = create<ExperienceState>((set, get) => ({
 
   resetSession: () => set({ session: freshSession() }),
 }))
+
+// Filled once at boot, so a hot swap leaves an empty store whose next save would overwrite the saved copy.
+import.meta.hot?.dispose(() => window.location.reload())

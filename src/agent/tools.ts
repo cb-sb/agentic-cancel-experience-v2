@@ -14,10 +14,11 @@ import { useCancelSettings } from '../workspace/useCancelSettings'
 import { useWorkspace } from '../workspace/useWorkspace'
 import type { PaneTab } from '../workspace/useWorkspaceUi'
 import { cancelPageEmpty, createCancelPage, moveCancelPage, openCancelPage } from '../concierge/cancelPages'
-import { CATALOG_PLANS, newId, type Objective, type OfferCategory } from '../concierge/model'
-import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
+import { CATALOG_PLANS, type Objective, type OfferCategory } from '../concierge/model'
+import { openGrowthExperience } from '../concierge/objective/useGrowthUi'
+import { addGrowthExperience, growthExperience, updateGrowthExperience, useGrowthExperiences, usedIn } from '../concierge/useGrowthExperiences'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
-import { cancelReadiness, detailFor, experienceSummaries, ownerOf, parseOwner, usedIn } from './context'
+import { cancelReadiness, detailFor, experienceSummaries, ownerOf, parseOwner } from './context'
 import { useAgentStore, type OwnerKey, type Triage } from './useAgentStore'
 
 type Input = Record<string, unknown>
@@ -46,15 +47,15 @@ export function openOwner(owner: OwnerKey) {
     if (route !== CANCEL_ROUTE || useWorkspace.getState().activeId !== o.id) openCancelPage(o.id)
   }
   if (o.kind === 'growth') {
-    useGrowthExperiences.getState().open(o.id)
-    useGrowthShell.getState().go('experiences.offer')
+    const x = growthExperience(o.id)
+    if (x) openGrowthExperience(x.objective, x.id)
   }
 }
 
 function isBlankOwner(owner: OwnerKey): boolean {
   const o = parseOwner(owner)
   if (o.kind === 'cancel') return cancelPageEmpty(o.id)
-  if (o.kind === 'growth') return !useGrowthExperiences.getState().items.find((x) => x.id === o.id)?.variants.length
+  if (o.kind === 'growth') return !growthExperience(o.id)?.refId
   return false
 }
 
@@ -136,6 +137,10 @@ function newStep(kind: 'loss_aversion' | 'survey' | 'offer', offer?: OfferKey): 
 
 // ---------- growth experiences ----------
 
+/** In-app offers and pricing tables get their audience, control, split, order and status from plays. */
+const ON_PLAYS =
+  'For in-app offers and pricing tables, the audience, control group, split, order and going live are set on the play, in the Acquisition or Expansion tab. Copilot cannot change plays yet, so point the merchant there.'
+
 function growthId(owner: OwnerKey | null): string | null {
   if (!owner) return null
   const o = parseOwner(owner)
@@ -148,10 +153,7 @@ export function applyControl(chatId: string, input: Input): Result {
   const owner = targetOwner(chatId, input.id)
   const percent = Math.round(Number(input.percent) || 0)
   const gid = growthId(owner)
-  if (gid) {
-    useGrowthExperiences.getState().update(gid, { control: percent })
-    return { approved: true, control: percent }
-  }
+  if (gid) return { approved: false, error: ON_PLAYS }
   useCancelSettings.getState().setGlobalControl(percent)
   useOrchestration.getState().confirmSetupItem('holdout')
   return { approved: true, globalControl: percent, note: 'Global control applies to every cancel page.' }
@@ -161,14 +163,7 @@ export function applySplit(chatId: string, input: Input): Result {
   const owner = targetOwner(chatId, input.id)
   const variants = (input.variants as { label: string; refId?: string | null; percent: number }[]) ?? []
   const gid = growthId(owner)
-  if (gid) {
-    useGrowthExperiences.getState().update(gid, {
-      variants: variants
-        .filter((v) => v.refId)
-        .map((v) => ({ id: newId('v'), refId: v.refId!, percent: Math.round(v.percent) })),
-    })
-    return { approved: true, variants }
-  }
+  if (gid) return { approved: false, error: ON_PLAYS }
   if (!cancelOwner(chatId)) return { approved: false, error: 'No cancel page is open.' }
   const orch = useOrchestration.getState()
   let split = topSplit(orch.play)
@@ -202,10 +197,7 @@ export function applyPublish(chatId: string, input: Input): Result {
   const owner = targetOwner(chatId, input.id)
   if (!owner) return { approved: false, error: 'No experience to publish.' }
   const gid = growthId(owner)
-  if (gid) {
-    useGrowthExperiences.getState().update(gid, { status: 'live' })
-    return { approved: true, status: 'live' }
-  }
+  if (gid) return { approved: false, error: ON_PLAYS }
   openOwner(owner)
   if (useOrchestration.getState().play.publishState !== 'live') useOrchestration.getState().togglePublish()
   return { approved: true, status: 'live' }
@@ -317,16 +309,7 @@ export async function runTool(chatId: string, name: string, input: Input, said =
         owner = `cancel:${id}`
         useOrchestration.setState({ setupDoor: 'guide', setupDoorConsumed: true })
       } else {
-        const x = useGrowthExperiences.getState().add({
-          name,
-          objective: input.objective as Objective,
-          type: type as 'in_app_offer' | 'pricing_table',
-          status: 'draft',
-          audienceId: str(input.audienceId) ?? 'all',
-          trigger: { kind: 'any_page' },
-          variants: [],
-          control: 0,
-        })
+        const x = addGrowthExperience(input.objective === 'expansion' ? 'expansion' : 'acquisition', type as 'in_app_offer' | 'pricing_table', { name })
         owner = `growth:${x.id}`
         openOwner(owner)
       }
@@ -402,11 +385,7 @@ export async function runTool(chatId: string, name: string, input: Input, said =
       const owner = targetOwner(chatId, input.id)
       if (!owner) return { error: 'Which experience? Pass its id.' }
       const audienceId = String(input.audienceId)
-      const gid = growthId(owner)
-      if (gid) {
-        useGrowthExperiences.getState().update(gid, { audienceId })
-        return { ok: true }
-      }
+      if (growthId(owner)) return { error: ON_PLAYS }
       openOwner(owner)
       const saved = AUDIENCE_LIBRARY.find((a) => a.id === audienceId)
       const orch = useOrchestration.getState()
@@ -420,7 +399,7 @@ export async function runTool(chatId: string, name: string, input: Input, said =
     case 'set_trigger': {
       const gid = growthId(targetOwner(chatId, input.id))
       if (!gid) return { error: 'Cancel pages always show when someone clicks Cancel.' }
-      useGrowthExperiences.getState().update(gid, { trigger: { kind: input.kind as never, value: str(input.value) } })
+      updateGrowthExperience(gid, { trigger: { kind: input.kind as never, value: str(input.value) } })
       return { ok: true }
     }
 
@@ -432,7 +411,7 @@ export async function runTool(chatId: string, name: string, input: Input, said =
       const x = useGrowthExperiences.getState().items.find((i) => i.id === gid)!
       const ok = x.type === 'pricing_table' ? lib.pricingTables.some((t) => t.id === refId) : lib.offers.some((o) => o.id === refId)
       if (!ok) return { error: x.type === 'pricing_table' ? 'No pricing table with that id.' : 'No offer with that id.' }
-      useGrowthExperiences.getState().update(gid, { variants: [{ id: newId('v'), refId, percent: 100 }] })
+      updateGrowthExperience(gid, { refId })
       return { ok: true }
     }
 
@@ -440,19 +419,15 @@ export async function runTool(chatId: string, name: string, input: Input, said =
       const owner = targetOwner(chatId, input.id)
       if (!owner) return { error: 'Which experience? Pass its id.' }
       const o = parseOwner(owner) as { kind: 'cancel' | 'growth'; id: string }
-      if (o.kind === 'cancel') moveCancelPage(o.id, Number(input.position))
-      else useGrowthExperiences.getState().moveTo(o.id, Number(input.position))
+      if (o.kind !== 'cancel') return { error: ON_PLAYS }
+      moveCancelPage(o.id, Number(input.position))
       return { ok: true }
     }
 
     case 'set_status': {
       const owner = targetOwner(chatId, input.id)
       if (!owner) return { error: 'Which experience? Pass its id.' }
-      const gid = growthId(owner)
-      if (gid) {
-        useGrowthExperiences.getState().update(gid, { status: input.status as never })
-        return { ok: true }
-      }
+      if (growthId(owner)) return { error: ON_PLAYS }
       openOwner(owner)
       if (useOrchestration.getState().play.publishState === 'live') useOrchestration.getState().togglePublish()
       return { ok: true, note: 'Cancel page is back to draft.' }

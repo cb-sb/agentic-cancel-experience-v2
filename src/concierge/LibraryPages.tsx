@@ -1,39 +1,28 @@
 import { useState, type ReactNode } from 'react'
 import { SButton, SIcon } from '@chargebee/sting-react'
-import { usedIn } from '../agent/context'
-import { sendAs } from '../agent/chats'
-import { useAgentStore } from '../agent/useAgentStore'
-import { landTemplate } from '../agent/tools'
-import { LIBRARY } from '../journey/templates'
-import { TemplatePreviewStrip } from '../orchestration/TemplatePreviewStrip'
-import { useGrowthShell } from '../shell/useGrowthShell'
-import { useJourney } from '../store/useJourney'
-import { useMerchantLibrary } from '../store/useMerchantLibrary'
-import { AskBar } from './AskBar'
-import { createCancelPage } from './cancelPages'
+import { DropdownButton } from '../plays/ui'
+import { uniqueName } from '../plays/names'
 import {
   ACCEPT_LABEL,
   CATALOG_PLANS,
   CATEGORY_LABEL,
-  OBJECTIVES,
   PROCESSING_LABEL,
   WIDGET_LABEL,
   objectiveLabel,
   timeAgo,
   type AcceptStep,
+  type GrowthObjective,
   type LibOffer,
   type LibPricingTable,
   type OfferProcessing,
   type OfferWidget,
 } from './model'
+import { Empty, PageShell } from './objective/ui'
+import { startFromTemplate } from './objective/actions'
+import { templatesFor } from './objective/templates'
 import { OfferPreview, PricingPreview } from './Previews'
+import { usedIn } from './useGrowthExperiences'
 import { useGrowthLibrary } from './useGrowthLibrary'
-
-function askCopilot(text: string) {
-  const id = useAgentStore.getState().newChat('home')
-  useGrowthShell.getState().go('home')
-  sendAs(id, text)
-}
 
 function PageHeader({ title, blurb, actions, onBack }: { title: string; blurb?: string; actions?: ReactNode; onBack?: () => void }) {
   return (
@@ -112,9 +101,6 @@ function OfferDetail({ offer, onBack }: { offer: LibOffer; onBack: () => void })
             >
               Archive
             </SButton>
-            <SButton size="small" variant="neutral-outline" icon={<SIcon name="sparkles" size={14} />} onClick={() => askCopilot(`Improve the offer “${offer.name}”`)}>
-              Ask Copilot
-            </SButton>
           </>
         }
       />
@@ -164,46 +150,60 @@ function OfferDetail({ offer, onBack }: { offer: LibOffer; onBack: () => void })
   )
 }
 
-export function OffersPage() {
+export function OffersPage({ objective }: { objective: GrowthObjective }) {
   const offers = useGrowthLibrary((s) => s.offers)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [objective, setObjective] = useState<'all' | LibOffer['objective']>('all')
   const open = offers.find((o) => o.id === openId)
   if (open) return <OfferDetail offer={open} onBack={() => setOpenId(null)} />
 
-  const rows = offers.filter((o) => o.status !== 'archived' && (objective === 'all' || o.objective === objective))
+  const rows = offers.filter((o) => o.status !== 'archived' && o.objective === objective)
+  const create = () => {
+    const o = useGrowthLibrary.getState().addOffer({
+      name: uniqueName('New offer', offers.map((x) => x.name)),
+      objective,
+      widget: 'modal',
+      category: objective === 'expansion' ? 'annual_upgrade' : 'trial_conversion',
+      title: '',
+      description: '',
+      cta: 'Accept',
+      processing: 'billing_update',
+      acceptStep: 'confirmation',
+      value: '',
+      languages: ['English'],
+      status: 'draft',
+    })
+    setOpenId(o.id)
+  }
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <PageHeader
-        title="Offers"
-        blurb="The value you give and how it is fulfilled. Use one offer in as many experiences as you like."
-        actions={
-          <SButton size="small" variant="primary" icon={<SIcon name="plus" size={14} />} onClick={() => askCopilot('Help me create a new offer')}>
-            New offer
-          </SButton>
-        }
-      />
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-        <AskBar placeholder="Ask Copilot, e.g. “Make a 3-month pause offer for annual plans”" />
-        <div className="mt-[14px] flex gap-[4px] text-[12.5px] text-slate-500">
-          {(['all', ...OBJECTIVES.map((o) => o.id)] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setObjective(id)}
-              className={`rounded-full px-2.5 py-1 ${objective === id ? 'bg-slate-100 font-medium text-slate-800' : 'hover:bg-slate-50'}`}
-            >
-              {id === 'all' ? 'All' : objectiveLabel(id)}
-            </button>
-          ))}
-        </div>
-        <table className="mt-[10px] w-full text-left text-[13px]">
+    <PageShell
+      objective={objective}
+      title="Offers"
+      blurb="The value you give and how it is fulfilled. Use one offer in as many experiences as you like."
+      wide
+      actions={
+        <DropdownButton
+          label="New"
+          items={[
+            { label: 'Blank offer', icon: 'plus', onClick: create },
+            ...templatesFor(objective, 'in_app_offer').map((t) => ({
+              label: t.name,
+              icon: 'layout-template' as const,
+              hint: 'From a template, as a new experience',
+              onClick: () => startFromTemplate(objective, t, null),
+            })),
+          ]}
+        />
+      }
+    >
+      {rows.length === 0 ? (
+        <Empty>No {objectiveLabel(objective).toLowerCase()} offers yet.</Empty>
+      ) : (
+        <table className="w-full text-left text-[13px]">
           <thead>
             <tr className="text-[12px] font-medium text-slate-400">
               <th className="pb-2 font-medium">Name</th>
               <th className="pb-2 font-medium">Category</th>
               <th className="pb-2 font-medium">Shown as</th>
-              <th className="pb-2 font-medium">Objective</th>
               <th className="pb-2 font-medium">Used in</th>
               <th className="pb-2 font-medium">Redemptions</th>
               <th className="pb-2 font-medium">Status</th>
@@ -215,13 +215,12 @@ export function OffersPage() {
               return (
                 <tr key={o.id} className="border-t border-slate-100">
                   <td className="py-3">
-                    <button type="button" className="font-medium text-blue-600 hover:underline" onClick={() => setOpenId(o.id)}>
+                    <button type="button" className="font-medium text-slate-900 hover:underline" onClick={() => setOpenId(o.id)}>
                       {o.name}
                     </button>
                   </td>
                   <td className="py-3 text-slate-600">{CATEGORY_LABEL[o.category]}</td>
                   <td className="py-3 text-slate-600">{WIDGET_LABEL[o.widget]}</td>
-                  <td className="py-3 text-slate-600">{objectiveLabel(o.objective)}</td>
                   <td className="py-3 text-slate-600">{uses.length ? uses.length : '—'}</td>
                   <td className="py-3 text-slate-600">{o.redemptions.toLocaleString()}</td>
                   <td className="py-3">
@@ -232,8 +231,8 @@ export function OffersPage() {
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+      )}
+    </PageShell>
   )
 }
 
@@ -322,170 +321,70 @@ function TableDetail({ table, onBack }: { table: LibPricingTable; onBack: () => 
   )
 }
 
-export function PricingTablesPage() {
+export function PricingTablesPage({ objective }: { objective: GrowthObjective }) {
   const tables = useGrowthLibrary((s) => s.pricingTables)
   const [openId, setOpenId] = useState<string | null>(null)
   const open = tables.find((t) => t.id === openId)
   if (open) return <TableDetail table={open} onBack={() => setOpenId(null)} />
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <PageHeader
-        title="Pricing tables"
-        blurb="Plans from your catalog, ready to show in an experience, share as a link or embed."
-        actions={
-          <SButton size="small" variant="primary" icon={<SIcon name="plus" size={14} />} onClick={() => askCopilot('Help me set up a new pricing table')}>
-            New pricing table
-          </SButton>
-        }
-      />
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-        <AskBar placeholder="Ask Copilot, e.g. “Build an annual-first table for upgrades”" />
-        <div className="mt-[16px] grid gap-[14px] min-[1000px]:grid-cols-2">
-          {tables
-            .filter((t) => t.status !== 'archived')
-            .map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setOpenId(t.id)}
-                className="rounded-[14px] border border-slate-200 bg-white p-[14px] text-left transition-shadow hover:border-slate-300 hover:shadow-[0_12px_32px_-16px_rgba(15,23,42,0.28)]"
-              >
-                <div className="mb-[10px] flex items-center justify-between gap-[10px]">
-                  <div className="min-w-0">
-                    <p className="truncate text-[14px] font-semibold text-slate-900">{t.name}</p>
-                    <p className="text-[12px] text-slate-500">
-                      {objectiveLabel(t.objective)} · {t.plans.length} plans · {timeAgo(t.updatedAt)}
-                    </p>
-                  </div>
-                  <Status status={t.status} />
-                </div>
-                <PricingPreview table={t} />
-              </button>
-            ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ---------- Templates ----------
-
-export function TemplatesPage() {
-  const brand = useJourney((s) => s.file.brand)
-  const use = (id: (typeof LIBRARY)[number]['id'], title: string) => {
-    createCancelPage(title)
-    landTemplate(id)
+  const rows = tables.filter((t) => t.status !== 'archived' && t.objective === objective)
+  const create = () => {
+    const t = useGrowthLibrary.getState().addPricingTable({
+      name: uniqueName('New pricing table', tables.map((x) => x.name)),
+      objective,
+      plans: CATALOG_PLANS.filter((p) => p.period === 'month'),
+      frequency: 'monthly',
+      hideCurrentPlan: objective === 'expansion',
+      cta: 'checkout',
+      status: 'draft',
+    })
+    setOpenId(t.id)
   }
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <PageHeader title="Templates" blurb="Starting points for cancel pages. Each one opens as a new retention experience." />
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-        <div className="flex flex-col gap-[14px]">
-          {LIBRARY.filter((e) => e.kind === 'cancel').map((e) => (
-            <article key={e.id} className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-[16px]">
-              <div className="mb-[12px] flex items-start justify-between gap-[16px]">
+    <PageShell
+      objective={objective}
+      title="Pricing tables"
+      blurb="Plans from your catalog, ready to show in an experience, share as a link or embed."
+      wide
+      actions={
+        <DropdownButton
+          label="New"
+          items={[
+            { label: 'Blank pricing table', icon: 'plus', onClick: create },
+            ...templatesFor(objective, 'pricing_table').map((t) => ({
+              label: t.name,
+              icon: 'layout-template' as const,
+              hint: 'From a template, as a new experience',
+              onClick: () => startFromTemplate(objective, t, null),
+            })),
+          ]}
+        />
+      }
+    >
+      {rows.length === 0 ? (
+        <Empty>No {objectiveLabel(objective).toLowerCase()} pricing tables yet.</Empty>
+      ) : (
+        <div className="grid gap-[14px] min-[1000px]:grid-cols-2">
+          {rows.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setOpenId(t.id)}
+              className="rounded-xl border border-slate-200 bg-white p-[14px] text-left transition-shadow hover:border-slate-300 hover:shadow-sm"
+            >
+              <div className="mb-[10px] flex items-center justify-between gap-[10px]">
                 <div className="min-w-0">
-                  <p className="text-[15px] font-semibold text-slate-900">{e.title}</p>
-                  <p className="mt-[2px] text-[13px] text-slate-600">{e.does}</p>
-                  <p className="mt-[2px] text-[12.5px] text-slate-500">Pick it when: {e.pickWhen}</p>
+                  <p className="truncate text-[14px] font-semibold text-slate-900">{t.name}</p>
+                  <p className="text-[12px] text-slate-500">
+                    {t.plans.length} plans · {timeAgo(t.updatedAt)}
+                  </p>
                 </div>
-                <SButton size="small" variant="neutral-outline" className="w-auto flex-none" onClick={() => use(e.id, e.title)}>
-                  Use this template
-                </SButton>
+                <Status status={t.status} />
               </div>
-              <div className="overflow-hidden rounded-[12px]">
-                <TemplatePreviewStrip entry={e} brand={brand} />
-              </div>
-            </article>
+              <PricingPreview table={t} />
+            </button>
           ))}
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ---------- Components ----------
-
-function Section({ title, blurb, children }: { title: string; blurb: string; children: ReactNode }) {
-  return (
-    <section className="rounded-[14px] border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-[16px] py-[12px]">
-        <h2 className="text-[14px] font-semibold text-slate-900">{title}</h2>
-        <p className="text-[12.5px] text-slate-500">{blurb}</p>
-      </div>
-      <div className="px-[16px] py-[12px]">{children}</div>
-    </section>
-  )
-}
-
-export function ComponentsPage() {
-  const cards = useGrowthLibrary((s) => s.cards)
-  const reasons = useGrowthLibrary((s) => s.reasons)
-  const redirects = useGrowthLibrary((s) => s.redirects)
-  const updateCard = useGrowthLibrary((s) => s.updateCard)
-  const setReasons = useGrowthLibrary((s) => s.setReasons)
-  const uploaded = useMerchantLibrary((s) => s.templates)
-
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <PageHeader title="Components" blurb="Pieces your cancel pages share. Change one here and every page that uses it follows." />
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
-        <div className="grid gap-[16px] min-[1100px]:grid-cols-2">
-          <Section title="Loss aversion cards" blurb="What subscribers keep, shown before they cancel. Up to 4 items each.">
-            <div className="flex flex-col gap-[12px]">
-              {cards.map((c) => (
-                <div key={c.id} className="flex flex-col gap-[6px]">
-                  <input className={inputCls} value={c.title} onChange={(e) => updateCard(c.id, { title: e.target.value })} />
-                  {c.items.map((item, i) => (
-                    <input
-                      key={i}
-                      className={`${inputCls} text-slate-600`}
-                      value={item}
-                      onChange={(e) => updateCard(c.id, { items: c.items.map((x, j) => (j === i ? e.target.value : x)) })}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
-          </Section>
-          <Section title="Survey reasons" blurb="The reasons subscribers pick from. Codes stay the same so reports stay comparable.">
-            <div className="flex flex-col gap-[6px]">
-              {reasons.map((r, i) => (
-                <div key={r.code} className="flex items-center gap-[8px]">
-                  <input
-                    className={inputCls}
-                    value={r.label}
-                    onChange={(e) => setReasons(reasons.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
-                  />
-                  <code className="w-[130px] flex-none truncate text-[11.5px] text-slate-400">{r.code}</code>
-                </div>
-              ))}
-            </div>
-          </Section>
-          <Section title="Redirect pages" blurb="Send subscribers somewhere helpful instead of an offer.">
-            {redirects.map((r) => (
-              <div key={r.id} className="border-t border-slate-100 py-[8px] first:border-t-0 first:pt-0">
-                <p className="text-[13px] font-medium text-slate-800">{r.name}</p>
-                <p className="text-[12.5px] text-slate-500">
-                  {r.headline} · {r.url}
-                </p>
-              </div>
-            ))}
-          </Section>
-          <Section title="Your uploaded pages" blurb="Pages you built with the Growth kit and uploaded.">
-            {uploaded.length === 0 ? (
-              <p className="text-[12.5px] text-slate-500">Nothing uploaded yet. Ask Copilot to import your own pages.</p>
-            ) : (
-              uploaded.map((t) => (
-                <div key={t.id} className="border-t border-slate-100 py-[8px] first:border-t-0 first:pt-0">
-                  <p className="text-[13px] font-medium text-slate-800">{t.name}</p>
-                  <p className="text-[12.5px] text-slate-500">{t.stepLabels.join(' → ')}</p>
-                </div>
-              ))
-            )}
-          </Section>
-        </div>
-      </div>
-    </div>
+      )}
+    </PageShell>
   )
 }

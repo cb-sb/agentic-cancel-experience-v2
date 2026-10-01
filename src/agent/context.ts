@@ -12,7 +12,8 @@ import { useCancelSettings } from '../workspace/useCancelSettings'
 import { useWorkspace } from '../workspace/useWorkspace'
 import { cancelPageRows } from '../concierge/cancelPages'
 import { CATALOG_PLANS } from '../concierge/model'
-import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
+import { useGrowthExperiences, usedIn } from '../concierge/useGrowthExperiences'
+import { growthExperienceLive, growthPlaysUsing } from '../concierge/useGrowthPlays'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import type { AgentContext } from './systemPrompt'
 import { useAgentStore, type OwnerKey } from './useAgentStore'
@@ -31,14 +32,6 @@ export function parseOwner(owner: OwnerKey): { kind: 'home' } | { kind: 'cancel'
   if (owner === 'home') return { kind: 'home' }
   const [kind, ...rest] = owner.split(':')
   return { kind: kind as 'cancel' | 'growth', id: rest.join(':') }
-}
-
-/** Where every offer and pricing table is used, for "Used in" and archive checks. */
-export function usedIn(refId: string): string[] {
-  return useGrowthExperiences
-    .getState()
-    .items.filter((x) => x.status !== 'archived' && x.variants.some((v) => v.refId === refId))
-    .map((x) => x.name)
 }
 
 export function cancelReadiness() {
@@ -92,11 +85,15 @@ function cancelDetail(id: string): Record<string, unknown> {
 function growthDetail(id: string): Record<string, unknown> | undefined {
   const x = useGrowthExperiences.getState().items.find((i) => i.id === id)
   if (!x) return undefined
+  const plays = growthPlaysUsing(x.id)
   const gaps: string[] = []
-  if (!x.variants.length) gaps.push(x.type === 'pricing_table' ? 'Pick a pricing table' : 'Pick an offer')
+  if (!x.refId) gaps.push(x.type === 'pricing_table' ? 'Pick a pricing table' : 'Pick an offer')
+  if (!plays.length) gaps.push('Add it to a play')
   return {
     ...x,
-    audience: audienceName(x.audienceId),
+    status: growthExperienceLive(x.id) ? 'live' : 'draft',
+    plays: plays.map((p) => ({ id: p.id, name: p.name, status: p.status, audience: p.audience.name, control: p.control })),
+    note: 'Audience, control group, split and order are set on the play, in the Acquisition or Expansion tab.',
     leftBeforeLive: gaps,
     brief: useAgentStore.getState().briefs[`growth:${id}`],
   }
@@ -107,8 +104,7 @@ export function experienceSummaries() {
     ...cancelPageRows().map((r) => ({ id: r.id, name: r.name, objective: 'retention', type: 'cancel_page', status: r.status, priority: r.priority })),
     ...useGrowthExperiences
       .getState()
-      .items.filter((x) => x.status !== 'archived')
-      .map((x) => ({ id: x.id, name: x.name, objective: x.objective, type: x.type, status: x.status, priority: x.priority })),
+      .items.map((x) => ({ id: x.id, name: x.name, objective: x.objective, type: x.type, status: growthExperienceLive(x.id) ? 'live' : 'draft' })),
   ]
 }
 
