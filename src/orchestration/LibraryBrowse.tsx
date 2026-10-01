@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { SButton, STabs } from '@chargebee/sting-react'
 import {
   LIBRARY,
@@ -8,6 +8,7 @@ import {
 } from '../journey/templates'
 import { useJourney } from '../store/useJourney'
 import { SectionLabel } from './CopilotHomeSetup'
+import { fadeIn, morphSnapshot, playMorph, type MorphSnapshot } from './morph'
 import { TemplateOutlineStrip, TemplatePreviewStrip, TemplateScreens } from './TemplatePreviewStrip'
 import { V8 } from '../layout/layoutMode'
 import { BackButton } from '../shell/BackButton'
@@ -27,6 +28,10 @@ const JOB_GROUPS: { id: LibraryJob; label: string }[] = [
   { id: 'learn', label: 'Learn' },
   { id: 'save', label: 'Save' },
 ]
+
+/** Corner radius of a low-fidelity screen and of a full-size one. */
+const LOFI_RADIUS = 12
+const HIFI_RADIUS = 22
 
 function jobLabel(job: LibraryJob | undefined): string | null {
   if (job === 'comply') return 'Comply'
@@ -93,19 +98,23 @@ function templateScreenMeta(entry: LibraryEntry): string {
 
 function TemplateFacts({ entry, layout = 'wide' }: { entry: LibraryEntry; layout?: 'wide' | 'stack' }) {
   const stack = layout === 'stack'
+  const term = 'text-[12px] font-medium leading-[16px] text-slate-500'
+  const detail = `mt-[3px] text-[13px] ${stack ? 'leading-[19px]' : 'leading-[20px]'} text-slate-800`
   return (
-    <dl className={stack ? 'flex flex-col gap-[8px]' : 'grid grid-cols-1 gap-x-[24px] gap-y-[12px] sm:grid-cols-2'}>
+    <dl
+      className={
+        stack
+          ? 'flex flex-col gap-[12px] border-t border-slate-100 pt-[14px]'
+          : 'grid grid-cols-1 gap-x-[24px] gap-y-[12px] sm:grid-cols-2'
+      }
+    >
       <div>
-        <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">What it does</dt>
-        <dd className={`mt-[2px] ${stack ? 'text-[12px] leading-[18px]' : 'mt-[4px] text-[13px] leading-[20px]'} text-slate-700`}>
-          {entry.does}
-        </dd>
+        <dt className={term}>What it does</dt>
+        <dd className={detail}>{entry.does}</dd>
       </div>
       <div>
-        <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Pick it when</dt>
-        <dd className={`mt-[2px] ${stack ? 'text-[12px] leading-[18px]' : 'mt-[4px] text-[13px] leading-[20px]'} text-slate-700`}>
-          {entry.pickWhen}
-        </dd>
+        <dt className={term}>Pick it when</dt>
+        <dd className={detail}>{entry.pickWhen}</dd>
       </div>
     </dl>
   )
@@ -116,18 +125,24 @@ function TemplateHeading({ entry, size }: { entry: LibraryEntry; size: 'card' | 
   const badge = jobLabel(entry.job)
   return (
     <div className="min-w-0">
-      <div className="flex flex-wrap items-center gap-[8px]">
-        <h3 className={`${size === 'page' ? 'text-[18px]' : 'text-[15px]'} font-bold leading-snug text-slate-900`}>
+      <div className="flex flex-wrap items-center gap-x-[8px] gap-y-[4px]">
+        <h3
+          className={`${size === 'page' ? 'text-[18px] leading-[24px]' : 'text-[16px] leading-[22px]'} font-semibold tracking-[-0.01em] text-slate-900`}
+        >
           {entry.title}
         </h3>
         {badge && (
-          <span className="shrink-0 rounded bg-[#eef2ff] px-1.5 py-0.5 text-[10px] font-semibold leading-normal text-[#4f46e5]">
+          <span className="shrink-0 rounded-[6px] bg-indigo-50 px-[6px] py-[1px] text-[11px] font-medium leading-[16px] text-indigo-600">
             {badge}
           </span>
         )}
       </div>
-      <p className="mt-[2px] text-[12px] font-medium text-slate-500">
-        {entry.posture} · {templateScreenMeta(entry)} · {kindLabel}
+      <p className="mt-[4px] text-[12.5px] leading-[18px] text-slate-600">
+        {entry.posture}
+        <span className="text-slate-400">
+          {' · '}
+          {templateScreenMeta(entry)} · {kindLabel}
+        </span>
       </p>
     </div>
   )
@@ -137,9 +152,11 @@ function TemplateHeading({ entry, size }: { entry: LibraryEntry; size: 'card' | 
 function LibraryCardV8({ entry, onPick }: { entry: LibraryEntry; onPick: (focus: number) => void }) {
   const brand = useJourney((s) => s.file.brand)
   return (
-    <article className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:border-slate-300/80 hover:shadow-[0_12px_32px_-16px_rgba(15,23,42,0.28)]">
+    <article
+      data-morph-card={entry.id}
+      className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:border-slate-300/80 hover:shadow-[0_12px_32px_-16px_rgba(15,23,42,0.28)]">
       <div className="flex flex-col gap-[14px] p-[16px] min-[920px]:flex-row min-[920px]:items-start min-[920px]:gap-[18px]">
-        <div className="flex w-full min-w-0 flex-col gap-[10px] min-[920px]:w-[328px] min-[920px]:shrink-0">
+        <div className="flex w-full min-w-0 flex-col gap-[14px] min-[920px]:w-[328px] min-[920px]:shrink-0 min-[920px]:pl-[2px]">
           <TemplateHeading entry={entry} size="card" />
           <TemplateFacts entry={entry} layout="stack" />
           <SButton size="small" variant="neutral-outline" className="mt-[2px] w-auto self-start" onClick={() => onPick(0)}>
@@ -147,7 +164,7 @@ function LibraryCardV8({ entry, onPick }: { entry: LibraryEntry; onPick: (focus:
           </SButton>
         </div>
         <div className="min-w-0 flex-1 min-[920px]:pt-[2px]">
-          <p className="mb-[6px] text-[11px] leading-[16px] text-slate-500">Click a screen for full size.</p>
+          <p className="mb-[6px] text-[11px] leading-[16px] text-slate-500">Click the screens to see them full size.</p>
           <div className="-mx-[16px] min-[920px]:mx-0 overflow-hidden rounded-[12px] min-[920px]:rounded-[14px]">
             <TemplateOutlineStrip entry={entry} brand={brand} onOpen={onPick} />
           </div>
@@ -161,19 +178,24 @@ function LibraryCardV8({ entry, onPick }: { entry: LibraryEntry; onPick: (focus:
 function TemplateConfirmV8({
   entry,
   focus,
+  from,
   onBack,
   onConfirm,
 }: {
   entry: LibraryEntry
   focus: number
+  /** Where the low-fidelity screens were, so they can grow into these. */
+  from: MorphSnapshot | null
   onBack: () => void
   onConfirm: () => void
 }) {
   const brand = useJourney((s) => s.file.brand)
   const ref = useRef<HTMLElement>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     ref.current?.scrollIntoView({ block: 'start' })
+    playMorph(ref.current, from, { from: LOFI_RADIUS, to: HIFI_RADIUS })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -187,8 +209,8 @@ function TemplateConfirmV8({
   }, [onBack])
 
   return (
-    <article ref={ref} className="scroll-mt-[20px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-start gap-[10px] px-[20px] pb-[18px] pt-[16px]">
+    <article ref={ref} data-morph-card="open" className="scroll-mt-[20px] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div data-morph-fade className="flex items-start gap-[10px] px-[20px] pb-[18px] pt-[16px]">
         <BackButton onBack={onBack} className="-ml-[6px] mt-[-2px]" />
         <div className="flex min-w-0 flex-1 flex-col gap-[14px]">
           <div className="flex items-start justify-between gap-[12px]">
@@ -280,6 +302,27 @@ export function LibraryBrowse({
   const [ownQuery, setQuery] = useState('')
   const query = outerQuery ?? ownQuery
   const [pending, setPending] = useState<{ entry: LibraryEntry; focus: number } | null>(null)
+  /** Where the screens were just before the swap, so they can move to their new place. */
+  const snap = useRef<{ id: string; rects: MorphSnapshot | null } | null>(null)
+  const open = (entry: LibraryEntry, focus: number) => {
+    snap.current = { id: entry.id, rects: morphSnapshot(document.querySelector(`[data-morph-card="${entry.id}"]`)) }
+    setPending({ entry, focus })
+  }
+  const back = () => {
+    if (snap.current) snap.current.rects = morphSnapshot(document.querySelector('[data-morph-card="open"]'))
+    setPending(null)
+  }
+
+  useLayoutEffect(() => {
+    if (pending || !snap.current) return
+    const { id, rects } = snap.current
+    snap.current = null
+    const card = document.querySelector<HTMLElement>(`[data-morph-card="${id}"]`)
+    if (!card) return
+    card.scrollIntoView({ block: 'nearest' })
+    playMorph(card, rects, { from: HIFI_RADIUS, to: LOFI_RADIUS })
+    fadeIn(document.querySelectorAll(`[data-morph-card]:not([data-morph-card="${id}"])`), 60)
+  }, [pending])
 
   const cancelCatalog = useMemo(() => LIBRARY.filter((e) => e.kind === 'cancel'), [])
   const jobCounts = useMemo(() => {
@@ -313,7 +356,8 @@ export function LibraryBrowse({
         <TemplateConfirmV8
           entry={pending.entry}
           focus={pending.focus}
-          onBack={() => setPending(null)}
+          from={snap.current?.rects ?? null}
+          onBack={back}
           onConfirm={() => onApply(pending.entry.id)}
         />
       </div>
@@ -328,7 +372,7 @@ export function LibraryBrowse({
 
   const card = (entry: LibraryEntry) =>
     V8 ? (
-      <LibraryCardV8 key={entry.id} entry={entry} onPick={(focus) => setPending({ entry, focus })} />
+      <LibraryCardV8 key={entry.id} entry={entry} onPick={(focus) => open(entry, focus)} />
     ) : (
       <LibraryCard key={entry.id} entry={entry} onPick={() => setPending({ entry, focus: 0 })} />
     )

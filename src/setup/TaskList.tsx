@@ -102,7 +102,7 @@ function Header({ title, live, checks, gate, onGate }: { title: string; live: bo
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-[8px]">
           <h2 className="truncate text-[16px] font-semibold text-slate-900">{title}</h2>
-          <StatusChip live={live} liveLabel={gate === 'publish' ? 'Published' : 'Live'} />
+          <StatusChip live={live} />
         </div>
         <p className={`mt-[2px] text-[12.5px] ${!live && open === 0 ? 'font-medium text-emerald-700' : 'text-slate-500'}`}>{line}</p>
       </div>
@@ -126,7 +126,7 @@ function Page({ children }: { children: ReactNode }) {
 function experienceState(id: string, i: SetupInputs): string {
   const t = i.threads.find((x) => x.id === id)
   if (!t) return ''
-  if (experienceCtx(t, i).live) return 'Published'
+  if (experienceCtx(t, i).live) return 'Live'
   const n = failing(experienceChecks(id, i)).length
   return n === 0 ? 'Draft, ready to publish' : `Draft, ${n === 1 ? 'one check' : `${n} checks`} left`
 }

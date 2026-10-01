@@ -222,3 +222,6 @@ export function audienceLabel(key: JourneyFile['audience']): string {
             : 'in_trial'
   return AUDIENCE_LIBRARY.find((a) => a.id === id)?.name ?? key
 }
+
+// Filled once at boot, so a hot swap leaves an empty store whose next save would overwrite the saved copy.
+import.meta.hot?.dispose(() => window.location.reload())

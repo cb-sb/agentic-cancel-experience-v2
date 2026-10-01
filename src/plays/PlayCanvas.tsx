@@ -278,7 +278,7 @@ function build(play: CancelPlay, variants: VariantInfo[], globalControl: number,
             </div>
             <div className="mt-[6px] flex items-center gap-[5px] text-[11px] text-slate-500">
               <span className={`h-[6px] w-[6px] rounded-full ${v.live ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-              {v.live ? 'Published' : 'Draft'}
+              {v.live ? 'Live' : 'Draft'}
             </div>
           </div>
         ),

@@ -1192,6 +1192,11 @@ export function PromptCodeDock({
               <SIcon name="x" size={16} />
             </HeaderIconButton>
           )}
+          {V8 && railRight && (
+            <HeaderIconButton label="Collapse Copilot" onClick={() => useWorkspaceUi.getState().setCopilotCollapsed(true)}>
+              <SIcon name="panel-right-close" size={16} />
+            </HeaderIconButton>
+          )}
         </div>
       </div>
 

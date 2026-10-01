@@ -15,7 +15,6 @@ import { UploadFlow } from '../upload/UploadFlow'
 import { closeTab, focusTab, openAnotherTab, openTab, tabNumber } from '../workspace/paneTabs'
 import { activeKind, useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
 import { PlanTab } from '../orchestration/PlanTab'
-import { ExperienceContextBar } from '../plays/ExperienceContext'
 import { ExperienceTaskList } from '../setup/TaskList'
 import { TargetingTab } from '../orchestration/TargetingTab'
 import { LAYOUT, STUDIO, TABBED, V8 } from './layoutMode'
@@ -237,7 +236,6 @@ export function TabbedPane() {
           <PlayActions />
         </div>
       </div>
-      {V8 && <ExperienceContextBar />}
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
         {kind === 'canvas' && <CanvasPane />}
         {kind === 'targeting' && !V8 && <TargetingTab />}

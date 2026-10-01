@@ -165,16 +165,11 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
       onDragStart={(e) => startDrag(e, { experienceId: v.experienceId, fromPlayId: play.id, variantId: v.id })}
       onClick={() => openExperience(v.experienceId, play.id)}
       aria-current={current ? 'true' : undefined}
-      className={`group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[6px] pr-[4px] transition-colors ${
+      title={`Variant ${variantLetter(index)}, ${variantShare(play, v)}`}
+      className={`group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] transition-colors ${
         current ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
       }`}
     >
-      <span
-        title={`Variant ${variantLetter(index)}, ${variantShare(play, v)}`}
-        className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-md bg-slate-200 text-[10.5px] font-bold text-slate-600"
-      >
-        {variantLetter(index)}
-      </span>
       <InlineName
         value={thread.title}
         editing={renaming}
@@ -196,7 +191,7 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
             <span className="flex-none text-[11px] text-slate-400 group-hover:hidden">Unsaved</span>
           ) : (
             <span className="flex-none group-hover:hidden">
-              <StatusChip live={threadIsLive(thread, activeId, activeLive)} liveLabel="Published" />
+              <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
             </span>
           )}
           <RowMenu label={`Actions for ${thread.title}`} items={items} className="hidden group-hover:block" />

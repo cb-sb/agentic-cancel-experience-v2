@@ -69,10 +69,9 @@ function PlanPage() {
   const rows = experienceRows(activeId, inputs).filter((r) => r.entry.id !== 'layout' && r.entry.id !== 'brand')
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] space-y-[20px] px-[28px] py-[24px]">
+      <div className="mx-auto max-w-[720px] space-y-[28px] px-[28px] pb-[40px] pt-[28px]">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
-          <h2 className="mt-[4px] text-[18px] font-semibold text-slate-900">{title ?? file.name}</h2>
+          <h2 className="text-[20px] font-semibold text-slate-900">{title ?? file.name}</h2>
           <p className="mt-[4px] text-[13px] text-slate-500">
             Every decision for this experience. Change anything here and the chat and Task list keep up.
           </p>

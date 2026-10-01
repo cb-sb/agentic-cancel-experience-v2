@@ -105,6 +105,8 @@ interface WorkspaceUi {
   libraryFocus: string | null
   /** Row whose name is being edited in place in the side pane. */
   renaming: string | null
+  /** v8: Copilot folded to a thin strip beside the tabs. */
+  copilotCollapsed: boolean
   setSidebarOpen: (open: boolean) => void
   setSearch: (search: string) => void
   setPaneHidden: (hidden: boolean) => void
@@ -119,6 +121,17 @@ interface WorkspaceUi {
   setPreviewAs: (id: string) => void
   setPlayTabs: (playId: string, tabs: PlayTabs) => void
   setRenaming: (id: string | null) => void
+  setCopilotCollapsed: (collapsed: boolean) => void
+}
+
+const COPILOT_COLLAPSED_KEY = 'cancel-experience:copilot-collapsed:v8'
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COPILOT_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
@@ -139,13 +152,15 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   libraryNew: 0,
   libraryFocus: null,
   renaming: null,
+  copilotCollapsed: readCollapsed(),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSearch: (search) => set({ search }),
   setPaneHidden: (paneHidden) => set({ paneHidden }),
   setTabs: (tabs) => set({ tabs }),
-  askBeat: (beat) => set((s) => ({ beatAsk: { beat, n: (s.beatAsk?.n ?? 0) + 1 } })),
-  askBrand: () => set((s) => ({ beatAsk: { beat: 'brand', n: (s.beatAsk?.n ?? 0) + 1 } })),
-  askSetup: (item, targetId) => set((s) => ({ setupAsk: { item, targetId, n: (s.setupAsk?.n ?? 0) + 1 } })),
+  askBeat: (beat) => set((s) => ({ beatAsk: { beat, n: (s.beatAsk?.n ?? 0) + 1 }, copilotCollapsed: false })),
+  askBrand: () => set((s) => ({ beatAsk: { beat: 'brand', n: (s.beatAsk?.n ?? 0) + 1 }, copilotCollapsed: false })),
+  askSetup: (item, targetId) =>
+    set((s) => ({ setupAsk: { item, targetId, n: (s.setupAsk?.n ?? 0) + 1 }, copilotCollapsed: false })),
   setPage: (page) => set(page === 'thread' ? { page, readOnlyId: null } : { page }),
   setIndexTab: (indexTab) => set({ indexTab, readOnlyId: null }),
   setReadOnlyId: (readOnlyId) => set({ readOnlyId }),
@@ -153,4 +168,14 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   setPreviewAs: (previewAs) => set({ previewAs }),
   setPlayTabs: (playId, tabs) => set((s) => ({ playTabs: { ...s.playTabs, [playId]: tabs } })),
   setRenaming: (renaming) => set({ renaming }),
+  setCopilotCollapsed: (copilotCollapsed) => set({ copilotCollapsed }),
 }))
+
+useWorkspaceUi.subscribe((s, prev) => {
+  if (s.copilotCollapsed === prev.copilotCollapsed) return
+  try {
+    localStorage.setItem(COPILOT_COLLAPSED_KEY, s.copilotCollapsed ? '1' : '0')
+  } catch {
+    /* storage blocked */
+  }
+})

@@ -15,19 +15,19 @@ const DOT: Record<TaskRow['status'], string> = {
 function Row({ row, open, onToggle }: { row: TaskRow; open: boolean; onToggle: () => void }) {
   const value = savedLine(row.entry.id, row.targetId)
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-[10px] px-[14px] py-[10px] text-left hover:bg-slate-50">
+    <div className="border-t border-slate-100 first:border-t-0">
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left transition-colors hover:bg-slate-50">
         <span className={`h-[8px] w-[8px] flex-none rounded-full ${DOT[row.status]}`} />
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-medium text-slate-900">{row.entry.label}</span>
+          <span className="block text-[13.5px] font-semibold text-slate-900">{row.entry.label}</span>
           <span className="block truncate text-[12px] text-slate-500">
             {row.status === 'done' ? value : row.status === 'na' ? 'Not needed' : row.status === 'skipped' ? 'Skipped for now' : row.entry.why}
           </span>
         </span>
-        <SIcon name={open ? 'chevron-up' : 'chevron-down'} size={14} className="flex-none text-slate-400" />
+        <SIcon name="chevron-down" size={14} className={`flex-none text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="px-[14px] pb-[14px] pt-[2px]">
+        <div className="border-t border-slate-100 bg-slate-50/60 px-[16px] py-[14px]">
           <SetupCard entry={row.entry} targetId={row.targetId} mode="summary" />
         </div>
       )}
@@ -78,10 +78,10 @@ export function SettingsSection({ title, hint, rows, onNote }: { title: string; 
 
   if (editable.length === 0) return null
   return (
-    <section className="space-y-[8px]" onPointerDownCapture={touch} onKeyDownCapture={touch} onChangeCapture={touch} onBlurCapture={touch}>
-      <div className="px-[2px]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">{title}</p>
-        {hint && <p className="mt-[2px] text-[12px] text-slate-500">{hint}</p>}
+    <section onPointerDownCapture={touch} onKeyDownCapture={touch} onChangeCapture={touch} onBlurCapture={touch}>
+      <div className="mb-[10px] px-[2px]">
+        <h3 className="text-[14px] font-semibold text-slate-900">{title}</h3>
+        {hint && <p className="mt-[2px] text-[12.5px] text-slate-500">{hint}</p>}
       </div>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {editable.map((r) => (

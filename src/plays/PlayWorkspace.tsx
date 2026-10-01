@@ -1,4 +1,5 @@
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
+import { CopilotRail } from '../orchestration/CopilotRail'
 import { SettingsSection } from '../setup/SettingsSection'
 import { PlayTaskList } from '../setup/TaskList'
 import { failing, playChecks } from '../setup/checks'
@@ -75,6 +76,7 @@ export function PlayWorkspace() {
   const play = usePlays((s) => s.plays.find((p) => p.id === playId))
   const tabs = useWorkspaceUi((s) => (playId ? s.playTabs[playId] : undefined))
   const renaming = useWorkspaceUi((s) => s.renaming === playId)
+  const collapsed = useWorkspaceUi((s) => s.copilotCollapsed)
 
   if (!play) {
     return (
@@ -162,8 +164,13 @@ export function PlayWorkspace() {
           )}
         </div>
       </div>
-      <div className="flex min-h-0 w-[clamp(340px,30%,460px)] flex-none flex-col border-l border-slate-200">
-        <PlayChat play={play} />
+      <div
+        className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : 'w-[clamp(340px,30%,460px)]'}`}
+      >
+        {collapsed && <CopilotRail />}
+        <div className={collapsed ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>
+          <PlayChat play={play} />
+        </div>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { compileJourney } from '../journey/compile'
 import { startFromTemplate, withLive, type LibraryEntry } from '../journey/templates'
 import { isOutcomeStep } from '../lib/stepColumns'
@@ -273,7 +273,10 @@ function stepPurpose(stepId: string, acquire: boolean): string {
 const OUTLINE_W = 184
 const OUTLINE_H = 124
 
-/** Low-fidelity screens for a library card. Click one to open the template at full size. */
+/**
+ * Low-fidelity screens for a library card. The strip is one target: it hovers
+ * as a set, and a click opens every screen at full size, centred on the one clicked.
+ */
 export function TemplateOutlineStrip({
   entry,
   brand,
@@ -288,7 +291,20 @@ export function TemplateOutlineStrip({
   const { steps } = useTemplateSteps(entry, brand)
   return (
     <ol
-      className={`flex items-start overflow-x-auto px-[18px] pb-[20px] pt-[18px] ${className ?? ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`See the ${entry.title} screens full size`}
+      title="See the screens full size"
+      onClick={(e) => {
+        const at = (e.target as HTMLElement).closest<HTMLElement>('[data-step]')
+        onOpen(at ? Number(at.dataset.step) : 0)
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        onOpen(0)
+      }}
+      className={`group/strip flex cursor-pointer items-start overflow-x-auto px-[18px] pb-[20px] pt-[18px] outline-none transition-[background-color] duration-200 hover:!bg-[#e6ebf2] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 ${className ?? ''}`}
       style={{
         backgroundColor: '#eef2f6',
         backgroundImage: 'radial-gradient(#d5dde8 1px, transparent 1px)',
@@ -300,34 +316,34 @@ export function TemplateOutlineStrip({
         return (
           <Fragment key={step.id}>
             {i > 0 && (
-              <li aria-hidden className="flex w-[30px] flex-none items-center justify-center text-slate-400" style={{ height: OUTLINE_H }}>
+              <li
+                aria-hidden
+                className="flex w-[30px] flex-none items-center justify-center text-slate-400 transition-colors duration-200 group-hover/strip:text-indigo-400"
+                style={{ height: OUTLINE_H }}
+              >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                   <path d="M5.5 2.5 11 8l-5.5 5.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </li>
             )}
-            <li className="flex-none">
-              <button
-                type="button"
-                onClick={() => onOpen(i)}
-                aria-label={`See ${label} full size`}
-                title="See it full size"
-                className="group/step flex flex-col items-center rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                style={{ width: OUTLINE_W }}
+            <li data-step={i} className="flex flex-none flex-col items-center" style={{ width: OUTLINE_W }}>
+              <span
+                className="block rounded-[12px] shadow-[0_0_0_1px_rgba(148,163,184,0.55),0_2px_4px_rgba(15,23,42,0.06),0_10px_22px_-10px_rgba(15,23,42,0.28)] transition-[box-shadow,transform] duration-200 ease-out group-hover/strip:-translate-y-[3px] group-hover/strip:shadow-[0_0_0_2px_#a5b4fc,0_16px_32px_-14px_rgba(15,23,42,0.38)]"
+                data-morph-screen={i}
+                style={{ width: OUTLINE_W, height: OUTLINE_H }}
               >
-                <span
-                  className="block rounded-[12px] shadow-[0_0_0_1px_rgba(148,163,184,0.55),0_2px_4px_rgba(15,23,42,0.06),0_10px_22px_-10px_rgba(15,23,42,0.28)] transition-[box-shadow,transform] duration-150 group-hover/step:-translate-y-[2px] group-hover/step:shadow-[0_0_0_2px_#a5b4fc,0_16px_32px_-14px_rgba(15,23,42,0.38)]"
-                  style={{ width: OUTLINE_W, height: OUTLINE_H }}
-                >
-                  <span className="block h-full w-full overflow-hidden rounded-[12px] [&>div]:border-slate-300 [&>div]:bg-white">
-                    <StepOutline step={step} w={OUTLINE_W} h={OUTLINE_H} selected={false} density="strip" />
-                  </span>
+                <span className="block h-full w-full overflow-hidden rounded-[12px] [&>div]:border-slate-300 [&>div]:bg-white">
+                  <StepOutline step={step} w={OUTLINE_W} h={OUTLINE_H} selected={false} density="strip" />
                 </span>
-                <span className="mt-[10px] flex w-full items-center justify-center gap-[6px] px-[2px] text-[13px] font-semibold leading-[18px] text-slate-800 group-hover/step:text-indigo-700">
+              </span>
+              <span
+                className="mt-[10px] flex w-full items-center justify-center gap-[6px] px-[2px] text-[13px] font-semibold leading-[18px] text-slate-800 transition-colors duration-200 group-hover/strip:text-indigo-700"
+              >
+                <span className="flex items-center gap-[6px]" data-morph-label={i}>
                   <span className="tabular-nums text-[12px] text-slate-400">{i + 1}</span>
                   <span className="min-w-0 truncate">{label}</span>
                 </span>
-              </button>
+              </span>
             </li>
           </Fragment>
         )
@@ -352,7 +368,7 @@ export function TemplateScreens({
   const scale = acquire ? 0.62 : 0.78
   const width = (acquire ? 780 : 390) * scale + (acquire ? 0 : 10)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scroller = scrollerRef.current
     const item = itemRefs.current[focus]
     if (!scroller || !item || focus === 0) return
@@ -373,7 +389,7 @@ export function TemplateScreens({
         {steps.map((step, i) => (
           <Fragment key={step.id}>
             {i > 0 && (
-              <li aria-hidden className="flex flex-none">
+              <li aria-hidden data-morph-fade className="flex flex-none">
                 <FlowChevron offset={(acquire ? 480 * scale + 24 : 500 * scale + 10) / 2 - 9} />
               </li>
             )}
@@ -387,6 +403,7 @@ export function TemplateScreens({
               <div
                 aria-hidden
                 className={`rounded-[22px] ${i === focus && focus > 0 ? 'ring-2 ring-indigo-400 ring-offset-4 ring-offset-[#f8fafc]' : ''}`}
+                data-morph-screen={i}
               >
                 <TemplateStepThumb
                   step={step}
@@ -400,10 +417,12 @@ export function TemplateScreens({
               </div>
               <div className="mt-[16px] px-[4px]">
                 <p className="flex items-baseline gap-[6px] text-[14px] font-semibold leading-[20px] text-slate-900">
-                  <span className="tabular-nums text-[12px] text-slate-400">{i + 1}</span>
-                  {entry.stepLabels[i] ?? step.title}
+                  <span className="flex w-fit items-baseline gap-[6px]" data-morph-label={i}>
+                    <span className="tabular-nums text-[12px] text-slate-400">{i + 1}</span>
+                    {entry.stepLabels[i] ?? step.title}
+                  </span>
                 </p>
-                <p className="mt-[4px] text-[13px] leading-[20px] text-slate-600">
+                <p data-morph-fade className="mt-[4px] text-[13px] leading-[20px] text-slate-600">
                   {stepPurpose(step.id, acquire)}
                 </p>
               </div>

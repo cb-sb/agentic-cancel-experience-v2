@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { CollapseCopilotButton } from '../orchestration/CopilotRail'
 import { create } from 'zustand'
 import { SIcon } from '@chargebee/sting-react'
 import { CopilotMark } from '../orchestration/CopilotMark'
@@ -149,7 +150,7 @@ function VariantsNotReady({ play }: { play: CancelPlay }) {
             <li key={v.id} className="flex items-center gap-[8px] rounded-xl border border-slate-100 px-[10px] py-[6px] text-[12.5px]">
               <span className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-md bg-slate-100 text-[10.5px] font-bold text-slate-600">{variantLetter(i)}</span>
               <span className="min-w-0 flex-1 truncate text-slate-800">{threads.find((t) => t.id === v.experienceId)?.title}</span>
-              <span className="flex-none text-[11px] text-slate-500">{live ? 'Published' : left === 0 ? 'Ready to publish' : `${left === 1 ? 'One check' : `${left} checks`} left`}</span>
+              <span className="flex-none text-[11px] text-slate-500">{live ? 'Live' : left === 0 ? 'Ready to publish' : `${left === 1 ? 'One check' : `${left} checks`} left`}</span>
               <button
                 type="button"
                 onClick={() => {
@@ -279,7 +280,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-white">
       <div className="flex h-[60px] flex-none items-center gap-[10px] px-[16px]" style={{ background: COPILOT_UI.header, borderBottom: `1px solid ${COPILOT_UI.hairline}` }}>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="truncate text-[17px] font-bold leading-tight tracking-tight" style={{ color: COPILOT_UI.title }}>
             Growth Copilot
           </h2>
@@ -287,6 +288,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
             {play.name}
           </p>
         </div>
+        <CollapseCopilotButton />
       </div>
       <div ref={scroll} className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[24px] pt-[12px]">
         <div className="space-y-[16px]">

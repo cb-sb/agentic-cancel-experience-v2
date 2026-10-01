@@ -342,7 +342,7 @@ function ExperienceCard({
           </span>
         )}
         <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-slate-900">{title}</span>
-        <StatusChip live={live} liveLabel="Published" />
+        <StatusChip live={live} />
         {drag && <SIcon name="grip-vertical" size={15} className="flex-none text-slate-300" />}
       </div>
       <p className="mt-[4px] truncate text-[12.5px] text-slate-500">{subtitle}</p>

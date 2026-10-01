@@ -7,6 +7,7 @@ import { BlankJourneyDoors } from '../orchestration/BlankJourneyDoors'
 import { useCopilotStage } from '../orchestration/copilotStage'
 import { DoorsBackdrop } from '../orchestration/OrchestrationCanvas'
 import { PromptCodeDock } from '../orchestration/PromptCodeDock'
+import { CopilotRail } from '../orchestration/CopilotRail'
 import { LibraryPanel } from '../orchestration/TemplatesModal'
 import { V8 } from './layoutMode'
 import { BackButton, backToExperiences } from '../shell/BackButton'
@@ -30,6 +31,7 @@ function ThreadView() {
   const stage = useCopilotStage()
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const paneShown = usePaneShown()
+  const folded = useWorkspaceUi((s) => V8 && paneShown && s.copilotCollapsed)
   const uploadPage = useUpload((s) => V8 && s.phase !== 'closed' && !s.mappingOnly)
 
   if (uploadPage) {
@@ -65,12 +67,15 @@ function ThreadView() {
       {V8 && paneShown && <TabbedPane />}
       <div
         className={`relative flex min-h-0 flex-col bg-white ${
-          paneShown
-            ? `w-[clamp(360px,32%,500px)] flex-none border-slate-200 ${V8 ? 'border-l' : 'border-r'}`
-            : 'min-w-0 flex-1'
+          folded
+            ? 'w-[48px] flex-none border-l border-slate-200'
+            : paneShown
+              ? `w-[clamp(360px,32%,500px)] flex-none border-slate-200 ${V8 ? 'border-l' : 'border-r'}`
+              : 'min-w-0 flex-1'
         }`}
       >
-        <div className="flex h-full min-h-0">
+        {folded && <CopilotRail />}
+        <div className={folded ? 'hidden' : 'flex h-full min-h-0'}>
           <PromptCodeDock centered railRight={V8 && paneShown} />
         </div>
         {!paneShown && <ReopenPane />}
