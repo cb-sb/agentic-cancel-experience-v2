@@ -3,11 +3,11 @@ import { SIcon } from '@chargebee/sting-react'
 import { StatusChip } from '../../layout/StatusChip'
 import { ago } from '../../layout/ThreadSidebar'
 import { DropdownButton } from '../../plays/ui'
-import { TYPE_LABEL, type GrowthObjective, type GrowthType } from '../model'
+import { TYPE_LABEL, objectiveLabel, type GrowthObjective, type GrowthType } from '../model'
 import { experiencesFor, useGrowthExperiences } from '../useGrowthExperiences'
 import { growthExperienceLive, useGrowthPlays } from '../useGrowthPlays'
 import { GROWTH_TYPES, newExperienceItems } from './actions'
-import { Empty, PageShell } from './ui'
+import { Empty, PageShell, SharedChip } from './ui'
 import { openGrowthExperience } from './useGrowthUi'
 
 export const SEARCH_ID = 'growth-experience-search'
@@ -20,16 +20,19 @@ export function ExperiencesPage({ objective }: { objective: GrowthObjective }) {
 
   const playLine = useMemo(() => {
     const names = new Map<string, string[]>()
-    for (const p of plays) for (const v of p.variants) names.set(v.experienceId, [...(names.get(v.experienceId) ?? []), p.name])
-    return (id: string) => {
-      const n = names.get(id) ?? []
-      if (n.length === 0) return 'Not in a play'
-      return n.length === 1 ? n[0] : `${n[0]} and ${n.length - 1} more`
+    for (const p of plays) {
+      const name = p.objective === objective ? p.name : `${objectiveLabel(p.objective)}: ${p.name}`
+      for (const v of p.variants) names.set(v.experienceId, [...(names.get(v.experienceId) ?? []), name])
     }
-  }, [plays])
+    return (id: string) => {
+      const n = (names.get(id) ?? []).sort((a, b) => Number(a.includes(': ')) - Number(b.includes(': ')))
+      if (n.length === 0) return 'Not in a play'
+      return n.length <= 2 ? n.join(' · ') : `${n[0]} and ${n.length - 1} more`
+    }
+  }, [plays, objective])
 
   const q = query.trim().toLowerCase()
-  const all = experiencesFor(items, objective)
+  const all = experiencesFor(items, plays, objective)
   const rows = all.filter((x) => (filter === 'all' || x.type === filter) && (!q || x.name.toLowerCase().includes(q)))
 
   return (
@@ -81,6 +84,7 @@ export function ExperiencesPage({ objective }: { objective: GrowthObjective }) {
                     <span className="flex items-center gap-[8px]">
                       <span className="truncate text-[13.5px] font-medium text-slate-900">{x.name}</span>
                       {growthExperienceLive(x.id, plays) && <StatusChip live />}
+                      <SharedChip objective={objective} experienceId={x.id} />
                     </span>
                     <span className="block truncate text-[12.5px] text-slate-500">
                       {TYPE_LABEL[x.type]} · {playLine(x.id)}

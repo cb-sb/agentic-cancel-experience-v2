@@ -16,7 +16,8 @@ import type { PaneTab } from '../workspace/useWorkspaceUi'
 import { cancelPageEmpty, createCancelPage, moveCancelPage, openCancelPage } from '../concierge/cancelPages'
 import { CATALOG_PLANS, type Objective, type OfferCategory } from '../concierge/model'
 import { openGrowthExperience } from '../concierge/objective/useGrowthUi'
-import { addGrowthExperience, growthExperience, updateGrowthExperience, useGrowthExperiences, usedIn } from '../concierge/useGrowthExperiences'
+import { addGrowthExperience, growthExperience, updateGrowthExperience, useGrowthExperiences } from '../concierge/useGrowthExperiences'
+import { experienceTabs, usedIn } from '../concierge/useGrowthPlays'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import { cancelReadiness, detailFor, experienceSummaries, ownerOf, parseOwner } from './context'
 import { useAgentStore, type OwnerKey, type Triage } from './useAgentStore'
@@ -48,7 +49,7 @@ export function openOwner(owner: OwnerKey) {
   }
   if (o.kind === 'growth') {
     const x = growthExperience(o.id)
-    if (x) openGrowthExperience(x.objective, x.id)
+    if (x) openGrowthExperience(experienceTabs(x.id)[0] ?? x.objective, x.id)
   }
 }
 

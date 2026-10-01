@@ -22,6 +22,7 @@ import {
   deleteGrowthPlay,
   dropGrowthExperience,
   duplicateGrowthPlay,
+  experienceTabs,
   growthExperienceLive,
   growthPlaysUsing,
   removeFromGrowthPlay,
@@ -30,8 +31,9 @@ import {
   useRankedGrowthPlays,
   type GrowthPlay,
 } from '../useGrowthPlays'
-import { experienceName, newExperienceItems } from './actions'
+import { existingExperienceItems, experienceName, newExperienceItems } from './actions'
 import { SEARCH_ID } from './ExperiencesPage'
+import { otherObjective, SharedMark } from './ui'
 import { goGrowth, openGrowthExperience, openGrowthPlay, setRenaming, useGrowthUi, useGrowthView } from './useGrowthUi'
 
 function HeaderButton({ label, icon, onClick }: { label: string; icon: 'search' | 'panel-left'; onClick: () => void }) {
@@ -75,13 +77,62 @@ function addToPlayItems(objective: GrowthObjective, experienceId: string, except
     })
 }
 
+/** Shares the same experience with the other tab's plays. */
+function addToOtherTabItem(objective: GrowthObjective, experienceId: string): MenuItem {
+  const other = otherObjective(objective)
+  const plays = useGrowthPlays.getState().plays.filter((p) => p.objective === other)
+  return {
+    label: `Add to an ${objectiveLabel(other)} play…`,
+    icon: 'link',
+    items: plays.length
+      ? plays.map((p) => {
+          const already = p.variants.some((v) => v.experienceId === experienceId)
+          return {
+            label: p.name,
+            icon: 'folder-input' as const,
+            disabled: already,
+            hint: already ? 'Already in this play' : 'Same experience, shared',
+            onClick: () => {
+              if (addToGrowthPlay(p.id, experienceId)) toast(`${experienceName(experienceId)} is now also in ${p.name}, in ${objectiveLabel(other)}`)
+            },
+          }
+        })
+      : [{ label: `No ${objectiveLabel(other)} plays yet`, disabled: true }],
+  }
+}
+
+/** A separate copy that lives in the other tab. */
+function duplicateToOtherTabItem(objective: GrowthObjective, experienceId: string): MenuItem {
+  const other = otherObjective(objective)
+  const copyInto = (playId: string | null) => {
+    const copy = duplicateGrowthExperience(experienceId, other)
+    if (!copy) return
+    const play = playId ? useGrowthPlays.getState().plays.find((p) => p.id === playId) : undefined
+    if (play) addToGrowthPlay(play.id, copy.id)
+    toast(`Copied to ${objectiveLabel(other)} as ${copy.name}${play ? `, in ${play.name}` : ''}`)
+  }
+  return {
+    label: `Duplicate to ${objectiveLabel(other)}…`,
+    icon: 'copy',
+    items: [
+      { label: 'Not in a play', icon: 'circle-dashed', hint: 'A separate copy', onClick: () => copyInto(null) },
+      ...useGrowthPlays
+        .getState()
+        .plays.filter((p) => p.objective === other)
+        .map((p) => ({ label: p.name, icon: 'folder-input' as const, hint: 'A separate copy in this play', onClick: () => copyInto(p.id) })),
+    ],
+  }
+}
+
 function deleteExperienceItem(objective: GrowthObjective, experienceId: string): MenuItem {
   const n = growthPlaysUsing(experienceId).length
+  const tabs = experienceTabs(experienceId)
+  const where = tabs.length > 1 ? ` in ${tabs.map(objectiveLabel).join(' and ')}` : ''
   return {
     label: 'Delete experience',
     icon: 'trash-2',
     danger: true,
-    confirm: n > 0 ? `Delete it from ${n} play${n === 1 ? '' : 's'} too?` : 'Click again to delete',
+    confirm: n > 0 ? `Delete it from ${n} play${n === 1 ? '' : 's'}${where} too?` : 'Click again to delete',
     onClick: () => {
       const name = experienceName(experienceId)
       dropGrowthExperience(experienceId)
@@ -131,7 +182,9 @@ function VariantRow({ play, index, current }: { play: GrowthPlay; index: number;
   const items: MenuItem[] = [
     { label: 'Rename', icon: 'pencil', onClick: () => setRenaming(x.id) },
     duplicateItem(play.objective, x.id, play.id),
+    duplicateToOtherTabItem(play.objective, x.id),
     { label: 'Add to another play…', icon: 'folder-input', items: addToPlayItems(play.objective, x.id, play.id) },
+    addToOtherTabItem(play.objective, x.id),
     {
       label: 'Remove from this play',
       icon: 'circle-slash',
@@ -152,6 +205,7 @@ function VariantRow({ play, index, current }: { play: GrowthPlay; index: number;
       }`}
     >
       <ExperienceName x={x} current={current} className="" />
+      {!renaming && <SharedMark objective={play.objective} experienceId={x.id} />}
       {!renaming && (
         <>
           <span className="flex-none group-hover:hidden">
@@ -166,17 +220,8 @@ function VariantRow({ play, index, current }: { play: GrowthPlay; index: number;
 
 function AddVariant({ play }: { play: GrowthPlay }) {
   const items = useGrowthExperiences((s) => s.items)
-  const existing = experiencesFor(items, play.objective)
-    .filter((x) => !play.variants.some((v) => v.experienceId === x.id))
-    .map<MenuItem>((x) => ({
-      label: x.name,
-      icon: 'corner-down-right',
-      hint: TYPE_LABEL[x.type],
-      onClick: () => {
-        addToGrowthPlay(play.id, x.id)
-        toast(`Added ${x.name} to ${play.name}`)
-      },
-    }))
+  const plays = useGrowthPlays((s) => s.plays)
+  const existing = existingExperienceItems(play, items, plays)
   return (
     <RowMenu
       label={`Add a variant to ${play.name}`}
@@ -283,7 +328,9 @@ function LooseRow({ x, current }: { x: GrowthExperience; current: boolean }) {
   const items: MenuItem[] = [
     { label: 'Rename', icon: 'pencil', onClick: () => setRenaming(x.id) },
     duplicateItem(x.objective, x.id, null),
+    duplicateToOtherTabItem(x.objective, x.id),
     { label: 'Add to a play…', icon: 'folder-input', items: addToPlayItems(x.objective, x.id, null) },
+    addToOtherTabItem(x.objective, x.id),
     deleteExperienceItem(x.objective, x.id),
   ]
   return (
@@ -307,6 +354,7 @@ function LooseRow({ x, current }: { x: GrowthExperience; current: boolean }) {
 
 function PlaysTree({ objective }: { objective: GrowthObjective }) {
   const plays = useRankedGrowthPlays(objective)
+  const allPlays = useGrowthPlays((s) => s.plays)
   const items = useGrowthExperiences((s) => s.items)
   const view = useGrowthView(objective)
   const [folded, setFolded] = useState<Set<string>>(new Set())
@@ -322,8 +370,8 @@ function PlaysTree({ objective }: { objective: GrowthObjective }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.playId])
 
-  const inAPlay = new Set(plays.flatMap((p) => p.variants.map((v) => v.experienceId)))
-  const loose = experiencesFor(items, objective).filter((x) => !inAPlay.has(x.id))
+  const inAPlay = new Set(allPlays.flatMap((p) => p.variants.map((v) => v.experienceId)))
+  const loose = experiencesFor(items, allPlays, objective).filter((x) => !inAPlay.has(x.id))
   const toggle = (id: string) =>
     setFolded((s) => {
       const next = new Set(s)

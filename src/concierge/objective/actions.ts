@@ -1,12 +1,29 @@
-import type { MenuItem } from '../../plays/ui'
-import { TYPE_ICON, TYPE_LABEL, type GrowthExperience, type GrowthObjective, type GrowthType } from '../model'
-import { addGrowthExperience, growthExperience, updateGrowthExperience, useGrowthExperiences } from '../useGrowthExperiences'
+import { toast, type MenuItem } from '../../plays/ui'
+import { TYPE_ICON, TYPE_LABEL, objectiveLabel, type GrowthExperience, type GrowthObjective, type GrowthType } from '../model'
+import { addGrowthExperience, experiencesFor, growthExperience, updateGrowthExperience, useGrowthExperiences, visibleIn } from '../useGrowthExperiences'
 import { useGrowthLibrary } from '../useGrowthLibrary'
 import { addToGrowthPlay, type GrowthPlay } from '../useGrowthPlays'
 import type { GrowthTemplate } from './templates'
 import { openGrowthExperience } from './useGrowthUi'
 
 export const GROWTH_TYPES: GrowthType[] = ['in_app_offer', 'pricing_table']
+
+/** Experiences a play could add: this tab's first, then the other tab's, which join as shared. */
+export function existingExperienceItems(play: GrowthPlay, items: GrowthExperience[], plays: GrowthPlay[]): MenuItem[] {
+  const other = play.objective === 'acquisition' ? 'expansion' : 'acquisition'
+  const notHere = (x: GrowthExperience) => !play.variants.some((v) => v.experienceId === x.id)
+  const here = experiencesFor(items, plays, play.objective).filter(notHere)
+  const there = experiencesFor(items, plays, other).filter((x) => notHere(x) && !visibleIn(x, play.objective, plays))
+  return [...here, ...there].map((x) => ({
+    label: x.name,
+    icon: 'corner-down-right',
+    hint: here.includes(x) ? TYPE_LABEL[x.type] : `${TYPE_LABEL[x.type]} · From ${objectiveLabel(other)}`,
+    onClick: () => {
+      addToGrowthPlay(play.id, x.id)
+      toast(`Added ${x.name} to ${play.name}`)
+    },
+  }))
+}
 
 /** A blank experience, open on its doorway. With `playId` it also joins that play. */
 export function newGrowthExperience(objective: GrowthObjective, type: GrowthType, playId: string | null = null): string {

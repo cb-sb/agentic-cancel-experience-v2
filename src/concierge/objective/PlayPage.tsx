@@ -6,9 +6,8 @@ import { savedAudience } from '../../plays/usePlays'
 import { BackButton } from '../../shell/BackButton'
 import { AUDIENCE_LIBRARY, type Audience } from '../../types/orchestration'
 import { TYPE_LABEL, type GrowthObjective } from '../model'
-import { experiencesFor, useGrowthExperiences } from '../useGrowthExperiences'
+import { useGrowthExperiences } from '../useGrowthExperiences'
 import {
-  addToGrowthPlay,
   removeFromGrowthPlay,
   renameGrowthPlay,
   setGrowthPlayLive,
@@ -18,7 +17,7 @@ import {
   useGrowthPlays,
   type GrowthPlay,
 } from '../useGrowthPlays'
-import { growthPlayChecks, newExperienceItems, refName } from './actions'
+import { existingExperienceItems, growthPlayChecks, newExperienceItems, refName } from './actions'
 import { CopilotColumn, Field, inputCls, Section, TabStrip } from './ui'
 import { goGrowth, openGrowthExperience, openGrowthPlay, setGrowthView, setRenaming, useGrowthUi, useGrowthView } from './useGrowthUi'
 
@@ -98,9 +97,8 @@ function VariantLine({ play, v, index }: { play: GrowthPlay; v: PlayVariant; ind
 
 function Summary({ play }: { play: GrowthPlay }) {
   const items = useGrowthExperiences((s) => s.items)
-  const existing: MenuItem[] = experiencesFor(items, play.objective)
-    .filter((x) => !play.variants.some((v) => v.experienceId === x.id))
-    .map((x) => ({ label: x.name, hint: TYPE_LABEL[x.type], icon: 'corner-down-right', onClick: () => addToGrowthPlay(play.id, x.id) }))
+  const plays = useGrowthPlays((s) => s.plays)
+  const existing: MenuItem[] = existingExperienceItems(play, items, plays)
   const total = play.variants.reduce((s, v) => s + v.weight, 0)
   return (
     <div className="h-full overflow-y-auto bg-slate-50">

@@ -3,9 +3,10 @@ import { create } from 'zustand'
 import { nameProblem, uniqueName } from '../plays/names'
 import { ALL_AUDIENCE, type CancelPlay, type PlayVariant, type SplitBy } from '../plays/types'
 import { evenWeights, rankedPlays, savedAudience } from '../plays/usePlays'
-import type { GrowthObjective } from './model'
+import { GROWTH_OBJECTIVES, objectiveLabel, type GrowthObjective } from './model'
+import { duplicateGrowthExperience, setGrowthHome, useGrowthExperiences } from './useGrowthExperiences'
 
-const KEY = 'cancel-experience:growth-plays:concierge'
+const KEY = 'cancel-experience:growth-plays:concierge-v2'
 const DAY = 86_400_000
 
 /** v8's play, for in-app offers and pricing tables. Variants point at growth experiences. */
@@ -60,7 +61,7 @@ function seed(): GrowthPlaysState {
       status: 'live',
       publishedAt: Date.now() - 10 * DAY,
     }),
-    play('expansion', 'gp_heavy', 'Heavy users', [v('gv_h1', 'gx_scale')], { audience: savedAudience('high_value') }),
+    play('expansion', 'gp_heavy', 'Heavy users', [v('gv_h1', 'gx_scale', 50), v('gv_h2', 'gx_signup', 50)], { audience: savedAudience('high_value') }),
   ]
   return {
     plays,
@@ -162,6 +163,12 @@ export function duplicateGrowthPlay(id: string): string | null {
   return copy.id
 }
 
+/** An experience that just left its last play goes home to that play's tab. */
+function rehome(experienceIds: string[], objective: GrowthObjective) {
+  const plays = useGrowthPlays.getState().plays
+  for (const id of experienceIds) if (!growthPlaysUsing(id, plays).length) setGrowthHome(id, objective)
+}
+
 export function deleteGrowthPlay(id: string) {
   const p = growthPlay(id)
   if (!p) return
@@ -169,6 +176,7 @@ export function deleteGrowthPlay(id: string) {
     plays: s.plays.filter((x) => x.id !== id),
     order: { ...s.order, [p.objective]: s.order[p.objective].filter((x) => x !== id) },
   }))
+  rehome(p.variants.map((x) => x.experienceId), p.objective)
 }
 
 export function updateGrowthPlay(id: string, change: Partial<Omit<GrowthPlay, 'id' | 'objective'>>) {
@@ -195,10 +203,14 @@ export function addToGrowthPlay(playId: string, experienceId: string): boolean {
 }
 
 export function removeFromGrowthPlay(playId: string, variantId: string) {
-  patch(playId, (p) => {
-    const next = p.variants.filter((x) => x.id !== variantId)
-    return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next }
+  const p = growthPlay(playId)
+  const gone = p?.variants.find((x) => x.id === variantId)
+  if (!p || !gone) return
+  patch(playId, (x) => {
+    const next = x.variants.filter((y) => y.id !== variantId)
+    return { ...x, variants: x.splitBy === 'percent' ? evenWeights(next) : next }
   })
+  rehome([gone.experienceId], p.objective)
 }
 
 /** An experience was deleted: take it out of every play. */
@@ -226,6 +238,44 @@ export function setGrowthGlobalControl(objective: GrowthObjective, value: number
 
 export function growthPlaysUsing(experienceId: string, plays = useGrowthPlays.getState().plays): GrowthPlay[] {
   return plays.filter((p) => p.variants.some((x) => x.experienceId === experienceId))
+}
+
+/** The tabs whose plays use this experience. */
+export function experienceTabs(experienceId: string, plays = useGrowthPlays.getState().plays): GrowthObjective[] {
+  const using = growthPlaysUsing(experienceId, plays)
+  return GROWTH_OBJECTIVES.filter((o) => using.some((p) => p.objective === o))
+}
+
+/** Used by plays in both tabs. */
+export function isShared(experienceId: string, plays = useGrowthPlays.getState().plays): boolean {
+  return experienceTabs(experienceId, plays).length > 1
+}
+
+/** A copy for `objective` alone: that tab's plays switch to the copy, the other tab keeps the original. */
+export function splitGrowthExperience(experienceId: string, objective: GrowthObjective): string | null {
+  const src = useGrowthExperiences.getState().items.find((x) => x.id === experienceId)
+  const copy = src ? duplicateGrowthExperience(experienceId, objective, `${src.name} for ${objectiveLabel(objective)}`) : null
+  if (!copy) return null
+  setPlays(
+    useGrowthPlays.getState().plays.map((p) =>
+      p.objective === objective && p.variants.some((x) => x.experienceId === experienceId)
+        ? { ...p, variants: p.variants.map((x) => (x.experienceId === experienceId ? { ...x, experienceId: copy.id } : x)), updatedAt: Date.now() }
+        : p,
+    ),
+  )
+  return copy.id
+}
+
+/** Every experience that shows this Library offer or pricing table, with the tabs it's in. */
+export function usedIn(refId: string): string[] {
+  const plays = useGrowthPlays.getState().plays
+  return useGrowthExperiences
+    .getState()
+    .items.filter((x) => x.refId === refId)
+    .map((x) => {
+      const tabs = experienceTabs(x.id, plays)
+      return `${x.name} (${(tabs.length ? tabs : [x.objective]).map(objectiveLabel).join(', ')})`
+    })
 }
 
 /** An experience is live while a live play shows it. */

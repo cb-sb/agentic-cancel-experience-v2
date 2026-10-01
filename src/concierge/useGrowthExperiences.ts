@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { nameProblem, uniqueName } from '../plays/names'
 import { TYPE_LABEL, newId, type GrowthExperience, type GrowthObjective, type GrowthType } from './model'
+import type { GrowthPlay } from './useGrowthPlays'
 
 const KEY = 'cancel-experience:experiences:concierge-v2'
 const DAY = 86_400_000
@@ -96,33 +97,32 @@ useGrowthExperiences.subscribe((s) => {
   }
 })
 
-export function experiencesFor(items: GrowthExperience[], objective: GrowthObjective): GrowthExperience[] {
-  return items.filter((i) => i.objective === objective).sort((a, b) => b.updatedAt - a.updatedAt)
+/** A tab shows an experience when one of its plays uses it. One in no play shows in its home tab. */
+export function visibleIn(x: GrowthExperience, objective: GrowthObjective, plays: GrowthPlay[]): boolean {
+  const using = plays.filter((p) => p.variants.some((v) => v.experienceId === x.id))
+  return using.length ? using.some((p) => p.objective === objective) : x.objective === objective
 }
 
-/** Every experience that shows this Library offer or pricing table, by name. */
-export function usedIn(refId: string): string[] {
-  return useGrowthExperiences
-    .getState()
-    .items.filter((x) => x.refId === refId)
-    .map((x) => x.name)
+export function experiencesFor(items: GrowthExperience[], plays: GrowthPlay[], objective: GrowthObjective): GrowthExperience[] {
+  return items.filter((i) => visibleIn(i, objective, plays)).sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 export function growthExperience(id: string): GrowthExperience | undefined {
   return useGrowthExperiences.getState().items.find((i) => i.id === id)
 }
 
-function namesIn(objective: GrowthObjective, exceptId?: string): string[] {
+/** Names are unique across both tabs, since an experience can show in either. */
+function namesIn(exceptId?: string): string[] {
   return useGrowthExperiences
     .getState()
-    .items.filter((i) => i.objective === objective && i.id !== exceptId)
+    .items.filter((i) => i.id !== exceptId)
     .map((i) => i.name)
 }
 
 export function addGrowthExperience(objective: GrowthObjective, type: GrowthType, opts: { name?: string; refId?: string | null } = {}): GrowthExperience {
   const item: GrowthExperience = {
     id: newId('gx'),
-    name: uniqueName(opts.name ?? `New ${TYPE_LABEL[type].toLowerCase()}`, namesIn(objective)),
+    name: uniqueName(opts.name ?? `New ${TYPE_LABEL[type].toLowerCase()}`, namesIn()),
     objective,
     type,
     refId: opts.refId ?? null,
@@ -143,18 +143,30 @@ export function updateGrowthExperience(id: string, patch: Partial<Omit<GrowthExp
 export function renameGrowthExperience(id: string, name: string): string | null {
   const x = growthExperience(id)
   if (!x) return null
-  const problem = nameProblem(name, namesIn(x.objective, id), 'experience')
+  const problem = nameProblem(name, namesIn(id), 'experience')
   if (problem) return problem
   updateGrowthExperience(id, { name: name.trim().replace(/\s+/g, ' ') })
   return null
 }
 
-export function duplicateGrowthExperience(id: string): GrowthExperience | null {
+/** A separate copy. `objective` sets the copy's home tab; it defaults to the original's. */
+export function duplicateGrowthExperience(id: string, objective?: GrowthObjective, name?: string): GrowthExperience | null {
   const x = growthExperience(id)
   if (!x) return null
-  const copy: GrowthExperience = { ...x, id: newId('gx'), name: uniqueName(`${x.name} copy`, namesIn(x.objective)), updatedAt: Date.now() }
+  const copy: GrowthExperience = {
+    ...x,
+    id: newId('gx'),
+    name: uniqueName(name ?? `${x.name} copy`, namesIn()),
+    objective: objective ?? x.objective,
+    updatedAt: Date.now(),
+  }
   useGrowthExperiences.setState((s) => ({ items: [copy, ...s.items] }))
   return copy
+}
+
+/** The tab it shows in while no play uses it. Not an edit, so it keeps its updatedAt. */
+export function setGrowthHome(id: string, objective: GrowthObjective) {
+  useGrowthExperiences.setState((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, objective } : i)) }))
 }
 
 export function removeGrowthExperience(id: string) {

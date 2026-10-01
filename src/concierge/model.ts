@@ -184,6 +184,7 @@ export const GROWTH_OBJECTIVES: GrowthObjective[] = ['acquisition', 'expansion']
 export interface GrowthExperience {
   id: string
   name: string
+  /** Home tab: where it shows while no play uses it. Plays in either tab can use it. */
   objective: GrowthObjective
   type: GrowthType
   /** The Library offer or pricing table it shows. Null until one is picked. */

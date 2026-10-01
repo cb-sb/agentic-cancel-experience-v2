@@ -21,7 +21,7 @@ import { Empty, PageShell } from './objective/ui'
 import { startFromTemplate } from './objective/actions'
 import { templatesFor } from './objective/templates'
 import { OfferPreview, PricingPreview } from './Previews'
-import { usedIn } from './useGrowthExperiences'
+import { usedIn } from './useGrowthPlays'
 import { useGrowthLibrary } from './useGrowthLibrary'
 
 function PageHeader({ title, blurb, actions, onBack }: { title: string; blurb?: string; actions?: ReactNode; onBack?: () => void }) {
@@ -70,6 +70,11 @@ function Select<T extends string>({ value, options, onChange }: { value: T; opti
       ))}
     </select>
   )
+}
+
+/** Acquisition and Expansion share the Library, so each tab lists both, its own first. */
+function forTabs<T extends { objective: string }>(items: T[], objective: GrowthObjective): T[] {
+  return items.filter((i) => i.objective !== 'retention').sort((a, b) => Number(a.objective !== objective) - Number(b.objective !== objective))
 }
 
 function Status({ status }: { status: string }) {
@@ -156,7 +161,7 @@ export function OffersPage({ objective }: { objective: GrowthObjective }) {
   const open = offers.find((o) => o.id === openId)
   if (open) return <OfferDetail offer={open} onBack={() => setOpenId(null)} />
 
-  const rows = offers.filter((o) => o.status !== 'archived' && o.objective === objective)
+  const rows = forTabs(offers.filter((o) => o.status !== 'archived'), objective)
   const create = () => {
     const o = useGrowthLibrary.getState().addOffer({
       name: uniqueName('New offer', offers.map((x) => x.name)),
@@ -178,7 +183,7 @@ export function OffersPage({ objective }: { objective: GrowthObjective }) {
     <PageShell
       objective={objective}
       title="Offers"
-      blurb="The value you give and how it is fulfilled. Use one offer in as many experiences as you like."
+      blurb="The value you give and how it is fulfilled. Acquisition and Expansion share these, so one offer can sit in experiences in both."
       wide
       actions={
         <DropdownButton
@@ -196,12 +201,13 @@ export function OffersPage({ objective }: { objective: GrowthObjective }) {
       }
     >
       {rows.length === 0 ? (
-        <Empty>No {objectiveLabel(objective).toLowerCase()} offers yet.</Empty>
+        <Empty>No offers yet.</Empty>
       ) : (
         <table className="w-full text-left text-[13px]">
           <thead>
             <tr className="text-[12px] font-medium text-slate-400">
               <th className="pb-2 font-medium">Name</th>
+              <th className="pb-2 font-medium">Made for</th>
               <th className="pb-2 font-medium">Category</th>
               <th className="pb-2 font-medium">Shown as</th>
               <th className="pb-2 font-medium">Used in</th>
@@ -219,9 +225,10 @@ export function OffersPage({ objective }: { objective: GrowthObjective }) {
                       {o.name}
                     </button>
                   </td>
+                  <td className="py-3 text-slate-600">{objectiveLabel(o.objective)}</td>
                   <td className="py-3 text-slate-600">{CATEGORY_LABEL[o.category]}</td>
                   <td className="py-3 text-slate-600">{WIDGET_LABEL[o.widget]}</td>
-                  <td className="py-3 text-slate-600">{uses.length ? uses.length : '—'}</td>
+                  <td className="py-3 text-slate-600" title={uses.join(', ') || undefined}>{uses.length ? uses.length : '—'}</td>
                   <td className="py-3 text-slate-600">{o.redemptions.toLocaleString()}</td>
                   <td className="py-3">
                     <Status status={o.status} />
@@ -326,7 +333,7 @@ export function PricingTablesPage({ objective }: { objective: GrowthObjective })
   const [openId, setOpenId] = useState<string | null>(null)
   const open = tables.find((t) => t.id === openId)
   if (open) return <TableDetail table={open} onBack={() => setOpenId(null)} />
-  const rows = tables.filter((t) => t.status !== 'archived' && t.objective === objective)
+  const rows = forTabs(tables.filter((t) => t.status !== 'archived'), objective)
   const create = () => {
     const t = useGrowthLibrary.getState().addPricingTable({
       name: uniqueName('New pricing table', tables.map((x) => x.name)),
@@ -343,7 +350,7 @@ export function PricingTablesPage({ objective }: { objective: GrowthObjective })
     <PageShell
       objective={objective}
       title="Pricing tables"
-      blurb="Plans from your catalog, ready to show in an experience, share as a link or embed."
+      blurb="Plans from your catalog, shared by Acquisition and Expansion. Show one in an experience, share it as a link or embed it."
       wide
       actions={
         <DropdownButton
@@ -361,7 +368,7 @@ export function PricingTablesPage({ objective }: { objective: GrowthObjective })
       }
     >
       {rows.length === 0 ? (
-        <Empty>No {objectiveLabel(objective).toLowerCase()} pricing tables yet.</Empty>
+        <Empty>No pricing tables yet.</Empty>
       ) : (
         <div className="grid gap-[14px] min-[1000px]:grid-cols-2">
           {rows.map((t) => (
@@ -375,7 +382,7 @@ export function PricingTablesPage({ objective }: { objective: GrowthObjective })
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-semibold text-slate-900">{t.name}</p>
                   <p className="text-[12px] text-slate-500">
-                    {t.plans.length} plans · {timeAgo(t.updatedAt)}
+                    Made for {objectiveLabel(t.objective)} · {t.plans.length} plans · {timeAgo(t.updatedAt)}
                   </p>
                 </div>
                 <Status status={t.status} />

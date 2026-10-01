@@ -4,8 +4,37 @@ import { CopilotRail } from '../../orchestration/CopilotRail'
 import { BackButton } from '../../shell/BackButton'
 import { useWorkspaceUi } from '../../workspace/useWorkspaceUi'
 import { AgentSlot } from '../AgentSlot'
-import type { GrowthObjective } from '../model'
+import { Chip } from '../../plays/ui'
+import { objectiveLabel, type GrowthObjective } from '../model'
+import { experienceTabs, useGrowthPlays } from '../useGrowthPlays'
 import { goGrowth } from './useGrowthUi'
+
+export function otherObjective(objective: GrowthObjective): GrowthObjective {
+  return objective === 'acquisition' ? 'expansion' : 'acquisition'
+}
+
+/** True when plays in both tabs use this experience. */
+export function useShared(experienceId: string): boolean {
+  const plays = useGrowthPlays((s) => s.plays)
+  return experienceTabs(experienceId, plays).length > 1
+}
+
+/** "Also in Expansion", seen from the Acquisition tab, and the other way round. */
+export function SharedChip({ objective, experienceId }: { objective: GrowthObjective; experienceId: string }) {
+  if (!useShared(experienceId)) return null
+  return <Chip tone="indigo">Also in {objectiveLabel(otherObjective(objective))}</Chip>
+}
+
+/** The pane's small marker for a shared experience. */
+export function SharedMark({ objective, experienceId }: { objective: GrowthObjective; experienceId: string }) {
+  if (!useShared(experienceId)) return null
+  const label = `Also in ${objectiveLabel(otherObjective(objective))}`
+  return (
+    <span title={label} aria-label={label} className="flex-none text-indigo-500">
+      <SIcon name="link" size={12} />
+    </span>
+  )
+}
 
 export const inputCls =
   'w-full rounded-[8px] border border-slate-200 bg-white px-[10px] py-[7px] text-[13px] text-slate-900 outline-none focus:border-slate-400'

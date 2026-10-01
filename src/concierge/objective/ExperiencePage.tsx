@@ -3,13 +3,13 @@ import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 import { BackButton } from '../../shell/BackButton'
 import { Chip, InlineName, RowMenu, toast, type MenuItem } from '../../plays/ui'
 import { AgentSlot } from '../AgentSlot'
-import { TRIGGER_LABEL, TYPE_LABEL, WIDGET_LABEL, objectiveLabel, type GrowthExperience, type TriggerKind } from '../model'
+import { TRIGGER_LABEL, TYPE_LABEL, WIDGET_LABEL, objectiveLabel, type GrowthExperience, type GrowthObjective, type TriggerKind } from '../model'
 import { OfferPreview, PricingPreview } from '../Previews'
 import { renameGrowthExperience, updateGrowthExperience, useGrowthExperiences } from '../useGrowthExperiences'
 import { useGrowthLibrary } from '../useGrowthLibrary'
-import { addToGrowthPlay, growthExperienceLive, growthPlaysUsing, useGrowthPlays } from '../useGrowthPlays'
-import { CopilotColumn, Field, inputCls, TabStrip } from './ui'
-import { goGrowth, openGrowthPlay, setGrowthView, setRenaming, useGrowthUi, useGrowthView } from './useGrowthUi'
+import { addToGrowthPlay, growthExperienceLive, growthPlaysUsing, splitGrowthExperience, useGrowthPlays, type GrowthPlay } from '../useGrowthPlays'
+import { CopilotColumn, Field, inputCls, otherObjective, TabStrip, useShared } from './ui'
+import { goGrowth, openGrowthExperience, openGrowthPlay, setGrowthView, setRenaming, useGrowthUi, useGrowthView } from './useGrowthUi'
 
 interface Door {
   id: 'library' | 'template' | 'copilot'
@@ -37,18 +37,20 @@ function doors(x: GrowthExperience): Door[] {
   ]
 }
 
-function useLibraryRows(x: GrowthExperience) {
+/** Library items for Acquisition and Expansion, this tab's first. Retention's save offers come last. */
+function useLibraryRows(x: GrowthExperience, objective: GrowthObjective) {
   const offers = useGrowthLibrary((s) => s.offers)
   const tables = useGrowthLibrary((s) => s.pricingTables)
   const rows =
     x.type === 'pricing_table'
-      ? tables.filter((t) => t.status !== 'archived').map((t) => ({ id: t.id, name: t.name, meta: t.plans.map((p) => p.name).join(' · '), fits: t.objective === x.objective }))
-      : offers.filter((o) => o.status !== 'archived').map((o) => ({ id: o.id, name: o.name, meta: `${WIDGET_LABEL[o.widget]} · ${o.value}`, fits: o.objective === x.objective }))
-  return [...rows].sort((a, b) => Number(b.fits) - Number(a.fits))
+      ? tables.filter((t) => t.status !== 'archived').map((t) => ({ id: t.id, name: t.name, meta: t.plans.map((p) => p.name).join(' · '), objective: t.objective }))
+      : offers.filter((o) => o.status !== 'archived').map((o) => ({ id: o.id, name: o.name, meta: `${WIDGET_LABEL[o.widget]} · ${o.value}`, objective: o.objective }))
+  const rank = (o: string) => (o === objective ? 0 : o === 'retention' ? 2 : 1)
+  return rows.map((r) => ({ ...r, fits: r.objective !== 'retention' })).sort((a, b) => rank(a.objective) - rank(b.objective))
 }
 
-function LibraryPicker({ x, onBack }: { x: GrowthExperience; onBack: () => void }) {
-  const rows = useLibraryRows(x)
+function LibraryPicker({ x, objective, onBack }: { x: GrowthExperience; objective: GrowthObjective; onBack: () => void }) {
+  const rows = useLibraryRows(x, objective)
   return (
     <div className="h-full overflow-y-auto bg-white">
       <div className="mx-auto w-full max-w-[640px] px-[24px] py-[40px]">
@@ -70,7 +72,7 @@ function LibraryPicker({ x, onBack }: { x: GrowthExperience; onBack: () => void 
                 <span className="block truncate text-[13.5px] font-medium text-slate-900">{r.name}</span>
                 <span className="block truncate text-[12.5px] text-slate-500">{r.meta}</span>
               </span>
-              {r.fits && <Chip>{objectiveLabel(x.objective)}</Chip>}
+              {r.fits && <Chip tone={r.objective === objective ? 'slate' : 'indigo'}>{objectiveLabel(r.objective)}</Chip>}
             </button>
           ))}
         </div>
@@ -79,18 +81,18 @@ function LibraryPicker({ x, onBack }: { x: GrowthExperience; onBack: () => void 
   )
 }
 
-function Doorway({ x }: { x: GrowthExperience }) {
+function Doorway({ x, objective }: { x: GrowthExperience; objective: GrowthObjective }) {
   const [picking, setPicking] = useState(false)
-  if (picking) return <LibraryPicker x={x} onBack={() => setPicking(false)} />
+  if (picking) return <LibraryPicker x={x} objective={objective} onBack={() => setPicking(false)} />
   const pick = (d: Door) => {
     if (d.id === 'library') setPicking(true)
-    else if (d.id === 'template') goGrowth(x.objective, { page: 'templates', fillId: x.id, templateType: x.type })
-    else setGrowthView(x.objective, { withCopilot: true })
+    else if (d.id === 'template') goGrowth(objective, { page: 'templates', fillId: x.id, templateType: x.type })
+    else setGrowthView(objective, { withCopilot: true })
   }
   return (
     <div className="relative flex h-full min-h-0 items-center justify-center overflow-y-auto bg-slate-100 px-[24px] py-[40px]">
       <div className="absolute left-[16px] top-[14px]">
-        <BackButton fallback={() => goGrowth(x.objective, { page: 'index' })} />
+        <BackButton fallback={() => goGrowth(objective, { page: 'index' })} />
       </div>
       <div className="flex max-w-[860px] flex-col items-center gap-[32px]">
         <div className="text-center">
@@ -130,18 +132,21 @@ function Preview({ x }: { x: GrowthExperience }) {
   )
 }
 
-function Summary({ x }: { x: GrowthExperience }) {
-  const rows = useLibraryRows(x).filter((r) => r.fits || r.id === x.refId)
+function Summary({ x, objective }: { x: GrowthExperience; objective: GrowthObjective }) {
+  const rows = useLibraryRows(x, objective).filter((r) => r.fits || r.id === x.refId)
   const plays = useGrowthPlays((s) => s.plays)
-  const usedBy = growthPlaysUsing(x.id, plays)
+  const here = (p: GrowthPlay) => Number(p.objective !== objective)
+  const usedBy = [...growthPlaysUsing(x.id, plays)].sort((a, b) => here(a) - here(b))
   const addItems: MenuItem[] = plays
-    .filter((p) => p.objective === x.objective && !usedBy.includes(p))
+    .filter((p) => !usedBy.includes(p))
+    .sort((a, b) => here(a) - here(b))
     .map((p) => ({
       label: p.name,
-      icon: 'folder-input',
+      icon: p.objective === objective ? 'folder-input' : 'link',
+      hint: p.objective === objective ? undefined : `${objectiveLabel(p.objective)}, shared`,
       onClick: () => {
         addToGrowthPlay(p.id, x.id)
-        toast(`${x.name} is now in ${p.name}`)
+        toast(p.objective === objective ? `${x.name} is now in ${p.name}` : `${x.name} is now also in ${p.name}, in ${objectiveLabel(p.objective)}`)
       },
     }))
   return (
@@ -159,7 +164,7 @@ function Summary({ x }: { x: GrowthExperience }) {
               </select>
               <button
                 type="button"
-                onClick={() => goGrowth(x.objective, { page: x.type === 'pricing_table' ? 'pricing_tables' : 'offers' })}
+                onClick={() => goGrowth(objective, { page: x.type === 'pricing_table' ? 'pricing_tables' : 'offers' })}
                 className="flex-none text-[12.5px] font-medium text-slate-600 hover:text-slate-900"
               >
                 Edit in Library
@@ -196,10 +201,12 @@ function Summary({ x }: { x: GrowthExperience }) {
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => openGrowthPlay(x.objective, p.id)}
-                  className="rounded-full border border-slate-200 px-[10px] py-[3px] text-[12.5px] font-medium text-slate-700 hover:border-slate-300 hover:text-slate-900"
+                  onClick={() => openGrowthPlay(p.objective, p.id)}
+                  className={`rounded-full border px-[10px] py-[3px] text-[12.5px] font-medium hover:text-slate-900 ${
+                    p.objective === objective ? 'border-slate-200 text-slate-700 hover:border-slate-300' : 'border-indigo-200 text-indigo-700 hover:border-indigo-300'
+                  }`}
                 >
-                  {p.name}
+                  {p.objective === objective ? p.name : `${objectiveLabel(p.objective)}: ${p.name}`}
                 </button>
               ))}
               {addItems.length > 0 && (
@@ -216,7 +223,29 @@ function Summary({ x }: { x: GrowthExperience }) {
 }
 
 /** One in-app offer or pricing table: a doorway while it's blank, then its tabs beside Copilot. */
-export function ExperiencePage({ objective }: { objective: GrowthExperience['objective'] }) {
+/** Shown on a shared experience: edits land in both tabs, unless this tab takes its own copy. */
+function SharedNote({ x, objective }: { x: GrowthExperience; objective: GrowthObjective }) {
+  const view = useGrowthView(objective)
+  if (!useShared(x.id)) return null
+  const other = objectiveLabel(otherObjective(objective))
+  const split = () => {
+    const id = splitGrowthExperience(x.id, objective)
+    if (!id) return
+    openGrowthExperience(objective, id, view.playId)
+    toast(`${objectiveLabel(objective)} now has its own copy. ${other} keeps ${x.name}.`)
+  }
+  return (
+    <div className="flex flex-none items-center gap-[10px] border-b border-indigo-100 bg-indigo-50/60 px-[16px] py-[7px] text-[12.5px] text-indigo-900">
+      <SIcon name="link" size={13} className="flex-none text-indigo-500" />
+      <span className="min-w-0 flex-1">Shared with {other}. Changes here show in both tabs.</span>
+      <button type="button" onClick={split} className="flex-none font-medium text-indigo-700 hover:text-indigo-900">
+        Make a separate copy for {objectiveLabel(objective)}
+      </button>
+    </div>
+  )
+}
+
+export function ExperiencePage({ objective }: { objective: GrowthObjective }) {
   const view = useGrowthView(objective)
   const x = useGrowthExperiences((s) => s.items.find((i) => i.id === view.experienceId))
   const plays = useGrowthPlays((s) => s.plays)
@@ -246,7 +275,7 @@ export function ExperiencePage({ objective }: { objective: GrowthExperience['obj
     )
   }
 
-  if (!x.refId) return <Doorway x={x} />
+  if (!x.refId) return <Doorway x={x} objective={objective} />
 
   const live = growthExperienceLive(x.id, plays)
   return (
@@ -266,6 +295,7 @@ export function ExperiencePage({ objective }: { objective: GrowthExperience['obj
           <Chip>{TYPE_LABEL[x.type]}</Chip>
           <Chip tone={live ? 'emerald' : 'amber'}>{live ? 'Live' : 'Draft'}</Chip>
         </header>
+        <SharedNote x={x} objective={objective} />
         <TabStrip
           tabs={[
             { id: 'preview', label: 'Preview', icon: 'eye' },
@@ -274,7 +304,7 @@ export function ExperiencePage({ objective }: { objective: GrowthExperience['obj
           active={view.experienceTab}
           onPick={(experienceTab) => setGrowthView(objective, { experienceTab })}
         />
-        <div className="min-h-0 flex-1">{view.experienceTab === 'preview' ? <Preview x={x} /> : <Summary x={x} />}</div>
+        <div className="min-h-0 flex-1">{view.experienceTab === 'preview' ? <Preview x={x} /> : <Summary x={x} objective={objective} />}</div>
       </div>
       <CopilotColumn subtitle={x.name} />
     </div>

@@ -12,8 +12,8 @@ import { useCancelSettings } from '../workspace/useCancelSettings'
 import { useWorkspace } from '../workspace/useWorkspace'
 import { cancelPageRows } from '../concierge/cancelPages'
 import { CATALOG_PLANS } from '../concierge/model'
-import { useGrowthExperiences, usedIn } from '../concierge/useGrowthExperiences'
-import { growthExperienceLive, growthPlaysUsing } from '../concierge/useGrowthPlays'
+import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
+import { experienceTabs, growthExperienceLive, growthPlaysUsing, usedIn } from '../concierge/useGrowthPlays'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import type { AgentContext } from './systemPrompt'
 import { useAgentStore, type OwnerKey } from './useAgentStore'
@@ -92,8 +92,11 @@ function growthDetail(id: string): Record<string, unknown> | undefined {
   return {
     ...x,
     status: growthExperienceLive(x.id) ? 'live' : 'draft',
-    plays: plays.map((p) => ({ id: p.id, name: p.name, status: p.status, audience: p.audience.name, control: p.control })),
-    note: 'Audience, control group, split and order are set on the play, in the Acquisition or Expansion tab.',
+    homeTab: x.objective,
+    usedInTabs: experienceTabs(x.id),
+    shared: experienceTabs(x.id).length > 1,
+    plays: plays.map((p) => ({ id: p.id, name: p.name, tab: p.objective, status: p.status, audience: p.audience.name, control: p.control })),
+    note: 'Audience, control group, split and order are set on the play, in the Acquisition or Expansion tab. One experience can be used by plays in both tabs, and an edit shows in both.',
     leftBeforeLive: gaps,
     brief: useAgentStore.getState().briefs[`growth:${id}`],
   }
@@ -104,7 +107,10 @@ export function experienceSummaries() {
     ...cancelPageRows().map((r) => ({ id: r.id, name: r.name, objective: 'retention', type: 'cancel_page', status: r.status, priority: r.priority })),
     ...useGrowthExperiences
       .getState()
-      .items.map((x) => ({ id: x.id, name: x.name, objective: x.objective, type: x.type, status: growthExperienceLive(x.id) ? 'live' : 'draft' })),
+      .items.map((x) => {
+        const tabs = experienceTabs(x.id)
+        return { id: x.id, name: x.name, objective: x.objective, usedInTabs: tabs, shared: tabs.length > 1, type: x.type, status: growthExperienceLive(x.id) ? 'live' : 'draft' }
+      }),
   ]
 }
 
