@@ -154,6 +154,7 @@ const LIBRARY_ROWS: { kind: LibraryKind; label: string; icon: SIconName }[] = [
   { kind: 'offers', label: 'Offers', icon: 'gift' },
   { kind: 'reasons', label: 'Survey reasons', icon: 'message-square' },
   { kind: 'cards', label: 'Loss aversion cards', icon: 'shield' },
+  { kind: 'redirects', label: 'Redirect pages', icon: 'external-link' },
 ]
 
 function LibrarySection() {
@@ -220,7 +221,7 @@ export function ExperiencesPane() {
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-slate-50">
       <div className={`flex h-[60px] flex-none items-center border-b border-slate-200 ${folded ? 'justify-center' : 'gap-[2px] px-[14px]'}`}>
-        {!folded && <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-slate-900">Cancel experience</span>}
+        {!folded && <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-slate-900">{V8 ? 'Retention' : 'Cancel experience'}</span>}
         {!folded && <HeaderButton label="Search" icon="search" onClick={() => setSearchOpen(true)} />}
         <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setOpen(folded)} />
       </div>

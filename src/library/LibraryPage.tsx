@@ -10,6 +10,7 @@ import {
   newConfirmation,
   newOffer,
   newReason,
+  newRedirect,
   patchItem,
   removeItem,
   useCancelLibrary,
@@ -17,6 +18,7 @@ import {
   type LibConfirmation,
   type LibOffer,
   type LibReason,
+  type LibRedirect,
   type ReasonKind,
 } from './useCancelLibrary'
 
@@ -25,6 +27,7 @@ const KINDS: { id: LibraryKind; label: string; hint: string; add: string }[] = [
   { id: 'reasons', label: 'Survey reasons', hint: 'The reasons people pick, plus competitor and come-back questions', add: 'New reason' },
   { id: 'cards', label: 'Loss aversion cards', hint: 'What they keep and what they lose if they cancel', add: 'New card' },
   { id: 'confirmations', label: 'Confirmation pages', hint: 'The last page after they stay, or after the cancel is done', add: 'New confirmation page' },
+  { id: 'redirects', label: 'Redirect pages', hint: 'Pages on your site you can send people to instead of cancelling', add: 'New redirect page' },
 ]
 
 const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none placeholder:text-slate-300 hover:border-slate-300 focus:border-slate-400'
@@ -100,7 +103,7 @@ const AFTER: { id: AfterAccept; label: string }[] = [
   { id: 'dismiss', label: 'Just close' },
 ]
 
-function nameError(list: 'offers' | 'cards' | 'confirmations' | 'reasons', itemId: string, name: string, what: string): string | null {
+function nameError(list: 'offers' | 'cards' | 'confirmations' | 'reasons' | 'redirects', itemId: string, name: string, what: string): string | null {
   if (!name.trim()) return 'Give it a name'
   return nameTakenIn(list, itemId, name) ? `Another ${what} is already called this` : null
 }
@@ -250,6 +253,26 @@ function ConfirmationForm({ c }: { c: LibConfirmation }) {
   )
 }
 
+function RedirectForm({ r }: { r: LibRedirect }) {
+  const [err, setErr] = useState<string | null>(null)
+  const p = (change: Partial<LibRedirect>) => patchItem('redirects', r.id, change)
+  return (
+    <div className="grid grid-cols-2 gap-[10px]">
+      <Text
+        label="Name"
+        value={r.name}
+        error={err}
+        onChange={(name) => {
+          const e = nameError('redirects', r.id, name, 'redirect page')
+          setErr(e)
+          if (!e) p({ name: name.trim() })
+        }}
+      />
+      <Text label="URL" value={r.url} onChange={(url) => p({ url: url.trim() })} placeholder="https://" />
+    </div>
+  )
+}
+
 function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id: string; title: string; detail: string; open: boolean; onToggle: () => void; onDelete: () => void; children: ReactNode }) {
   const [asking, setAsking] = useState(false)
   return (
@@ -297,7 +320,15 @@ export function LibraryPage() {
 
   const create = () => {
     const id =
-      kind === 'reasons' ? newReason() : kind === 'cards' ? newCard() : kind === 'confirmations' ? newConfirmation() : newOffer()
+      kind === 'reasons'
+        ? newReason()
+        : kind === 'cards'
+          ? newCard()
+          : kind === 'confirmations'
+            ? newConfirmation()
+            : kind === 'redirects'
+              ? newRedirect()
+              : newOffer()
     setOpen(id)
   }
 
@@ -328,6 +359,12 @@ export function LibraryPage() {
         <ConfirmationForm c={c} />
       </ItemRow>
     ))
+  } else if (kind === 'redirects') {
+    rows = lib.redirects.map((r) => (
+      <ItemRow key={r.id} id={r.id} title={r.name} detail={r.url || 'No URL yet'} open={open === r.id} onToggle={() => toggle(r.id)} onDelete={() => removeItem('redirects', r.id)}>
+        <RedirectForm r={r} />
+      </ItemRow>
+    ))
   } else {
     rows = lib.offers.map((o) => (
       <ItemRow key={o.id} id={o.id} title={o.name} detail={`${offerVariantLabel(o.type)} · ${FULFILMENT.find((f) => f.id === o.fulfilment)?.label}`} open={open === o.id} onToggle={() => toggle(o.id)} onDelete={() => removeItem('offers', o.id)}>
@@ -335,7 +372,7 @@ export function LibraryPage() {
       </ItemRow>
     ))
   }
-  const count = kind === 'reasons' ? lib.reasons.length : kind === 'cards' ? lib.cards.length : kind === 'confirmations' ? lib.confirmations.length : lib.offers.length
+  const count = kind === 'offers' ? lib.offers.length : lib[kind].length
 
   return (
     <div className="flex h-full min-w-0 flex-1 bg-slate-50">

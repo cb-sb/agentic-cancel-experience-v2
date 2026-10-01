@@ -115,12 +115,32 @@ const ALL_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'settings', label: 'Settings', icon: 'settings' } },
 ]
 
-/** v8 covers cancel experiences only, so acquisition, expansion and their offers are left out. */
-const NOT_IN_V8 = new Set<string>(['plays.acquisition', 'plays.expansion', 'offers'])
+/**
+ * v8 covers cancel experiences only, so acquisition, expansion and their offers are left out.
+ * Pages, cards, reasons and redirects live in the Retention pane's Library instead.
+ */
+const NOT_IN_V8 = new Set<string>([
+  'plays.acquisition',
+  'plays.expansion',
+  'offers',
+  'experiences.pages',
+  'experiences.loss_aversion',
+  'experiences.survey',
+  'experiences.redirect',
+])
+const V8_LABELS: Partial<Record<NavLeafId, string>> = { 'experiences.cancel': 'Retention' }
 
 export const NAV: NavEntry[] = V8
   ? ALL_NAV.filter((e) => !(e.kind === 'group' && NOT_IN_V8.has(e.group.id))).map((e) =>
-      e.kind === 'group' ? { ...e, group: { ...e.group, children: e.group.children.filter((c) => !NOT_IN_V8.has(c.id)) } } : e,
+      e.kind === 'group'
+        ? {
+            ...e,
+            group: {
+              ...e.group,
+              children: e.group.children.filter((c) => !NOT_IN_V8.has(c.id)).map((c) => ({ ...c, label: V8_LABELS[c.id] ?? c.label })),
+            },
+          }
+        : e,
     )
   : ALL_NAV
 

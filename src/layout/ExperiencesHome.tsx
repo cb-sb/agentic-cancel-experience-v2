@@ -1,22 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
-import type { JourneyFile } from '../journey/types'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { useCancelLibrary, type LibCard, type LibOffer, type LibReason, type ReasonKind } from '../library/useCancelLibrary'
 import { openLibrary } from '../plays/navigate'
 import { DropdownButton } from '../plays/ui'
 import { usePlays } from '../plays/usePlays'
 import { BackButton, backToHome } from '../shell/BackButton'
-import { audienceLabel, useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
-import { byPriority, useCancelSettings } from '../workspace/useCancelSettings'
-import { orderedThreads, switchThread, threadIsLive, useWorkspace, type ExperienceThread } from '../workspace/useWorkspace'
+import { orderedThreads, switchThread, threadIsLive, useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { createMenuItems } from './createMenu'
 import { StatusChip } from './StatusChip'
 import { ago } from './ThreadSidebar'
 
-type Sort = 'recent' | 'priority'
 type View = 'list' | 'grid'
 type Kind = 'offers' | 'cards' | 'reasons'
 type Filter = 'all' | Kind
@@ -31,10 +27,10 @@ const REASON_KIND: Record<ReasonKind, string> = {
   return: 'Return likelihood',
 }
 
-const KINDS: Record<Kind, { label: string; one: string; icon: SIconName; tint: string }> = {
-  offers: { label: 'Offers', one: 'offer', icon: 'gift', tint: 'bg-amber-50 text-amber-600' },
-  cards: { label: 'Loss aversion cards', one: 'card', icon: 'shield', tint: 'bg-rose-50 text-rose-600' },
-  reasons: { label: 'Survey reasons', one: 'reason', icon: 'message-square', tint: 'bg-sky-50 text-sky-600' },
+const KINDS: Record<Kind, { label: string; one: string }> = {
+  offers: { label: 'Offers', one: 'offer' },
+  cards: { label: 'Loss aversion cards', one: 'card' },
+  reasons: { label: 'Survey reasons', one: 'reason' },
 }
 
 interface Item {
@@ -53,28 +49,15 @@ function readView(): View {
   }
 }
 
-function summary(t: ExperienceThread, file: JourneyFile | undefined): string {
-  if (!file) return t.seed ? 'All subscribers' : 'Not started'
-  const n = file.steps.length
-  if (n === 0) return 'Not started'
-  return `${audienceLabel(file.audience)} · ${n} step${n === 1 ? '' : 's'}`
-}
-
 /** v8: cancel experiences first, then the parts they are built from. */
 export function ExperiencesHome() {
   const setPage = useWorkspaceUi((s) => s.setPage)
   const threads = useWorkspace((s) => s.threads)
   const activeId = useWorkspace((s) => s.activeId)
   const activeLive = useOrchestration((s) => s.play.publishState === 'live')
-  const activeFile = useJourney((s) => s.file)
   const plays = usePlays((s) => s.plays)
-  const priority = useCancelSettings((s) => s.priority)
-  const setPriority = useCancelSettings((s) => s.setPriority)
   const lib = useCancelLibrary()
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<Sort>('recent')
-  const [dragId, setDragId] = useState<string | null>(null)
-  const [overId, setOverId] = useState<string | null>(null)
   const [view, setViewState] = useState<View>(readView)
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -91,8 +74,7 @@ export function ExperiencesHome() {
   const matches = (...s: string[]) => !q || s.some((x) => x.toLowerCase().includes(q))
 
   const cancelThreads = threads.filter((t) => t.title !== 'New experience' || t.snapshot?.chat.lines.length)
-  const ranked = byPriority(cancelThreads, priority)
-  const experiences = (sort === 'priority' ? ranked : orderedThreads(cancelThreads)).filter((t) => matches(t.title))
+  const experiences = orderedThreads(cancelThreads).filter((t) => matches(t.title))
 
   const playLine = useMemo(() => {
     const names = new Map<string, string[]>()
@@ -109,15 +91,6 @@ export function ExperiencesHome() {
     switchThread(id)
   }
 
-  const drop = (targetId: string) => {
-    if (!dragId || dragId === targetId) return
-    const ids = ranked.map((t) => t.id).filter((id) => id !== dragId)
-    ids.splice(ids.indexOf(targetId), 0, dragId)
-    setPriority(ids)
-    setDragId(null)
-    setOverId(null)
-  }
-
   const all: Record<Kind, Item[]> = {
     offers: lib.offers.map((o) => ({ id: o.id, title: o.name, line: o.title, detail: offerVariantLabel(o.type), preview: <OfferPreview o={o} /> })),
     cards: lib.cards.map((c) => ({
@@ -131,7 +104,7 @@ export function ExperiencesHome() {
       id: r.id,
       title: r.label,
       line: r.kind === 'competitor' ? r.options.filter(Boolean).join(', ') : r.kind === 'return' ? 'Scale from not likely to very likely' : r.followUp || 'No follow-up question',
-      detail: REASON_KIND[r.kind],
+      detail: r.kind === 'standard' ? '' : REASON_KIND[r.kind],
       preview: <ReasonPreview r={r} />,
     })),
   }
@@ -143,80 +116,45 @@ export function ExperiencesHome() {
   const order: Kind[] = ['offers', 'cards', 'reasons']
   const shown = order.filter((k) => (filter === 'all' || filter === k) && (!q || found[k].length > 0))
   const cap = filter === 'all' && !q ? (view === 'grid' ? GRID_CAP : LIST_CAP) : Infinity
-  const total = order.reduce((n, k) => n + found[k].length, 0)
 
   return (
     <div className="h-full overflow-y-auto bg-white">
       <div className="mx-auto max-w-[960px] px-[32px] pb-[48px] pt-[24px]">
-        <div className="flex items-center justify-between gap-[16px]">
-          <div className="flex min-w-0 items-center gap-[6px]">
+        <div className="flex items-center gap-[12px]">
+          <div className="flex min-w-0 flex-1 items-center gap-[6px]">
             <BackButton fallback={backToHome} className="-ml-[8px]" />
-            <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">Experiences</h1>
+            <h1 className="truncate text-[22px] font-semibold tracking-tight text-slate-900">Experiences</h1>
+          </div>
+          <div className="flex h-[28px] w-[300px] min-w-[160px] shrink items-center gap-[8px] rounded-md border border-slate-200 bg-white px-[10px] transition-colors hover:border-slate-300 focus-within:border-slate-400">
+            <SIcon name="search" size={14} className="flex-none text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search experiences and components"
+              aria-label="Search experiences and components"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 outline-none placeholder:text-slate-400"
+            />
+            {query && (
+              <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="flex-none rounded p-[2px] text-slate-400 hover:text-slate-700">
+                <SIcon name="x" size={14} />
+              </button>
+            )}
           </div>
           <DropdownButton label="New" items={createMenuItems()} />
         </div>
 
-        <div className="mt-[16px] flex h-[36px] items-center gap-[8px] rounded-lg border border-slate-200 bg-white px-[10px] transition-colors focus-within:border-slate-400">
-          <SIcon name="search" size={15} className="flex-none text-slate-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search experiences and components"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-slate-900 outline-none placeholder:text-slate-400"
-          />
-          {query && (
-            <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="flex-none rounded p-[2px] text-slate-400 hover:text-slate-700">
-              <SIcon name="x" size={14} />
-            </button>
-          )}
-        </div>
-
-        <section className="mt-[28px]">
-          <SectionHead
-            title="Cancel experiences"
-            count={experiences.length}
-            action={
-              <label className="flex items-center gap-[6px] text-[12.5px] text-slate-500">
-                Sort by
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as Sort)}
-                  className="h-[28px] rounded-md border border-slate-200 bg-white px-[6px] text-[12.5px] font-medium text-slate-800 outline-none hover:border-slate-300"
-                >
-                  <option value="recent">Recent activity</option>
-                  <option value="priority">Priority</option>
-                </select>
-              </label>
-            }
-          />
-          {sort === 'priority' && (
-            <p className="mb-[12px] text-[12.5px] text-slate-500">When two cancel experiences match the same subscriber, the higher one wins. Drag to reorder.</p>
-          )}
+        <section className="mt-[32px]">
+          <SectionHead title="Cancel experiences" />
           {experiences.length > 0 ? (
             <div className="grid grid-cols-2 gap-[12px]">
               {experiences.map((t) => (
                 <ExperienceCard
                   key={t.id}
                   title={t.title}
-                  subtitle={summary(t, t.id === activeId ? activeFile : t.snapshot?.journey)}
                   play={playLine(t.id)}
                   live={threadIsLive(t, activeId, activeLive)}
                   edited={`Edited ${ago(t.updatedAt).toLowerCase()}`}
-                  rank={sort === 'priority' ? ranked.indexOf(t) + 1 : undefined}
                   onClick={() => open(t.id)}
-                  drag={
-                    sort === 'priority'
-                      ? {
-                          onDragStart: () => setDragId(t.id),
-                          onDragOver: (e) => {
-                            e.preventDefault()
-                            if (overId !== t.id) setOverId(t.id)
-                          },
-                          onDrop: () => drop(t.id),
-                          over: overId === t.id && dragId !== t.id,
-                        }
-                      : undefined
-                  }
                 />
               ))}
             </div>
@@ -225,18 +163,12 @@ export function ExperiencesHome() {
           )}
         </section>
 
-        <section className="mt-[36px]">
-          <SectionHead
-            title="Components"
-            count={total}
-            hint="Offers, cards and reasons you can reuse across cancel experiences."
-            action={<ViewToggle view={view} onChange={setView} />}
-          />
+        <section className="mt-[40px]">
+          <SectionHead title="Components" action={<ViewToggle view={view} onChange={setView} />} />
 
           <div role="tablist" aria-label="Component type" className="mb-[14px] flex flex-wrap items-center gap-[6px]">
             {(['all', ...order] as Filter[]).map((f) => {
               const on = filter === f
-              const n = f === 'all' ? total : found[f].length
               return (
                 <button
                   key={f}
@@ -244,12 +176,11 @@ export function ExperiencesHome() {
                   role="tab"
                   aria-selected={on}
                   onClick={() => setFilter(f)}
-                  className={`flex h-[28px] items-center gap-[6px] rounded-full border px-[11px] text-[12.5px] font-medium transition-colors ${
+                  className={`flex h-[28px] items-center rounded-full border px-[12px] text-[12.5px] font-medium transition-colors ${
                     on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                   }`}
                 >
                   {f === 'all' ? 'All' : KINDS[f].label}
-                  <span className={`tabular-nums ${on ? 'text-white/60' : 'text-slate-400'}`}>{n}</span>
                 </button>
               )
             })}
@@ -264,14 +195,14 @@ export function ExperiencesHome() {
               return view === 'list' ? (
                 <ListGroup key={k} kind={k} count={items.length} hidden={hidden} onMore={more}>
                   {visible.map((i) => (
-                    <ListRow key={i.id} kind={k} item={i} onClick={() => openLibrary(k, false, i.id)} />
+                    <ListRow key={i.id} item={i} onClick={() => openLibrary(k, false, i.id)} />
                   ))}
                   {items.length === 0 && <AddRow kind={k} />}
                 </ListGroup>
               ) : (
                 <GridGroup key={k} kind={k} count={items.length} onMore={more}>
                   {visible.map((i) => (
-                    <GridCard key={i.id} kind={k} item={i} onClick={() => openLibrary(k, false, i.id)} />
+                    <GridCard key={i.id} item={i} onClick={() => openLibrary(k, false, i.id)} />
                   ))}
                   {items.length === 0 && <AddTile kind={k} />}
                 </GridGroup>
@@ -285,16 +216,10 @@ export function ExperiencesHome() {
   )
 }
 
-function SectionHead({ title, count, hint, action }: { title: string; count: number; hint?: string; action?: ReactNode }) {
+function SectionHead({ title, action }: { title: string; action?: ReactNode }) {
   return (
-    <div className="mb-[12px] flex items-end justify-between gap-[12px]">
-      <div className="min-w-0">
-        <h2 className="flex items-baseline gap-[8px] text-[15px] font-semibold text-slate-900">
-          {title}
-          <span className="text-[13px] font-normal tabular-nums text-slate-400">{count}</span>
-        </h2>
-        {hint && <p className="mt-[2px] text-[12.5px] text-slate-500">{hint}</p>}
-      </div>
+    <div className="mb-[12px] flex min-h-[28px] items-center justify-between gap-[12px]">
+      <h2 className="text-[15px] font-semibold text-slate-900">{title}</h2>
       {action}
     </div>
   )
@@ -304,53 +229,20 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="rounded-xl border border-dashed border-slate-200 px-[16px] py-[20px] text-center text-[13px] text-slate-500">{children}</p>
 }
 
-function ExperienceCard({
-  title,
-  subtitle,
-  play,
-  live,
-  edited,
-  rank,
-  onClick,
-  drag,
-}: {
-  title: string
-  subtitle: string
-  play: string
-  live: boolean
-  edited: string
-  rank?: number
-  onClick: () => void
-  drag?: { onDragStart: () => void; onDragOver: (e: React.DragEvent) => void; onDrop: () => void; over: boolean }
-}) {
+function ExperienceCard({ title, play, live, edited, onClick }: { title: string; play: string; live: boolean; edited: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      draggable={Boolean(drag)}
-      onDragStart={drag?.onDragStart}
-      onDragOver={drag?.onDragOver}
-      onDrop={drag?.onDrop}
-      className={`group flex flex-col rounded-xl border bg-white px-[16px] pb-[12px] pt-[14px] text-left transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-[0_2px_10px_rgba(15,23,42,0.06)] ${
-        drag?.over ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200'
-      } ${drag ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className="flex min-w-0 flex-col gap-[4px] rounded-xl border border-slate-200 bg-white px-[16px] py-[14px] text-left transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-sm"
     >
-      <div className="flex w-full items-center gap-[10px]">
-        {rank !== undefined && (
-          <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-md bg-slate-100 text-[11.5px] font-semibold tabular-nums text-slate-600">
-            {rank}
-          </span>
-        )}
+      <span className="flex w-full items-center gap-[8px]">
         <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-slate-900">{title}</span>
-        <StatusChip live={live} />
-        {drag && <SIcon name="grip-vertical" size={15} className="flex-none text-slate-300" />}
-      </div>
-      <p className="mt-[4px] truncate text-[12.5px] text-slate-500">{subtitle}</p>
-      <div className="mt-[14px] flex w-full items-center gap-[6px] border-t border-slate-100 pt-[10px] text-[12px] text-slate-400">
-        <SIcon name="layers" size={13} className="flex-none" />
-        <span className="min-w-0 truncate">{play}</span>
-        <span className="ml-auto flex-none">{edited}</span>
-      </div>
+        {live && <StatusChip live />}
+      </span>
+      <span className="truncate text-[12.5px] text-slate-500">
+        {play} · {edited}
+      </span>
     </button>
   )
 }
@@ -381,14 +273,6 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
   )
 }
 
-function KindIcon({ kind, size = 30 }: { kind: Kind; size?: number }) {
-  return (
-    <span style={{ width: size, height: size }} className={`flex flex-none items-center justify-center rounded-lg ${KINDS[kind].tint}`}>
-      <SIcon name={KINDS[kind].icon} size={Math.round(size / 2)} />
-    </span>
-  )
-}
-
 function GroupHead({ kind, count, onMore, className }: { kind: Kind; count: number; onMore?: () => void; className?: string }) {
   return (
     <div className={`flex items-center justify-between gap-[12px] ${className ?? ''}`}>
@@ -402,8 +286,7 @@ function GroupHead({ kind, count, onMore, className }: { kind: Kind; count: numb
             Show all
           </button>
         )}
-        <button type="button" onClick={() => openLibrary(kind, true)} className="flex items-center gap-[4px] text-slate-500 hover:text-slate-900">
-          <SIcon name="plus" size={13} />
+        <button type="button" onClick={() => openLibrary(kind, true)} className="text-slate-500 hover:text-slate-900">
           New {KINDS[kind].one}
         </button>
       </div>
@@ -414,10 +297,10 @@ function GroupHead({ kind, count, onMore, className }: { kind: Kind; count: numb
 function ListGroup({ kind, count, hidden, onMore, children }: { kind: Kind; count: number; hidden: number; onMore?: () => void; children: ReactNode }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200">
-      <GroupHead kind={kind} count={count} className="border-b border-slate-200 bg-slate-50/70 px-[14px] py-[8px]" />
+      <GroupHead kind={kind} count={count} className="border-b border-slate-200 bg-slate-50 px-[16px] py-[8px]" />
       <ul>{children}</ul>
       {hidden > 0 && onMore && (
-        <button type="button" onClick={onMore} className="w-full border-t border-slate-100 px-[14px] py-[8px] text-left text-[12.5px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900">
+        <button type="button" onClick={onMore} className="w-full border-t border-slate-100 px-[16px] py-[9px] text-left text-[12.5px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900">
           {hidden} more {hidden === 1 ? KINDS[kind].one : `${KINDS[kind].one}s`}
         </button>
       )}
@@ -425,17 +308,15 @@ function ListGroup({ kind, count, hidden, onMore, children }: { kind: Kind; coun
   )
 }
 
-function ListRow({ kind, item, onClick }: { kind: Kind; item: Item; onClick: () => void }) {
+function ListRow({ item, onClick }: { item: Item; onClick: () => void }) {
   return (
     <li className="border-t border-slate-100 first:border-t-0">
-      <button type="button" onClick={onClick} className="group flex w-full items-center gap-[12px] px-[14px] py-[9px] text-left transition-colors hover:bg-slate-50">
-        <KindIcon kind={kind} />
+      <button type="button" onClick={onClick} className="flex w-full items-center gap-[16px] px-[16px] py-[10px] text-left transition-colors hover:bg-slate-50">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13.5px] font-medium text-slate-900">{item.title}</span>
-          {item.line && <span className="block truncate text-[12px] text-slate-500">{item.line}</span>}
+          {item.line && <span className="block truncate text-[12.5px] text-slate-500">{item.line}</span>}
         </span>
-        <span className="flex-none rounded-full bg-slate-100 px-[8px] py-[2px] text-[11.5px] font-medium text-slate-600">{item.detail}</span>
-        <SIcon name="chevron-right" size={14} className="flex-none text-slate-300 group-hover:text-slate-500" />
+        {item.detail && <span className="flex-none text-[12.5px] text-slate-500">{item.detail}</span>}
       </button>
     </li>
   )
@@ -443,11 +324,8 @@ function ListRow({ kind, item, onClick }: { kind: Kind; item: Item; onClick: () 
 
 function AddRow({ kind }: { kind: Kind }) {
   return (
-    <li className="border-t border-slate-100 first:border-t-0">
-      <button type="button" onClick={() => openLibrary(kind, true)} className="flex w-full items-center gap-[12px] px-[14px] py-[12px] text-left text-[13px] text-slate-500 hover:bg-slate-50 hover:text-slate-900">
-        <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg border border-dashed border-slate-300">
-          <SIcon name="plus" size={14} />
-        </span>
+    <li>
+      <button type="button" onClick={() => openLibrary(kind, true)} className="w-full px-[16px] py-[12px] text-left text-[13px] text-slate-500 hover:bg-slate-50 hover:text-slate-900">
         No {KINDS[kind].label.toLowerCase()} yet. Add the first one.
       </button>
     </li>
@@ -463,7 +341,7 @@ function GridGroup({ kind, count, onMore, children }: { kind: Kind; count: numbe
   )
 }
 
-function GridCard({ kind, item, onClick }: { kind: Kind; item: Item; onClick: () => void }) {
+function GridCard({ item, onClick }: { item: Item; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -471,12 +349,9 @@ function GridCard({ kind, item, onClick }: { kind: Kind; item: Item; onClick: ()
       className="group flex aspect-[3/4] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-[0_4px_16px_rgba(15,23,42,0.08)]"
     >
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden border-b border-slate-100 bg-slate-50 p-[14px]">{item.preview}</div>
-      <div className="flex items-center gap-[10px] px-[12px] py-[10px]">
-        <KindIcon kind={kind} size={26} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-medium text-slate-900">{item.title}</span>
-          <span className="block truncate text-[11.5px] text-slate-500">{item.detail}</span>
-        </span>
+      <div className="min-w-0 px-[12px] py-[10px]">
+        <span className="block truncate text-[13px] font-medium text-slate-900">{item.title}</span>
+        {item.detail && <span className="block truncate text-[12px] text-slate-500">{item.detail}</span>}
       </div>
     </button>
   )

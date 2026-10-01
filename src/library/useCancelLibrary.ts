@@ -69,11 +69,18 @@ export interface LibConfirmation {
   url: string
 }
 
+export interface LibRedirect {
+  id: string
+  name: string
+  url: string
+}
+
 interface CancelLibrary {
   offers: LibOffer[]
   reasons: LibReason[]
   cards: LibCard[]
   confirmations: LibConfirmation[]
+  redirects: LibRedirect[]
 }
 
 export type LibraryItems = CancelLibrary
@@ -117,6 +124,10 @@ function seed(): CancelLibrary {
       { id: 'conf_saved', name: 'Thanks for staying', kind: 'saved', title: 'You’re all set', body: 'Your offer is applied. Nothing else to do.', cta: 'Back to my account', url: '' },
       { id: 'conf_cancelled', name: 'Cancel confirmed', kind: 'cancelled', title: 'Your subscription is cancelled', body: 'You’ll keep access until the end of your billing period.', cta: 'Done', url: '' },
     ],
+    redirects: [
+      { id: 'redirect_help', name: 'Help center', url: 'https://help.example.com' },
+      { id: 'redirect_support', name: 'Talk to support', url: 'https://example.com/support' },
+    ],
   }
 }
 
@@ -131,6 +142,7 @@ function read(): CancelLibrary {
       reasons: saved.reasons ?? base.reasons,
       cards: saved.cards ?? base.cards,
       confirmations: saved.confirmations ?? base.confirmations,
+      redirects: saved.redirects ?? base.redirects,
     }
   } catch {
     return seed()
@@ -195,6 +207,10 @@ export function newCard(): string {
 
 export function newConfirmation(): string {
   return add('confirmations', { id: id('conf'), name: uniqueName('New confirmation', names(useCancelLibrary.getState().confirmations)), kind: 'cancelled', title: 'Your subscription is cancelled', body: '', cta: 'Done', url: '' })
+}
+
+export function newRedirect(): string {
+  return add('redirects', { id: id('redirect'), name: uniqueName('New redirect page', names(useCancelLibrary.getState().redirects)), url: '' })
 }
 
 /** Names inside one list stay unique, the same rule as plays and experiences. */

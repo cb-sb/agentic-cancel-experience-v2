@@ -63,7 +63,7 @@ export type Objective = 'acquisition' | 'expansion' | 'retention'
  */
 export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library'
 
-export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations'
+export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations' | 'redirects'
 
 /** v8 play tabs: the canvas of every variant, the play summary, and its task list. */
 export type PlayTab = 'canvas' | 'summary' | 'tasks'
