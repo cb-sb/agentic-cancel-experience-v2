@@ -7,6 +7,7 @@ import { playRows, useSetupInputs, workspaceRows } from '../setup/progress'
 import { useWorkspaceUi, type PlayTab, type PlayTabRef } from '../workspace/useWorkspaceUi'
 import { closePlayTab, openAnotherPlayTab, openOrder } from './navigate'
 import { PlayCanvas } from './PlayCanvas'
+import { PlayConfigure } from './PlayConfigure'
 import { noteInPlayChat, PlayChat } from './PlayChat'
 import { renamePlay, setPlayLive, usePlays } from './usePlays'
 import { Chip, InlineName, RowMenu } from './ui'
@@ -14,6 +15,7 @@ import type { CancelPlay } from './types'
 import { doInChat } from '../setup/actions'
 
 const PLAY_TAB: Record<PlayTab, { label: string; icon: SIconName; hint: string }> = {
+  configure: { label: 'Configure', icon: 'sliders-horizontal', hint: 'Set up who sees this play and which pages they get' },
   canvas: { label: 'Canvas', icon: 'workflow', hint: 'Every variant, and a test with a subscriber' },
   summary: { label: 'Summary', icon: 'file-text', hint: 'Every setting for this play' },
   tasks: { label: 'Task list', icon: 'list-checks', hint: 'What has to pass, and every setting' },
@@ -156,6 +158,7 @@ export function PlayWorkspace() {
           </div>
         </div>
         <div className="min-h-0 flex-1">
+          {active?.kind === 'configure' && <PlayConfigure key={active.id} play={play} />}
           {active?.kind === 'canvas' && <PlayCanvas key={active.id} play={play} />}
           {active?.kind === 'summary' && <PlaySummary key={active.id} play={play} />}
           {active?.kind === 'tasks' && <PlayTaskList key={active.id} playId={play.id} />}

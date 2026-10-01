@@ -15,7 +15,7 @@ export interface MenuItem {
   hint?: string
 }
 
-function useOutside(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
+export function useOutside(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {

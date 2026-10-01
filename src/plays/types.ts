@@ -10,10 +10,26 @@ export type SplitBy = 'percent' | 'segments'
 export interface PlayVariant {
   id: string
   experienceId: string
-  /** Share of treated traffic, 0 to 100. Used when the play splits by percent. */
+  /** Share of traffic, 0 to 100: of the play by percent, or of its sub-audience. */
   weight: number
-  /** Who this variant is for. Used when the play splits by sub-audience. No audience: everyone else. */
+  /** Saves from before sub-audiences held pages. Read once, then moved to `subAudiences`. */
   audience?: Audience
+  /** Split by sub-audience: the group this page is in. None: the fallback page. */
+  subAudienceId?: string
+}
+
+/** A group inside the play's audience. Its pages share its traffic, so it can run its own test. */
+export interface SubAudience {
+  id: string
+  audience: Audience
+}
+
+/** A test row with no page picked yet. Picking one turns it into a variant with this weight. */
+export interface EmptyRow {
+  id: string
+  /** Null: the play's own test. Otherwise the sub-audience's test. */
+  subAudienceId: string | null
+  weight: number
 }
 
 export type PlayStatus = 'draft' | 'live'
@@ -26,6 +42,9 @@ export interface CancelPlay {
   control: number
   splitBy: SplitBy
   variants: PlayVariant[]
+  /** Used when the play splits by sub-audience, in the order they are matched. */
+  subAudiences: SubAudience[]
+  emptyRows: EmptyRow[]
   status: PlayStatus
   /** Language the play's text is shown in. */
   language: string

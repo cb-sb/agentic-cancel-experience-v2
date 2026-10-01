@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { AUDIENCE_LIBRARY, type Audience } from '../types/orchestration'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { nameProblem, uniqueName } from './names'
-import { ALL_AUDIENCE, type CancelPlay, type PlayVariant, type SplitBy } from './types'
+import { ALL_AUDIENCE, type CancelPlay, type EmptyRow, type PlayVariant, type SplitBy, type SubAudience } from './types'
 
 const KEY = 'cancel-experience:plays:v8'
 
@@ -26,12 +26,26 @@ function persist() {
   }
 }
 
+/** Saves from before sub-audiences held pages: each page with its own audience becomes a sub-audience. */
+function normalize(p: CancelPlay): CancelPlay {
+  const subAudiences: SubAudience[] = [...(p.subAudiences ?? [])]
+  const variants = p.variants.map((v) => {
+    if (!v.audience) return v
+    const { audience, ...rest } = v
+    if (p.splitBy !== 'segments' || rest.subAudienceId) return rest
+    const sub = { id: newId('sub'), audience }
+    subAudiences.push(sub)
+    return { ...rest, subAudienceId: sub.id, weight: 100 }
+  })
+  return { ...p, variants, subAudiences, emptyRows: p.emptyRows ?? [] }
+}
+
 function read(): CancelPlay[] | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as { v?: number; plays?: CancelPlay[] }
-    return parsed.v === 1 && Array.isArray(parsed.plays) ? parsed.plays : null
+    return parsed.v === 1 && Array.isArray(parsed.plays) ? parsed.plays.map(normalize) : null
   } catch {
     return null
   }
@@ -61,6 +75,8 @@ function blankPlay(name: string, variants: PlayVariant[] = [], audience: Audienc
     control: 0,
     splitBy: 'percent',
     variants,
+    subAudiences: [],
+    emptyRows: [],
     status: 'draft',
     language: 'en',
     saveWindowDays: null,
@@ -69,8 +85,8 @@ function blankPlay(name: string, variants: PlayVariant[] = [], audience: Audienc
   }
 }
 
-function variantFor(experienceId: string, weight = 100): PlayVariant {
-  return { id: newId('var'), experienceId, weight }
+function variantFor(experienceId: string, weight = 100, subAudienceId?: string): PlayVariant {
+  return subAudienceId ? { id: newId('var'), experienceId, weight, subAudienceId } : { id: newId('var'), experienceId, weight }
 }
 
 /** Equal shares that add up to exactly 100. */
@@ -125,6 +141,18 @@ function seed(threads: ThreadLike[]): CancelPlay[] {
     plays.push(p)
   }
   if (quick) plays.push(blankPlay('Trial users', [variantFor(quick)], savedAudience('in_trial')))
+  if (fair && plan && quick) {
+    const annual = { id: newId('sub'), audience: savedAudience('annual') }
+    const risky = { id: newId('sub'), audience: savedAudience('high_risk') }
+    const p = blankPlay(
+      'Plan-based saves',
+      [variantFor(fair, 50, annual.id), variantFor(plan, 50, annual.id), variantFor(quick, 50, risky.id), variantFor(plan, 50, risky.id), variantFor(fair)],
+      savedAudience('all_paying'),
+    )
+    p.splitBy = 'segments'
+    p.subAudiences = [annual, risky]
+    plays.push(p)
+  }
   return plays
 }
 
@@ -180,7 +208,7 @@ export function duplicatePlay(id: string): string | null {
     ...src,
     id: newId('play'),
     name: uniqueName(`${src.name} copy`, playNames()),
-    variants: src.variants.map((v) => ({ ...v, id: newId('var') })),
+    ...copySubAudiences(src),
     status: 'draft',
     publishedAt: undefined,
     createdAt: now,
@@ -195,6 +223,16 @@ export function duplicatePlay(id: string): string | null {
   return copy.id
 }
 
+function copySubAudiences(src: CancelPlay): Pick<CancelPlay, 'variants' | 'subAudiences' | 'emptyRows'> {
+  const ids = new Map(src.subAudiences.map((x) => [x.id, newId('sub')]))
+  const subId = (id: string | null | undefined) => (id ? ids.get(id) : undefined)
+  return {
+    subAudiences: src.subAudiences.map((x) => ({ ...x, id: ids.get(x.id)! })),
+    variants: src.variants.map((v) => ({ ...v, id: newId('var'), ...(v.subAudienceId ? { subAudienceId: subId(v.subAudienceId) } : {}) })),
+    emptyRows: src.emptyRows.map((r) => ({ ...r, id: newId('row'), subAudienceId: subId(r.subAudienceId) ?? null })),
+  }
+}
+
 export function deletePlay(id: string) {
   set(usePlays.getState().plays.filter((p) => p.id !== id))
   const { priority, setPriority } = useCancelSettings.getState()
@@ -205,31 +243,194 @@ export function updatePlay(id: string, change: Partial<Omit<CancelPlay, 'id'>>) 
   patch(id, (p) => ({ ...p, ...change }))
 }
 
+/** Which test a page or empty row is in. Null: the play's own test, or the fallback when split by sub-audience. */
+export function groupOf(p: CancelPlay, row: { subAudienceId?: string | null }): string | null {
+  return p.splitBy === 'segments' ? (row.subAudienceId ?? null) : null
+}
+
+/** Spread 100% evenly over one test's pages and empty rows. The fallback is always one page. */
+function evenIn(p: CancelPlay, group: string | null): CancelPlay {
+  if (p.splitBy === 'segments' && group === null) return p
+  const ids = [
+    ...p.variants.filter((v) => groupOf(p, v) === group).map((v) => v.id),
+    ...p.emptyRows.filter((r) => r.subAudienceId === group).map((r) => r.id),
+  ]
+  if (ids.length === 0) return p
+  const base = Math.floor(100 / ids.length)
+  const extra = 100 - base * ids.length
+  const w = new Map(ids.map((id, i) => [id, base + (i < extra ? 1 : 0)]))
+  return {
+    ...p,
+    variants: p.variants.map((v) => (w.has(v.id) ? { ...v, weight: w.get(v.id)! } : v)),
+    emptyRows: p.emptyRows.map((r) => (w.has(r.id) ? { ...r, weight: w.get(r.id)! } : r)),
+  }
+}
+
+export function evenWeightsIn(playId: string, group: string | null) {
+  patch(playId, (p) => evenIn(p, group))
+}
+
+export function blankSubAudience(n: number): CancelPlay['audience'] {
+  return { id: newId('aud'), name: `Sub-audience ${n}`, ruleType: 'TARGETING', match: 'AND', conditions: [], savedAudienceId: null }
+}
+
+/** A sub-audience whose rules are not picked yet. It matches nobody. */
+export function audienceUnset(a: CancelPlay['audience']): boolean {
+  return !a.targetAll && !a.savedAudienceId && !(a.conditions?.length)
+}
+
+export type PlayAction = 'show' | 'test' | 'segments'
+
+/**
+ * What the play does with its audience: one page, a test of pages, or sub-audiences.
+ * Switching keeps the pages it can. One page keeps the first; sub-audiences take the pages into the first one.
+ */
+export function setAction(playId: string, action: PlayAction) {
+  patch(playId, (p) => {
+    const pages: PlayVariant[] = []
+    for (const v of p.variants) if (!pages.some((x) => x.experienceId === v.experienceId)) pages.push(v)
+    const flat = pages.map(({ subAudienceId: _, ...v }) => v)
+    if (action === 'show') {
+      return { ...p, splitBy: 'percent', subAudiences: [], emptyRows: [], variants: flat.slice(0, 1).map((v) => ({ ...v, weight: 100 })) }
+    }
+    if (action === 'test') {
+      const rows: EmptyRow[] = p.splitBy === 'percent' ? p.emptyRows : []
+      const missing = Math.max(0, 2 - flat.length - rows.length)
+      const emptyRows = [...rows, ...Array.from({ length: missing }, () => ({ id: newId('row'), subAudienceId: null, weight: 0 }))]
+      return evenIn({ ...p, splitBy: 'percent', subAudiences: [], emptyRows, variants: flat }, null)
+    }
+    if (p.splitBy === 'segments') return p
+    const first: SubAudience = { id: newId('sub'), audience: blankSubAudience(1) }
+    const next: CancelPlay = {
+      ...p,
+      splitBy: 'segments',
+      subAudiences: [first],
+      variants: flat.map((v) => ({ ...v, subAudienceId: first.id })),
+      emptyRows: p.emptyRows.map((r) => ({ ...r, subAudienceId: first.id })),
+    }
+    return evenIn(next, first.id)
+  })
+}
+
+/** Older callers: percent becomes one page or a test, depending on how many pages there are. */
 export function setSplitBy(id: string, splitBy: SplitBy) {
-  patch(id, (p) => ({ ...p, splitBy, variants: splitBy === 'percent' ? evenWeights(p.variants) : p.variants }))
+  const play = usePlays.getState().plays.find((p) => p.id === id)
+  if (!play) return
+  setAction(id, splitBy === 'segments' ? 'segments' : play.variants.length > 1 ? 'test' : 'show')
+}
+
+export function addSubAudience(playId: string, audience?: CancelPlay['audience']): string {
+  const id = newId('sub')
+  patch(playId, (p) => ({ ...p, subAudiences: [...p.subAudiences, { id, audience: audience ?? blankSubAudience(p.subAudiences.length + 1) }] }))
+  return id
+}
+
+export function setSubAudience(playId: string, subId: string, audience: CancelPlay['audience']) {
+  patch(playId, (p) => ({ ...p, subAudiences: p.subAudiences.map((x) => (x.id === subId ? { ...x, audience } : x)) }))
+}
+
+/** Its pages leave the play with it. */
+export function removeSubAudience(playId: string, subId: string) {
+  patch(playId, (p) => ({
+    ...p,
+    subAudiences: p.subAudiences.filter((x) => x.id !== subId),
+    variants: p.variants.filter((v) => v.subAudienceId !== subId),
+    emptyRows: p.emptyRows.filter((r) => r.subAudienceId !== subId),
+  }))
+}
+
+/** One more row in a test: an empty one, or straight to a page. Null group: the play's own test. */
+export function addRow(playId: string, group: string | null, experienceId?: string) {
+  patch(playId, (p) => {
+    if (experienceId) {
+      if (p.variants.some((v) => groupOf(p, v) === group && v.experienceId === experienceId)) return p
+      return evenIn({ ...p, variants: [...p.variants, variantFor(experienceId, 0, group ?? undefined)] }, group)
+    }
+    return evenIn({ ...p, emptyRows: [...p.emptyRows, { id: newId('row'), subAudienceId: group, weight: 0 }] }, group)
+  })
+}
+
+/**
+ * Picks the page for a row. An empty row becomes a page with its weight. With no row,
+ * it fills the group: the only page of one-page plays, or the fallback.
+ * False when that test already has the page.
+ */
+export function setRowPage(playId: string, group: string | null, rowId: string | null, experienceId: string): boolean {
+  const play = usePlays.getState().plays.find((p) => p.id === playId)
+  if (!play) return false
+  const clash = play.variants.some((v) => groupOf(play, v) === group && v.experienceId === experienceId && v.id !== rowId)
+  if (clash) return false
+  patch(playId, (p) => {
+    const empty = p.emptyRows.find((r) => r.id === rowId)
+    if (empty) {
+      return {
+        ...p,
+        emptyRows: p.emptyRows.filter((r) => r.id !== rowId),
+        variants: [...p.variants, variantFor(experienceId, empty.weight, group ?? undefined)],
+      }
+    }
+    if (rowId) return { ...p, variants: p.variants.map((v) => (v.id === rowId ? { ...v, experienceId } : v)) }
+    const rest = p.variants.filter((v) => groupOf(p, v) !== group)
+    return { ...p, variants: [...rest, variantFor(experienceId, 100, group ?? undefined)] }
+  })
+  return true
+}
+
+/** Moves one row's share. With two rows in the test, the other takes the rest. */
+export function setRowWeight(playId: string, rowId: string, weight: number) {
+  const w = Math.max(0, Math.min(100, Math.round(weight)))
+  patch(playId, (p) => {
+    const row = p.variants.find((v) => v.id === rowId) ?? p.emptyRows.find((r) => r.id === rowId)
+    if (!row) return p
+    const group = groupOf(p, row)
+    const ids = [...p.variants.filter((v) => groupOf(p, v) === group).map((v) => v.id), ...p.emptyRows.filter((r) => r.subAudienceId === group).map((r) => r.id)]
+    const other = ids.length === 2 ? ids.find((id) => id !== rowId) : undefined
+    const next = (id: string, cur: number) => (id === rowId ? w : id === other ? 100 - w : cur)
+    return {
+      ...p,
+      variants: p.variants.map((v) => ({ ...v, weight: next(v.id, v.weight) })),
+      emptyRows: p.emptyRows.map((r) => ({ ...r, weight: next(r.id, r.weight) })),
+    }
+  })
+}
+
+export function removeRow(playId: string, rowId: string) {
+  patch(playId, (p) => {
+    const row = p.variants.find((v) => v.id === rowId) ?? p.emptyRows.find((r) => r.id === rowId)
+    if (!row) return p
+    const group = groupOf(p, row)
+    return evenIn({ ...p, variants: p.variants.filter((v) => v.id !== rowId), emptyRows: p.emptyRows.filter((r) => r.id !== rowId) }, group)
+  })
 }
 
 export function setVariant(playId: string, variantId: string, change: Partial<Omit<PlayVariant, 'id'>>) {
   patch(playId, (p) => ({ ...p, variants: p.variants.map((v) => (v.id === variantId ? { ...v, ...change } : v)) }))
 }
 
-/** False when the experience is already in that play. */
+/**
+ * False when the experience is already in that play. Split by sub-audience, it fills
+ * the fallback first, then joins the last sub-audience's test.
+ */
 export function addToPlay(playId: string, experienceId: string, at?: number): boolean {
   const play = usePlays.getState().plays.find((p) => p.id === playId)
   if (!play || play.variants.some((v) => v.experienceId === experienceId)) return false
   patch(playId, (p) => {
+    if (p.splitBy === 'segments') {
+      const hasFallback = p.variants.some((v) => !v.subAudienceId)
+      const last = p.subAudiences[p.subAudiences.length - 1]
+      const group = hasFallback && last ? last.id : null
+      if (group === null && hasFallback) return p
+      return evenIn({ ...p, variants: [...p.variants, variantFor(experienceId, group ? 0 : 100, group ?? undefined)] }, group)
+    }
     const next = [...p.variants]
     next.splice(at ?? next.length, 0, variantFor(experienceId))
-    return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next }
+    return evenIn({ ...p, variants: next }, null)
   })
   return true
 }
 
 export function removeFromPlay(playId: string, variantId: string) {
-  patch(playId, (p) => {
-    const next = p.variants.filter((v) => v.id !== variantId)
-    return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next }
-  })
+  removeRow(playId, variantId)
 }
 
 /** Moves a variant to another play. False when the target already has that experience. */
@@ -268,8 +469,10 @@ export function dropExperience(experienceId: string) {
   set(
     plays.map((p) => {
       if (!p.variants.some((v) => v.experienceId === experienceId)) return p
-      const next = p.variants.filter((v) => v.experienceId !== experienceId)
-      return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next, updatedAt: Date.now() }
+      const groups = new Set(p.variants.filter((v) => v.experienceId === experienceId).map((v) => groupOf(p, v)))
+      let next: CancelPlay = { ...p, variants: p.variants.filter((v) => v.experienceId !== experienceId), updatedAt: Date.now() }
+      for (const g of groups) next = evenIn(next, g)
+      return next
     }),
   )
 }

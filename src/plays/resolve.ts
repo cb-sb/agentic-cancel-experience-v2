@@ -1,6 +1,7 @@
 import { audienceMatches, bucket, type SampleSubscriber } from '../play/resolve'
 import { audienceSummary, type Audience } from '../types/orchestration'
-import { variantLetter, type CancelPlay, type PlayVariant } from './types'
+import { variantLetter, type CancelPlay, type PlayVariant, type SubAudience } from './types'
+import { audienceUnset } from './usePlays'
 
 /** One decision on the way through a play, in the words the canvas shows. */
 export interface TraceStep {
@@ -26,15 +27,36 @@ export function audienceText(a: Audience): string {
   return a.name || audienceSummary(a)
 }
 
+/** The sub-audience a page is in, when the play splits by sub-audience. */
+export function subAudienceOf(play: CancelPlay, v: PlayVariant): SubAudience | undefined {
+  return play.splitBy === 'segments' && v.subAudienceId ? play.subAudiences.find((x) => x.id === v.subAudienceId) : undefined
+}
+
+/** The pages in one sub-audience's test. */
+export function pagesIn(play: CancelPlay, subId: string): PlayVariant[] {
+  return play.variants.filter((v) => v.subAudienceId === subId)
+}
+
 /** Who a variant reaches, in a few words. */
 export function variantShare(play: CancelPlay, v: PlayVariant): string {
   if (play.splitBy === 'percent') return `${v.weight}%`
-  return v.audience ? audienceText(v.audience) : 'Everyone else'
+  const sub = subAudienceOf(play, v)
+  if (!sub) return 'Fallback'
+  const name = audienceText(sub.audience)
+  return pagesIn(play, sub.id).length > 1 ? `${name} · ${v.weight}%` : name
 }
 
-/** The variant that gets whoever no sub-audience matches: the first one without an audience. */
+/** The page for whoever no sub-audience matches. */
 export function fallbackVariant(play: CancelPlay): PlayVariant | undefined {
-  return play.variants.find((v) => !v.audience)
+  return play.variants.find((v) => !v.subAudienceId)
+}
+
+function byWeight(pages: PlayVariant[], roll: number): PlayVariant {
+  let acc = 0
+  return pages.find((v) => {
+    acc += v.weight
+    return roll < acc
+  }) ?? pages[pages.length - 1]
 }
 
 function why(a: Audience, props: Record<string, string>, matched: boolean): string {
@@ -97,18 +119,24 @@ export function runPlay(
     reason = 'Only one variant'
   } else if (play.splitBy === 'percent') {
     const roll = bucket(sub.id, play.id)
-    let acc = 0
-    chosen = play.variants.find((v) => {
-      acc += v.weight
-      return roll < acc
-    }) ?? play.variants[play.variants.length - 1]
+    chosen = byWeight(play.variants, roll)
     reason = `Bucket ${roll} goes to Variant ${variantLetter(play.variants.indexOf(chosen))}`
   } else {
-    chosen = play.variants.find((v) => v.audience && audienceMatches(v.audience, sub.props))
-    if (chosen) reason = `Matches ${audienceText(chosen.audience!)}`
-    else {
+    const group = play.subAudiences.find((x) => !audienceUnset(x.audience) && pagesIn(play, x.id).length > 0 && audienceMatches(x.audience, sub.props))
+    if (group) {
+      const pages = pagesIn(play, group.id)
+      const name = audienceText(group.audience)
+      if (pages.length === 1) {
+        chosen = pages[0]
+        reason = `Matches ${name}`
+      } else {
+        const roll = bucket(sub.id, `${play.id}:${group.id}`)
+        chosen = byWeight(pages, roll)
+        reason = `Matches ${name}. Bucket ${roll} goes to its ${chosen.weight}% page`
+      }
+    } else {
       chosen = fallbackVariant(play)
-      reason = chosen ? 'No sub-audience matched, so they get everyone else' : 'No sub-audience matched and there is no variant for everyone else'
+      reason = chosen ? 'No sub-audience matched, so they get the fallback page' : 'No sub-audience matched and there is no fallback page'
     }
   }
   if (!chosen) {
@@ -192,4 +220,29 @@ export function overlaps(ranked: CancelPlay[]): Overlap[] {
     if (above) out.push({ playId: play.id, coveredBy: above.id })
   })
   return out
+}
+
+/** Whether the play reaches more than one page, or is still being split. */
+export function hasSplit(play: CancelPlay): boolean {
+  return play.splitBy === 'segments' || play.variants.length > 1 || play.emptyRows.length > 0
+}
+
+/** What is wrong with how the play divides people, in a sentence. Null when it is sound. */
+export function splitProblem(play: CancelPlay): string | null {
+  const sum = (pages: PlayVariant[]) => pages.reduce((a, v) => a + v.weight, 0)
+  if (play.emptyRows.length > 0) return 'Pick a cancel page for every row'
+  if (play.splitBy === 'percent') {
+    if (play.variants.length < 2) return null
+    const total = sum(play.variants)
+    return total === 100 ? null : `The shares add up to ${total}%, not 100%`
+  }
+  if (play.subAudiences.length === 0) return 'Add a sub-audience'
+  for (const [i, x] of play.subAudiences.entries()) {
+    const name = audienceUnset(x.audience) ? `Sub-audience ${i + 1}` : audienceText(x.audience)
+    if (audienceUnset(x.audience)) return `Pick who is in ${name}`
+    const pages = pagesIn(play, x.id)
+    if (pages.length === 0) return `Pick a cancel page for ${name}`
+    if (pages.length > 1 && sum(pages) !== 100) return `${name} adds up to ${sum(pages)}%, not 100%`
+  }
+  return fallbackVariant(play) ? null : 'Pick a fallback page for people in no sub-audience'
 }

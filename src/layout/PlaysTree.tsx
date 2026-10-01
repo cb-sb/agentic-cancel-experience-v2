@@ -1,9 +1,11 @@
 import { useEffect, useState, type DragEvent } from 'react'
 import { SIcon } from '@chargebee/sting-react'
 import { useOrchestration } from '../store/useOrchestration'
-import { createExperience, openExperience, openPlay } from '../plays/navigate'
+import { createExperience, openConfigure, openExperience, openPlay } from '../plays/navigate'
 import {
+  addSubAudience,
   addToPlay,
+  audienceUnset,
   createPlay,
   deletePlay,
   duplicatePlay,
@@ -15,7 +17,7 @@ import {
   useRankedPlays,
 } from '../plays/usePlays'
 import { variantLetter, type CancelPlay, type PlayVariant } from '../plays/types'
-import { variantShare } from '../plays/resolve'
+import { audienceText, fallbackVariant, pagesIn, variantShare } from '../plays/resolve'
 import { Chip, InlineName, RowMenu, toast, type MenuItem } from '../plays/ui'
 import {
   deleteThread,
@@ -235,6 +237,15 @@ function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; on
   const renaming = useWorkspaceUi((s) => s.renaming === play.id)
   const [over, setOver] = useState(false)
   const current = page === 'play' && playId === play.id
+  const variantRow = (v: PlayVariant) => (
+    <VariantRow
+      key={v.id}
+      play={play}
+      v={v}
+      index={play.variants.indexOf(v)}
+      current={page === 'thread' && playId === play.id && activeId === v.experienceId}
+    />
+  )
   const items: MenuItem[] = [
     { label: 'Rename', icon: 'pencil', onClick: () => useWorkspaceUi.getState().setRenaming(play.id) },
     {
@@ -319,25 +330,85 @@ function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; on
       </div>
       {open && (
         <div className="ml-[15px] flex flex-col gap-[1px] border-l border-slate-200 py-[2px] pl-[6px]">
-          {play.variants.map((v, i) => (
-            <VariantRow
-              key={v.id}
-              play={play}
-              v={v}
-              index={i}
-              current={page === 'thread' && playId === play.id && activeId === v.experienceId}
-            />
-          ))}
+          <TreeLabel
+            icon="users"
+            muted
+            title="Audience. Opens Configure."
+            onClick={() => openConfigure(play.id, 1)}
+          >
+            {play.audience.targetAll ? 'All subscribers' : audienceUnset(play.audience) ? 'No audience yet' : audienceText(play.audience)}
+          </TreeLabel>
+          {play.splitBy === 'segments' ? (
+            <>
+              {play.subAudiences.map((x, n) => (
+                <div key={x.id}>
+                  <TreeLabel icon="users-round" title="Sub-audience. Opens Configure." onClick={() => openConfigure(play.id, 2)}>
+                    {audienceUnset(x.audience) ? `Sub-audience ${n + 1}` : audienceText(x.audience)}
+                  </TreeLabel>
+                  <Nested>
+                    {pagesIn(play, x.id).map((v) => variantRow(v))}
+                    {pagesIn(play, x.id).length === 0 && <EmptyLine />}
+                  </Nested>
+                </div>
+              ))}
+              <div>
+                <TreeLabel icon="shield" title="For people in no sub-audience. Opens Configure." onClick={() => openConfigure(play.id, 2)}>
+                  Fallback
+                </TreeLabel>
+                <Nested>{fallbackVariant(play) ? variantRow(fallbackVariant(play)!) : <EmptyLine />}</Nested>
+              </div>
+            </>
+          ) : (
+            play.variants.map((v) => variantRow(v))
+          )}
           <div
             className={`flex items-center ${play.variants.length === 0 ? '' : 'invisible group-hover/play:visible group-focus-within/play:visible'}`}
           >
-            <AddVariant play={play} />
-            <span className="pl-[4px] text-[11.5px] text-slate-400">Add variant</span>
+            {play.splitBy === 'segments' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  addSubAudience(play.id)
+                  openConfigure(play.id, 2)
+                }}
+                className="ml-[2px] flex h-6 items-center gap-[4px] rounded-md pl-[5px] pr-[6px] text-[11.5px] text-slate-400 hover:bg-white hover:text-slate-800"
+              >
+                <SIcon name="plus" size={13} /> Add sub-audience
+              </button>
+            ) : (
+              <>
+                <AddVariant play={play} />
+                <span className="pl-[4px] text-[11.5px] text-slate-400">Add variant</span>
+              </>
+            )}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+/** A non-page line in a play's tree: its audience, a sub-audience, or the fallback. */
+function TreeLabel({ icon, children, title, muted, onClick }: { icon: 'users' | 'users-round' | 'shield'; children: React.ReactNode; title: string; muted?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`flex h-7 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] text-left text-[12px] hover:bg-slate-200/50 ${muted ? 'text-slate-400' : 'font-medium text-slate-600'}`}
+    >
+      <SIcon name={icon} size={12} className="flex-none opacity-80" />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </button>
+  )
+}
+
+function Nested({ children }: { children: React.ReactNode }) {
+  return <div className="ml-[13px] flex flex-col gap-[1px] border-l border-slate-200 pl-[6px]">{children}</div>
+}
+
+function EmptyLine() {
+  return <p className="flex h-7 items-center pl-[8px] text-[11.5px] text-slate-400">No page yet</p>
 }
 
 function LooseRow({ thread, current }: { thread: ExperienceThread; current: boolean }) {

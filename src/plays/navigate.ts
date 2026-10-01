@@ -1,7 +1,7 @@
 import { useOrchestration } from '../store/useOrchestration'
 import { useUpload } from '../upload/useUpload'
 import { newThread, switchThread, useWorkspace } from '../workspace/useWorkspace'
-import { useWorkspaceUi, type LibraryKind, type PlayTab, type PlayTabRef } from '../workspace/useWorkspaceUi'
+import { useWorkspaceUi, type ConfigureStep, type LibraryKind, type PlayTab, type PlayTabRef } from '../workspace/useWorkspaceUi'
 import { useJourney } from '../store/useJourney'
 import type { ShellLayout } from '../types/experience'
 import { addToPlay, usePlays } from './usePlays'
@@ -11,12 +11,25 @@ function leaveOverlays() {
   if (useUpload.getState().phase !== 'closed' && !useUpload.getState().mappingOnly) useUpload.getState().close()
 }
 
-/** A play's own workspace: the canvas of every variant, its summary, its tasks. */
+/** A play's own workspace, with Configure and the canvas open. A play with no pages yet starts on Configure. */
 export function openPlay(playId: string) {
   leaveOverlays()
   const ui = useWorkspaceUi.getState()
-  if (!ui.playTabs[playId]) ui.setPlayTabs(playId, { open: [{ id: `${playId}-canvas`, kind: 'canvas' }], active: `${playId}-canvas` })
+  if (!ui.playTabs[playId]) {
+    const empty = !usePlays.getState().plays.find((p) => p.id === playId)?.variants.length
+    const open: PlayTabRef[] = [
+      { id: `${playId}-configure`, kind: 'configure' },
+      { id: `${playId}-canvas`, kind: 'canvas' },
+    ]
+    ui.setPlayTabs(playId, { open, active: empty ? open[0].id : open[1].id })
+  }
   useWorkspaceUi.setState({ page: 'play', playId })
+}
+
+/** The play's Configure tab, on one step. */
+export function openConfigure(playId: string, step: ConfigureStep) {
+  useWorkspaceUi.getState().setConfigureStep(playId, step)
+  openPlayTab(playId, 'configure')
 }
 
 /** An experience, opened from inside a play (or from "Not in a play" when `playId` is null). */

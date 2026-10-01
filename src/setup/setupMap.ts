@@ -1,7 +1,8 @@
 import { isBrandMatched } from '../brand/matchSite'
 import type { JourneyFile } from '../journey/types'
 import { offerVariantLabel } from '../lib/offerVariants'
-import { audienceText, variantShare } from '../plays/resolve'
+import { audienceText, fallbackVariant, hasSplit, pagesIn, variantShare } from '../plays/resolve'
+import { audienceUnset } from '../plays/usePlays'
 import { LANGUAGES, variantLetter, type CancelPlay } from '../plays/types'
 import { experienceCtx, type SetupInputs } from './progress'
 import { WORKSPACE_TARGET } from './registry'
@@ -103,8 +104,20 @@ export function playMap(play: CancelPlay, i: SetupInputs, order: string[]): MapR
     row('playName', 'Name', play.name),
     row('audience', 'Audience', audienceText(play.audience)),
     row('variants', 'Experiences', titles.length === 0 ? 'None yet' : titles.map((t, n) => `${variantLetter(n)}: ${t}`).join(', '), 'hasExperience'),
-    ...(play.variants.length > 1
-      ? [row('split', play.splitBy === 'percent' ? 'Split by percentage' : 'Split by sub-audience', play.variants.map((v, n) => `${variantLetter(n)} ${variantShare(play, v)}`).join(', '), 'splitAddsUp')]
+    ...(hasSplit(play)
+      ? [
+          row(
+            'split',
+            play.splitBy === 'percent' ? 'Split by percentage' : 'Split by sub-audience',
+            play.splitBy === 'percent'
+              ? play.variants.map((v, n) => `${variantLetter(n)} ${variantShare(play, v)}`).join(', ')
+              : [
+                  ...play.subAudiences.map((x, n) => `${audienceUnset(x.audience) ? `Sub-audience ${n + 1}` : audienceText(x.audience)}: ${plural(pagesIn(play, x.id).length, 'page')}`),
+                  `Fallback: ${fallbackVariant(play) ? 'set' : 'not set'}`,
+                ].join(', '),
+            'splitAddsUp',
+          ),
+        ]
       : []),
     row('control', 'Control group', play.control > 0 ? `${play.control}% see no cancel page` : 'None'),
     ...(order.length > 1 && rank >= 0 ? [row('priority', 'Place in play order', `${rank + 1} of ${order.length}`)] : []),

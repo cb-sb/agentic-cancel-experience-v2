@@ -230,7 +230,7 @@ function newCondition(): AudienceCondition {
  * to change it; the rest repeat it as plain text. Sub-rules sit behind a rail,
  * with their own join, and bracket with their parent.
  */
-function RuleBuilder({
+export function RuleBuilder({
   conditions,
   match,
   onChange,

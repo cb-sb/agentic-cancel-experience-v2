@@ -65,8 +65,10 @@ export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library'
 
 export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations' | 'redirects'
 
-/** v8 play tabs: the canvas of every variant, the play summary, and its task list. */
-export type PlayTab = 'canvas' | 'summary' | 'tasks'
+/** v8 play tabs: the setup wizard, the canvas of every variant, the play summary, and its task list. */
+export type PlayTab = 'configure' | 'canvas' | 'summary' | 'tasks'
+
+export type ConfigureStep = 1 | 2 | 3
 
 export interface PlayTabRef {
   id: string
@@ -98,6 +100,8 @@ interface WorkspaceUi {
   /** v8: the play the merchant came in through. An experience opened from a play keeps it. */
   playId: string | null
   playTabs: Record<string, PlayTabs>
+  /** The step each play's Configure tab is on. */
+  configureStep: Record<string, ConfigureStep>
   libraryKind: LibraryKind
   /** Bumped by the Create menu to open the library's new-item form. */
   libraryNew: number
@@ -120,6 +124,7 @@ interface WorkspaceUi {
   setSearchOpen: (open: boolean) => void
   setPreviewAs: (id: string) => void
   setPlayTabs: (playId: string, tabs: PlayTabs) => void
+  setConfigureStep: (playId: string, step: ConfigureStep) => void
   setRenaming: (id: string | null) => void
   setCopilotCollapsed: (collapsed: boolean) => void
 }
@@ -148,6 +153,7 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   previewAs: '',
   playId: null,
   playTabs: {},
+  configureStep: {},
   libraryKind: 'offers',
   libraryNew: 0,
   libraryFocus: null,
@@ -167,6 +173,7 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   setSearchOpen: (searchOpen) => set({ searchOpen }),
   setPreviewAs: (previewAs) => set({ previewAs }),
   setPlayTabs: (playId, tabs) => set((s) => ({ playTabs: { ...s.playTabs, [playId]: tabs } })),
+  setConfigureStep: (playId, step) => set((s) => ({ configureStep: { ...s.configureStep, [playId]: step } })),
   setRenaming: (renaming) => set({ renaming }),
   setCopilotCollapsed: (copilotCollapsed) => set({ copilotCollapsed }),
 }))
