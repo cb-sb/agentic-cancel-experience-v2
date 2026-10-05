@@ -16,7 +16,8 @@ import { fmt, population, POPULATION_SIZE } from './population'
 import { audienceText, overlaps, resolveWorkspace, variantShare, type WorkspaceEntry, type WorkspaceRun } from './resolve'
 import { SubscriberPicker } from './TestDrawer'
 import { variantLetter, type CancelPlay } from './types'
-import { useRankedPlays } from './usePlays'
+import { createPlay, useRankedPlays } from './usePlays'
+import { V9 } from '../layout/layoutMode'
 import { logSession, markWalked, useTestSessions } from './useTestSessions'
 
 const DRAG = 'application/x-cancel-play'
@@ -93,7 +94,7 @@ function PinnedRow({ icon, title, detail, children }: { icon: SIconName; title: 
   )
 }
 
-function OrderList({ ranked }: { ranked: CancelPlay[] }) {
+function OrderList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
   const ids = ranked.map((p) => p.id)
   const warn = useMemo(() => new Map(overlaps(ranked).map((o) => [o.playId, o.coveredBy])), [ranked])
   const shells = useShells(ranked)
@@ -117,7 +118,8 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
         <span className="w-[32px] flex-none text-right text-[12.5px] font-medium tabular-nums text-slate-700">{globalControl === 0 ? 'Off' : `${globalControl}%`}</span>
       </PinnedRow>
 
-      {ranked.map((p, i) => {
+      {shown.map((p) => {
+        const i = ranked.indexOf(p)
         const cover = warn.get(p.id)
         const coverPlay = cover ? ranked.find((x) => x.id === cover) : undefined
         return (
@@ -168,7 +170,9 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
                     </Tag>
                   ))}
                   <Tag icon="split">
-                    {p.variants.length} variant{p.variants.length === 1 ? '' : 's'}
+                    {p.splitBy === 'segments'
+                      ? `${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
+                      : `${p.variants.length} variant${p.variants.length === 1 ? '' : 's'}`}
                   </Tag>
                 </div>
                 <div className="flex flex-none items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
@@ -197,7 +201,11 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
           </li>
         )
       })}
-      {ranked.length === 0 && <li className="rounded-xl border border-dashed border-slate-200 px-[16px] py-[14px] text-[13px] text-slate-500">No plays yet.</li>}
+      {shown.length === 0 && (
+        <li className="rounded-xl border border-dashed border-slate-200 px-[16px] py-[14px] text-[13px] text-slate-500">
+          {ranked.length === 0 ? 'No plays yet.' : 'No plays match.'}
+        </li>
+      )}
 
       <PinnedRow icon="corner-down-right" title="If no play matches" detail="What people get when they qualify for none of the plays above.">
         <select
@@ -683,26 +691,95 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
 }
 
 /** The order plays are checked in, with the steps before and after them, and a canvas to test it. */
+type StatusFilter = 'all' | 'live' | 'draft'
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'live', label: 'Live' },
+  { id: 'draft', label: 'Drafts' },
+]
+
+function newPlay() {
+  const id = createPlay()
+  openPlay(id)
+  useWorkspaceUi.getState().setRenaming(id)
+}
+
+/** v9: find a play by name or audience, and narrow to live or drafts. */
+function PlaysToolbar({ query, onQuery, status, onStatus }: { query: string; onQuery: (q: string) => void; status: StatusFilter; onStatus: (s: StatusFilter) => void }) {
+  return (
+    <div className="mb-[14px] flex items-center gap-[10px]">
+      <div className="flex h-[32px] min-w-0 flex-1 items-center gap-[8px] rounded-lg border border-slate-200 bg-white px-[10px] focus-within:border-slate-400">
+        <SIcon name="search" size={14} className="flex-none text-slate-400" />
+        <input
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Search plays by name or audience"
+          aria-label="Search plays"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 outline-none placeholder:text-slate-400"
+        />
+        {query && (
+          <button type="button" aria-label="Clear search" onClick={() => onQuery('')} className="flex-none rounded p-[2px] text-slate-400 hover:text-slate-700">
+            <SIcon name="x" size={14} />
+          </button>
+        )}
+      </div>
+      <div role="tablist" aria-label="Status" className="flex flex-none items-center gap-[4px]">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            role="tab"
+            aria-selected={status === f.id}
+            onClick={() => onStatus(f.id)}
+            className={`h-[28px] rounded-full border px-[12px] text-[12.5px] font-medium transition-colors ${
+              status === f.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function PlayOrder() {
   const ranked = useRankedPlays()
   const [view, setView] = useState<View>('order')
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('all')
+  const q = query.trim().toLowerCase()
+  const shown = ranked.filter(
+    (p) =>
+      (status === 'all' || (status === 'live') === (p.status === 'live')) &&
+      (!q || p.name.toLowerCase().includes(q) || audienceText(p.audience).toLowerCase().includes(q)),
+  )
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-slate-50">
       <header className={`flex-none ${view === 'canvas' ? 'border-b border-slate-200 bg-white' : ''}`}>
         <div className={`flex items-end justify-between gap-[16px] px-[28px] ${view === 'canvas' ? 'py-[14px]' : 'mx-auto max-w-[900px] pb-[4px] pt-[24px]'}`}>
           <div className="min-w-0">
-            <h1 className="text-[20px] font-semibold text-slate-900">Play order and testing</h1>
+            <h1 className="text-[20px] font-semibold text-slate-900">{V9 ? 'Plays' : 'Play order and testing'}</h1>
             <p className="mt-[4px] text-[13px] text-slate-500">
               When someone clicks Cancel, plays are checked from the top and the first one they qualify for wins. New plays start at the bottom.
             </p>
           </div>
-          <ViewSwitch view={view} onChange={setView} />
+          <div className="flex flex-none items-center gap-[8px]">
+            <ViewSwitch view={view} onChange={setView} />
+            {V9 && (
+              <SButton size="small" variant="primary" className="w-auto" onClick={newPlay}>
+                New play
+              </SButton>
+            )}
+          </div>
         </div>
       </header>
       {view === 'order' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[900px] px-[28px] pb-[32px] pt-[16px]">
-            <OrderList ranked={ranked} />
+            {V9 && <PlaysToolbar query={query} onQuery={setQuery} status={status} onStatus={setStatus} />}
+            <OrderList ranked={ranked} shown={V9 ? shown : ranked} />
           </div>
         </div>
       ) : (

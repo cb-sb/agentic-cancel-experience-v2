@@ -10,12 +10,20 @@ import { useOrchestration } from '../store/useOrchestration'
 import { orderedThreads, switchThread, threadIsLive, useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { createMenuItems } from './createMenu'
+import { V9 } from './layoutMode'
 import { StatusChip } from './StatusChip'
 import { ago } from './ThreadSidebar'
 
 type View = 'list' | 'grid'
 type Kind = 'offers' | 'cards' | 'reasons'
 type Filter = 'all' | Kind
+type PlayFilter = 'all' | 'in' | 'out'
+
+const PLAY_FILTERS: { id: PlayFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'in', label: 'In a play' },
+  { id: 'out', label: 'Not in a play' },
+]
 
 const VIEW_KEY = 'cancel-experience:components-view:v8'
 const LIST_CAP = 5
@@ -60,6 +68,7 @@ export function ExperiencesHome() {
   const [query, setQuery] = useState('')
   const [view, setViewState] = useState<View>(readView)
   const [filter, setFilter] = useState<Filter>('all')
+  const [playFilter, setPlayFilter] = useState<PlayFilter>('all')
 
   const setView = (v: View) => {
     setViewState(v)
@@ -74,7 +83,10 @@ export function ExperiencesHome() {
   const matches = (...s: string[]) => !q || s.some((x) => x.toLowerCase().includes(q))
 
   const cancelThreads = threads.filter((t) => t.title !== 'New experience' || t.snapshot?.chat.lines.length)
-  const experiences = orderedThreads(cancelThreads).filter((t) => matches(t.title))
+  const inAPlay = new Set(plays.flatMap((p) => p.variants.map((v) => v.experienceId)))
+  const experiences = orderedThreads(cancelThreads).filter(
+    (t) => matches(t.title) && (playFilter === 'all' || (playFilter === 'in') === inAPlay.has(t.id)),
+  )
 
   const playLine = useMemo(() => {
     const names = new Map<string, string[]>()
@@ -130,8 +142,8 @@ export function ExperiencesHome() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search experiences and components"
-              aria-label="Search experiences and components"
+              placeholder={V9 ? 'Search experiences' : 'Search experiences and components'}
+              aria-label={V9 ? 'Search experiences' : 'Search experiences and components'}
               className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 outline-none placeholder:text-slate-400"
             />
             {query && (
@@ -144,7 +156,26 @@ export function ExperiencesHome() {
         </div>
 
         <section className="mt-[32px]">
-          <SectionHead title="Cancel experiences" />
+          {V9 ? (
+            <div role="tablist" aria-label="Play" className="mb-[14px] flex flex-wrap items-center gap-[6px]">
+              {PLAY_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={playFilter === f.id}
+                  onClick={() => setPlayFilter(f.id)}
+                  className={`flex h-[28px] items-center rounded-full border px-[12px] text-[12.5px] font-medium transition-colors ${
+                    playFilter === f.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <SectionHead title="Cancel experiences" />
+          )}
           {experiences.length > 0 ? (
             <div className="grid grid-cols-2 gap-[12px]">
               {experiences.map((t) => (
@@ -159,10 +190,13 @@ export function ExperiencesHome() {
               ))}
             </div>
           ) : (
-            <Empty>{q ? 'No cancel experiences match your search.' : 'No cancel experiences yet. Use New to make one.'}</Empty>
+            <Empty>
+              {q || playFilter !== 'all' ? 'No cancel experiences match.' : 'No cancel experiences yet. Use New to make one.'}
+            </Empty>
           )}
         </section>
 
+        {!V9 && (
         <section className="mt-[40px]">
           <SectionHead title="Components" action={<ViewToggle view={view} onChange={setView} />} />
 
@@ -211,6 +245,7 @@ export function ExperiencesHome() {
             {shown.length === 0 && <Empty>No components match your search.</Empty>}
           </div>
         </section>
+        )}
       </div>
     </div>
   )

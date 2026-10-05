@@ -9,7 +9,7 @@ import { DoorsBackdrop } from '../orchestration/OrchestrationCanvas'
 import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { CopilotRail } from '../orchestration/CopilotRail'
 import { LibraryPanel } from '../orchestration/TemplatesModal'
-import { V8 } from './layoutMode'
+import { V8, V9 } from './layoutMode'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 import { UploadFlow } from '../upload/UploadFlow'
 import { UploadPage } from '../upload/UploadPage'
@@ -19,6 +19,7 @@ import { CancelPageSettings } from './CancelPageSettings'
 import { ExperiencesHome } from './ExperiencesHome'
 import { ExperiencesIndex } from './ExperiencesIndex'
 import { ExperiencesPane } from './ExperiencesPane'
+import { ObjectivePane } from './ObjectivePane'
 import { SearchDialog } from './SearchDialog'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W } from './ThreadSidebar'
 import { ReopenPane, TabbedPane, usePaneShown } from './ThreadWorkspace'
@@ -124,7 +125,7 @@ export function StudioWorkspace() {
         transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
       }}
     >
-      <ExperiencesPane />
+      {V9 ? <ObjectivePane /> : <ExperiencesPane />}
       <div className="flex min-h-0 min-w-0">
         {page === 'index' ? (
           <div className="min-w-0 flex-1">

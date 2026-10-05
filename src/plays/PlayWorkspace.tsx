@@ -1,4 +1,5 @@
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
+import { V9 } from '../layout/layoutMode'
 import { CopilotRail } from '../orchestration/CopilotRail'
 import { SettingsSection } from '../setup/SettingsSection'
 import { PlayTaskList } from '../setup/TaskList'
@@ -108,7 +109,7 @@ export function PlayWorkspace() {
           <Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>
           <div className="flex-1" />
           <button type="button" onClick={openOrder} className="inline-flex items-center gap-[5px] rounded-lg px-[8px] py-[5px] text-[12px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800">
-            <SIcon name="list-ordered" size={13} /> Play order
+            <SIcon name="list-ordered" size={13} /> {V9 ? 'All plays' : 'Play order'}
           </button>
           <GoLive play={play} />
         </header>
