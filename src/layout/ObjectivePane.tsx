@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { openArchive, openConfigure, openLibrary, openOrder, openPlay } from '../plays/navigate'
 import { audienceText } from '../plays/resolve'
@@ -121,8 +121,20 @@ function newExperienceItems(): MenuItem[] {
   ]
 }
 
-/** Recent items that still exist, newest first. */
+/** Recent items with a steady order: opening one that's already listed leaves it in place, and new ones join at the top. */
 function useLiveRecent(): RecentItem[] {
+  const next = useRecentPick()
+  const shown = useRef<RecentItem[]>([])
+  const key = (x: RecentItem) => `${x.kind}:${x.id}`
+  const keep = new Set(next.map(key))
+  const before = new Set(shown.current.map(key))
+  const steady = [...next.filter((x) => !before.has(key(x))), ...shown.current.filter((x) => keep.has(key(x)))]
+  shown.current = steady
+  return steady
+}
+
+/** Recent items that still exist, newest first. */
+function useRecentPick(): RecentItem[] {
   const items = useRecent((s) => s.items)
   const plays = usePlays((s) => s.plays)
   const threads = useWorkspace((s) => s.threads)
@@ -165,9 +177,9 @@ function audiencesOf(plays: CancelPlay[]): AudienceUse[] {
 
 function GroupHead({ icon, title }: { icon: SIconName; title: string }) {
   return (
-    <div className="flex h-7 items-center gap-[6px] px-[10px] pt-[4px]">
-      <SIcon name={icon} size={11} className="flex-none text-slate-400" />
-      <span className="text-[11px] font-semibold text-slate-500">{title}</span>
+    <div className="mb-[2px] flex h-6 items-center gap-[12px] pl-[12px]">
+      <SIcon name={icon} size={12} className="flex-none text-slate-400" />
+      <span className="text-[11.5px] font-medium text-slate-500">{title}</span>
     </div>
   )
 }
@@ -178,10 +190,10 @@ function AudienceRow({ use }: { use: AudienceUse }) {
       type="button"
       onClick={() => openConfigure(use.play.id, 1)}
       title={`Used in ${use.play.name}. Opens its audience.`}
-      className="flex h-8 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[10px] pr-[8px] text-left text-[12.5px] text-slate-700 transition-colors hover:bg-slate-200/50"
+      className="group flex h-8 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[36px] pr-[8px] text-left text-[13px] text-slate-700 transition-colors hover:bg-slate-200/50"
     >
       <span className="min-w-0 flex-1 truncate">{use.name}</span>
-      <span className="max-w-[90px] flex-none truncate text-[11px] text-slate-400">{use.play.name}</span>
+      <span className="hidden max-w-[96px] flex-none truncate text-[11.5px] text-slate-400 group-hover:block">{use.play.name}</span>
     </button>
   )
 }
@@ -209,6 +221,11 @@ export function ObjectivePane() {
     if (inLibrary) setLibraryOpen(true)
   }, [inLibrary])
 
+  const inPlay = (page === 'play' || page === 'thread') && playId ? playId : null
+  useEffect(() => {
+    if (inPlay) setOpen((s) => (s.has(inPlay) ? s : new Set(s).add(inPlay)))
+  }, [inPlay])
+
   const toggle = (id: string) =>
     setOpen((s) => {
       const next = new Set(s)
@@ -232,7 +249,10 @@ export function ObjectivePane() {
   const byShell = new Map<ShellLayout, ExperienceThread[]>()
   for (const t of recentThreads) byShell.set(shellOf(t), [...(byShell.get(shellOf(t)) ?? []), t])
   const audiences = audiencesOf(recentPlays)
-  const playOpen = (p: CancelPlay) => open.has(p.id) !== (page === 'play' && playId === p.id)
+  const playOpen = (p: CancelPlay) => open.has(p.id)
+  const openedInPlay = recentPlays.some(
+    (p) => p.id === playId && open.has(p.id) && p.variants.some((v) => v.experienceId === activeId),
+  )
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-slate-50">
@@ -296,15 +316,17 @@ export function ObjectivePane() {
       </div>
 
       {!folded && (
-        <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200 px-[10px] pb-[10px] pt-[10px]">
-          <SectionHead title="Recent" />
+        <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto border-t border-slate-200 px-[10px] pb-[16px] pt-[12px]">
+          <div className="-mb-[10px]">
+            <SectionHead title="Recent" />
+          </div>
           {recent.length === 0 && (
             <p className="px-[10px] py-[4px] text-[12px] leading-snug text-slate-400">Plays and experiences you open show up here.</p>
           )}
           {recentPlays.length > 0 && (
-            <div className="mb-[6px]">
+            <div>
               <GroupHead icon="list-ordered" title="Plays" />
-              <div className="flex flex-col gap-[2px]">
+              <div className="flex flex-col gap-[1px]">
                 {recentPlays.map((p) => (
                   <PlayRow key={p.id} play={p} open={playOpen(p)} onToggle={() => toggle(p.id)} />
                 ))}
@@ -314,19 +336,19 @@ export function ObjectivePane() {
           {(Object.keys(SHELL_KIND) as ShellLayout[])
             .filter((k) => byShell.has(k))
             .map((k) => (
-              <div key={k} className="mb-[6px]">
+              <div key={k}>
                 <GroupHead icon={SHELL_KIND[k].icon} title={SHELL_KIND[k].plural} />
-                <div className="flex flex-col gap-[2px]">
+                <div className="flex flex-col gap-[1px]">
                   {byShell.get(k)!.map((t) => (
-                    <LooseRow key={t.id} thread={t} current={page === 'thread' && !templatesOpen && activeId === t.id} />
+                    <LooseRow key={t.id} thread={t} current={page === 'thread' && !templatesOpen && activeId === t.id && !openedInPlay} />
                   ))}
                 </div>
               </div>
             ))}
           {audiences.length > 0 && (
-            <div className="mb-[6px]">
+            <div>
               <GroupHead icon="users" title="Audiences" />
-              <div className="flex flex-col gap-[2px]">
+              <div className="flex flex-col gap-[1px]">
                 {audiences.map((a) => (
                   <AudienceRow key={a.key} use={a} />
                 ))}

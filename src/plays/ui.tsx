@@ -100,11 +100,14 @@ export function RowMenu({
   icon = 'more-horizontal',
   align = 'right',
   width = 220,
+  text,
 }: {
   items: MenuItem[]
   label: string
   className?: string
   icon?: SIconName
+  /** Shown beside the icon, for a menu that reads as an action row. */
+  text?: string
   /** `beside` opens to the right of the button, outside a narrow pane. */
   align?: 'left' | 'right' | 'beside'
   width?: number
@@ -123,9 +126,12 @@ export function RowMenu({
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className={`flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900 ${open ? 'bg-white text-slate-900' : ''}`}
+        className={`flex h-6 items-center rounded-md hover:bg-white hover:text-slate-900 ${
+          text ? 'gap-[6px] pl-[5px] pr-[8px] text-[11.5px] text-slate-400' : 'w-6 justify-center text-slate-500'
+        } ${open ? 'bg-white text-slate-900' : ''}`}
       >
-        <SIcon name={icon} size={14} />
+        <SIcon name={icon} size={text ? 12 : 14} />
+        {text}
       </button>
       {open && (
         <div
