@@ -32,6 +32,8 @@ import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { StatusChip } from './StatusChip'
 import { copyMarks } from '../setup/useSetupState'
 import { separateCopy } from '../plays/ExperienceContext'
+import { archiveExperienceItem, archivePlayItem } from '../plays/archive'
+import { V9 } from './layoutMode'
 
 const DRAG_TYPE = 'application/x-cancel-experience'
 
@@ -159,6 +161,7 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
         toast(`Removed ${thread.title} from ${play.name}`)
       },
     },
+    ...(V9 ? [archiveExperienceItem(v.experienceId)] : []),
     deleteExperienceItem(v.experienceId),
   ]
   return (
@@ -258,6 +261,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
       },
     },
     { label: 'New experience in this play', icon: 'plus', onClick: () => createExperience({ playId: play.id }) },
+    ...(V9 ? [archivePlayItem(play)] : []),
     {
       label: 'Delete play',
       icon: 'trash-2',
@@ -420,6 +424,7 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
     { label: 'Rename', icon: 'pencil', onClick: () => useWorkspaceUi.getState().setRenaming(thread.id) },
     { label: 'Duplicate', icon: 'copy', onClick: () => duplicateInto(thread.id, null) },
     { label: 'Add to a play…', icon: 'folder-input', items: addToOtherPlays(thread.id, null) },
+    ...(V9 ? [archiveExperienceItem(thread.id)] : []),
     deleteExperienceItem(thread.id),
   ]
   return (

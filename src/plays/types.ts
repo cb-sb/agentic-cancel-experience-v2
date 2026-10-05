@@ -53,6 +53,8 @@ export interface CancelPlay {
   createdAt: number
   updatedAt: number
   publishedAt?: number
+  /** v9: when it was put in the archive. */
+  archivedAt?: number
 }
 
 export const LANGUAGES: { id: string; label: string }[] = [

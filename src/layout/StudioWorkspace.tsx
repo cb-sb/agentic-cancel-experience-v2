@@ -24,6 +24,7 @@ import { SearchDialog } from './SearchDialog'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W } from './ThreadSidebar'
 import { ReopenPane, TabbedPane, usePaneShown } from './ThreadWorkspace'
 import { LibraryPage } from '../library/LibraryPage'
+import { ArchivePage } from './ArchivePage'
 import { PlayOrder } from '../plays/PlayOrder'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { ToastHost } from '../plays/ui'
@@ -137,6 +138,8 @@ export function StudioWorkspace() {
           <PlayOrder />
         ) : V8 && page === 'library' ? (
           <LibraryPage />
+        ) : V9 && page === 'archive' ? (
+          <ArchivePage />
         ) : (
           <ThreadView />
         )}

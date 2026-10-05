@@ -74,6 +74,11 @@ export function openOrder() {
   useWorkspaceUi.setState({ page: 'order' })
 }
 
+export function openArchive() {
+  leaveOverlays()
+  useWorkspaceUi.setState({ page: 'archive' })
+}
+
 export function openLibrary(kind: LibraryKind, create = false, focus: string | null = null) {
   leaveOverlays()
   useWorkspaceUi.setState((s) => ({ page: 'library', libraryKind: kind, libraryNew: create ? s.libraryNew + 1 : s.libraryNew, libraryFocus: focus }))

@@ -9,18 +9,21 @@ const KEY = 'cancel-experience:plays:v8'
 
 interface PlaysState {
   plays: CancelPlay[]
+  /** v9: put away. Out of the order and of every count, until brought back. */
+  archived: CancelPlay[]
   /** False until the workspace boots and either reads or migrates the plays. */
   ready: boolean
 }
 
-export const usePlays = create<PlaysState>(() => ({ plays: [], ready: false }))
+export const usePlays = create<PlaysState>(() => ({ plays: [], archived: [], ready: false }))
 
 let n = 0
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${n++}`
 
 function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ v: 1, plays: usePlays.getState().plays }))
+    const { plays, archived } = usePlays.getState()
+    localStorage.setItem(KEY, JSON.stringify({ v: 1, plays, archived }))
   } catch {
     /* quota */
   }
@@ -40,12 +43,13 @@ function normalize(p: CancelPlay): CancelPlay {
   return { ...p, variants, subAudiences, emptyRows: p.emptyRows ?? [] }
 }
 
-function read(): CancelPlay[] | null {
+function read(): { plays: CancelPlay[]; archived: CancelPlay[] } | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as { v?: number; plays?: CancelPlay[] }
-    return parsed.v === 1 && Array.isArray(parsed.plays) ? parsed.plays.map(normalize) : null
+    const parsed = JSON.parse(raw) as { v?: number; plays?: CancelPlay[]; archived?: CancelPlay[] }
+    if (parsed.v !== 1 || !Array.isArray(parsed.plays)) return null
+    return { plays: parsed.plays.map(normalize), archived: Array.isArray(parsed.archived) ? parsed.archived.map(normalize) : [] }
   } catch {
     return null
   }
@@ -163,7 +167,7 @@ function seed(threads: ThreadLike[]): CancelPlay[] {
 export function initPlays(threads: ThreadLike[], fresh: boolean) {
   const saved = read()
   if (saved) {
-    usePlays.setState({ plays: saved, ready: true })
+    usePlays.setState({ ...saved, ready: true })
     return
   }
   const plays = fresh ? seed(threads) : migrate(threads)
@@ -237,6 +241,38 @@ export function deletePlay(id: string) {
   set(usePlays.getState().plays.filter((p) => p.id !== id))
   const { priority, setPriority } = useCancelSettings.getState()
   setPriority(priority.filter((p) => p !== id))
+}
+
+/** v9: out of the order, back to draft. Its experiences stay where they are. */
+export function archivePlay(id: string) {
+  const { plays, archived } = usePlays.getState()
+  const play = plays.find((p) => p.id === id)
+  if (!play) return
+  usePlays.setState({
+    plays: plays.filter((p) => p.id !== id),
+    archived: [{ ...play, status: 'draft', archivedAt: Date.now() }, ...archived],
+  })
+  persist()
+  const { priority, setPriority } = useCancelSettings.getState()
+  setPriority(priority.filter((p) => p !== id))
+}
+
+/** Comes back as a draft at the bottom of the order. Pages archived since then drop out of it. */
+export function unarchivePlay(id: string, experienceIds: string[]) {
+  const { plays, archived } = usePlays.getState()
+  const play = archived.find((p) => p.id === id)
+  if (!play) return
+  const keep = new Set(experienceIds)
+  const back: CancelPlay = { ...play, name: uniqueName(play.name, plays.map((p) => p.name)), variants: play.variants.filter((v) => keep.has(v.experienceId)), archivedAt: undefined, updatedAt: Date.now() }
+  usePlays.setState({ plays: [...plays, back], archived: archived.filter((p) => p.id !== id) })
+  persist()
+  const { priority, setPriority } = useCancelSettings.getState()
+  setPriority([...priority.filter((p) => p !== id), id])
+}
+
+export function deleteArchivedPlay(id: string) {
+  usePlays.setState({ archived: usePlays.getState().archived.filter((p) => p.id !== id) })
+  persist()
 }
 
 export function updatePlay(id: string, change: Partial<Omit<CancelPlay, 'id'>>) {

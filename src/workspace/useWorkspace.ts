@@ -65,10 +65,14 @@ export interface ExperienceThread {
   /** v7. Older threads have none and are read as one chat. */
   chats?: ChatThread[]
   activeChatId?: string
+  /** v9: when it was put in the archive. */
+  archivedAt?: number
 }
 
 interface WorkspaceState {
   threads: ExperienceThread[]
+  /** v9: put away. Out of every play and list, until brought back. */
+  archived: ExperienceThread[]
   activeId: string
   /** Look new experiences start from. Follows the last brand set in any experience. */
   brand: JourneyBrand | null
@@ -77,6 +81,7 @@ interface WorkspaceState {
 
 export const useWorkspace = create<WorkspaceState>(() => ({
   threads: [],
+  archived: [],
   activeId: '',
   brand: null,
   installConnected: false,
@@ -139,9 +144,9 @@ function isBlank(t: ExperienceThread): boolean {
 }
 
 function persist(): boolean {
-  const { threads, activeId, brand, installConnected } = useWorkspace.getState()
+  const { threads, archived, activeId, brand, installConnected } = useWorkspace.getState()
   try {
-    localStorage.setItem(KEY, JSON.stringify({ v: 1, threads, activeId, brand, installConnected }))
+    localStorage.setItem(KEY, JSON.stringify({ v: 1, threads, archived, activeId, brand, installConnected }))
     return true
   } catch {
     return false
@@ -157,6 +162,7 @@ function read(): WorkspaceState | null {
     const activeId = parsed.threads.some((t) => t.id === parsed.activeId) ? parsed.activeId : parsed.threads[0].id
     return {
       threads: parsed.threads,
+      archived: Array.isArray(parsed.archived) ? parsed.archived : [],
       activeId,
       brand: parsed.brand ?? null,
       installConnected: Boolean(parsed.installConnected),
@@ -176,7 +182,7 @@ function seedWorkspace(): WorkspaceState {
     seed,
   }))
   const blank: ExperienceThread = { id: newId(), title: 'New experience', updatedAt: now }
-  return { threads: [blank, ...samples], activeId: blank.id, brand: null, installConnected: false }
+  return { threads: [blank, ...samples], archived: [], activeId: blank.id, brand: null, installConnected: false }
 }
 
 function captureSnapshot(draft?: Draft): ThreadSnapshot {
@@ -457,6 +463,49 @@ export function deleteThread(id: string) {
     useWorkspace.setState({ threads: [blank], activeId: blank.id })
     openThread(blank.id)
   }
+  persist()
+}
+
+/** v9: takes it out of every play it sat in, like delete, but it can come back. */
+export function archiveThread(id: string) {
+  const { threads, activeId } = useWorkspace.getState()
+  if (!threads.some((t) => t.id === id)) return
+  if (id === activeId) storeActive()
+  const thread = useWorkspace.getState().threads.find((t) => t.id === id)!
+  dropExperience(id)
+  const { globalFallbackId, setGlobalFallback } = useCancelSettings.getState()
+  if (globalFallbackId === id) setGlobalFallback(null)
+  const rest = useWorkspace.getState().threads.filter((t) => t.id !== id)
+  const archived = [{ ...thread, archivedAt: Date.now(), snapshot: thread.snapshot && { ...thread.snapshot, play: { ...thread.snapshot.play, publishState: 'draft' as const } } }, ...useWorkspace.getState().archived]
+  if (id !== activeId) {
+    useWorkspace.setState({ threads: rest, archived })
+    persist()
+    return
+  }
+  const next = orderedThreads(rest)[0]
+  if (next) {
+    useWorkspace.setState({ threads: rest, archived, activeId: next.id })
+    openThread(next.id)
+  } else {
+    const blank: ExperienceThread = { id: newId(), title: 'New experience', updatedAt: Date.now() }
+    useWorkspace.setState({ threads: [blank], archived, activeId: blank.id })
+    openThread(blank.id)
+  }
+  persist()
+}
+
+/** Back in the list, in no play. Takes a number when another experience has its name now. */
+export function unarchiveThread(id: string) {
+  const { threads, archived } = useWorkspace.getState()
+  const thread = archived.find((t) => t.id === id)
+  if (!thread) return
+  const title = uniqueName(thread.title, threads.map((t) => t.title))
+  useWorkspace.setState({ threads: [{ ...thread, title, archivedAt: undefined }, ...threads], archived: archived.filter((t) => t.id !== id) })
+  persist()
+}
+
+export function deleteArchivedThread(id: string) {
+  useWorkspace.setState({ archived: useWorkspace.getState().archived.filter((t) => t.id !== id) })
   persist()
 }
 
