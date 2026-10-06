@@ -10,7 +10,7 @@ import { useJourney } from '../store/useJourney'
 import { SectionLabel } from './CopilotHomeSetup'
 import { fadeIn, morphSnapshot, playMorph, type MorphSnapshot } from './morph'
 import { TemplateOutlineStrip, TemplatePreviewStrip, TemplateScreens } from './TemplatePreviewStrip'
-import { V8 } from '../layout/layoutMode'
+import { V8, V9 } from '../layout/layoutMode'
 import { BackButton } from '../shell/BackButton'
 
 type Filter = 'all' | LibraryKind
@@ -98,13 +98,17 @@ function templateScreenMeta(entry: LibraryEntry): string {
 
 function TemplateFacts({ entry, layout = 'wide' }: { entry: LibraryEntry; layout?: 'wide' | 'stack' }) {
   const stack = layout === 'stack'
-  const term = 'text-[12px] font-medium leading-[16px] text-slate-500'
-  const detail = `mt-[3px] text-[13px] ${stack ? 'leading-[19px]' : 'leading-[20px]'} text-slate-800`
+  const term = V9
+    ? 'text-[11px] font-semibold uppercase leading-[14px] tracking-[0.04em] text-[var(--slg-color-text-muted)]'
+    : 'text-[12px] font-medium leading-[16px] text-slate-500'
+  const detail = V9
+    ? 'mt-[4px] text-[13px] leading-[20px] text-[var(--slg-color-text-primary)]'
+    : `mt-[3px] text-[13px] ${stack ? 'leading-[19px]' : 'leading-[20px]'} text-slate-800`
   return (
     <dl
       className={
         stack
-          ? 'flex flex-col gap-[12px] border-t border-slate-100 pt-[14px]'
+          ? `flex flex-col gap-[14px] border-t pt-[14px] ${V9 ? 'border-[var(--slg-color-border-default)]' : 'border-slate-100'}`
           : 'grid grid-cols-1 gap-x-[24px] gap-y-[12px] sm:grid-cols-2'
       }
     >
@@ -123,6 +127,24 @@ function TemplateFacts({ entry, layout = 'wide' }: { entry: LibraryEntry; layout
 function TemplateHeading({ entry, size }: { entry: LibraryEntry; size: 'card' | 'page' }) {
   const kindLabel = entry.kind === 'acquisition' ? 'Acquire' : 'Cancel'
   const badge = jobLabel(entry.job)
+  if (V9) {
+    return (
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-[10px] gap-y-[4px]">
+          <h3
+            className={`${size === 'page' ? 'text-[20px] leading-[28px]' : 'text-[16px] leading-[24px]'} font-[family-name:var(--slg-font-family-emphasis)] font-semibold text-[var(--slg-neutral-900)]`}
+          >
+            {entry.heading ?? entry.title}
+          </h3>
+          {badge && (
+            <span className="slg-tag shrink-0 bg-[var(--slg-neutral-100)] px-[6px] py-[2px] text-[11px] font-semibold uppercase leading-[14px] tracking-[0.04em] text-[var(--slg-neutral-700)]">
+              {badge}
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-x-[8px] gap-y-[4px]">
@@ -159,9 +181,19 @@ function LibraryCardV8({ entry, onPick }: { entry: LibraryEntry; onPick: (focus:
         <div className="flex w-full min-w-0 flex-col gap-[14px] min-[920px]:w-[328px] min-[920px]:shrink-0 min-[920px]:pl-[2px]">
           <TemplateHeading entry={entry} size="card" />
           <TemplateFacts entry={entry} layout="stack" />
-          <SButton size="small" variant="neutral-outline" className="mt-[2px] w-auto self-start" onClick={() => onPick(0)}>
-            Use this template
-          </SButton>
+          {V9 ? (
+            <button
+              type="button"
+              onClick={() => onPick(0)}
+              className="mt-[2px] inline-flex h-[30px] items-center gap-[4px] self-start bg-[var(--slg-blue-50)] px-[12px] font-[family-name:var(--slg-font-family-ui)] text-[13px] font-medium text-[var(--slg-blue-700)] transition-colors hover:bg-[color-mix(in_oklch,var(--slg-blue-700)_14%,var(--slg-color-bg-surface))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--slg-color-focus-ring)]"
+            >
+              Use this template
+            </button>
+          ) : (
+            <SButton size="small" variant="neutral-outline" className="mt-[2px] w-auto self-start" onClick={() => onPick(0)}>
+              Use this template
+            </SButton>
+          )}
         </div>
         <div className="min-w-0 flex-1 min-[920px]:pt-[2px]">
           <p className="mb-[6px] text-[11px] leading-[16px] text-slate-500">Click the screens to see them full size.</p>

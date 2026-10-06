@@ -111,6 +111,8 @@ export type LibraryJob = 'comply' | 'learn' | 'save'
 export interface LibraryEntry {
   id: Exclude<JourneyTemplate, 'none'>
   title: string
+  /** v9 card title, for when the posture carries something the card can't drop. */
+  heading?: string
   posture: string
   why: string
   /** What the subscriber goes through, in one or two sentences. */
@@ -131,6 +133,7 @@ export const LIBRARY: LibraryEntry[] = [
   {
     id: 'cancel_1',
     title: 'One-click cancel',
+    heading: 'FTC one-click cancel',
     posture: 'For FTC-style compliance',
     why: 'Use this when the law or your brand asks for a frictionless exit. The subscriber confirms once and is done — no survey, no save offer. Best for FTC-style click-to-cancel, and for merchants who would rather lose the revenue than add friction.',
     does: 'They confirm once and they’re done.',

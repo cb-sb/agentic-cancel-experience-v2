@@ -222,13 +222,12 @@ export function ExperiencesHome() {
               onOpen={open}
             />
           ) : experiences.length > 0 && V9 ? (
-            <div className="grid grid-cols-3 gap-[12px]">
+            <div className="grid grid-cols-3 gap-[16px]">
               {experiences.map((t) => (
                 <ExperienceTile
                   key={t.id}
-                  title={t.title}
+                  thread={t}
                   live={threadIsLive(t, activeId, activeLive)}
-                  edited={`Edited ${ago(t.updatedAt).toLowerCase()}`}
                   uses={uses.get(t.id) ?? []}
                   onClick={() => open(t.id)}
                 />
@@ -377,67 +376,89 @@ function usesByExperience(plays: CancelPlay[]): Map<string, PlayUse[]> {
 const USES_SHOWN = 3
 
 /** v9: a vertical card that says which plays use the experience, how, and whether each is live. */
-function ExperienceTile({ title, live, edited, uses, onClick }: { title: string; live: boolean; edited: string; uses: PlayUse[]; onClick: () => void }) {
+function ExperienceTile({ thread: t, live, uses, onClick }: { thread: ExperienceThread; live: boolean; uses: PlayUse[]; onClick: () => void }) {
+  const kind = SHELL_KIND[shellOf(t)]
+  const steps = stepCount(t)
   const liveCount = uses.filter((u) => u.play.status === 'live').length
-  const draftCount = uses.length - liveCount
   const hidden = uses.length - USES_SHOWN
+  const items: MenuItem[] = [{ label: 'Open', icon: 'arrow-up-right', onClick }, archiveExperienceItem(t.id)]
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-[0_4px_16px_rgba(15,23,42,0.06)]">
-      <button type="button" onClick={onClick} className="flex items-start gap-[10px] px-[16px] pb-[12px] pt-[14px] text-left">
-        <span className="flex h-[32px] w-[32px] flex-none items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500">
-          <SIcon name="layout-template" size={15} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-[8px]">
-            <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-slate-900">{title}</span>
-            {live && <StatusChip live />}
+    <article className="flex min-w-0 flex-col rounded-xl border border-[var(--slg-color-border-default)] bg-[var(--slg-color-bg-surface)] transition-[border-color,box-shadow] hover:border-[var(--slg-color-border-strong)] hover:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)]">
+      <div className="flex items-start gap-[8px] px-[16px] pb-[14px] pt-[16px]">
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex min-w-0 flex-1 items-start gap-[12px] text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--slg-color-focus-ring)]"
+        >
+          <span className="slg-avatar flex h-[36px] w-[36px] flex-none items-center justify-center border border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] text-[var(--slg-neutral-700)]">
+            <SIcon name={kind.icon} size={16} />
           </span>
-          <span className="block truncate text-[12px] text-slate-500">{edited}</span>
-        </span>
-      </button>
-      <div className="flex flex-1 flex-col border-t border-slate-100 bg-slate-50/60 px-[8px] pb-[8px] pt-[10px]">
-        <div className="flex items-center justify-between gap-[8px] px-[8px] pb-[6px]">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            {uses.length === 0 ? 'Not in a play' : `In ${uses.length} play${uses.length === 1 ? '' : 's'}`}
-          </span>
-          {uses.length > 0 && (
-            <span className="flex items-center gap-[10px] text-[11.5px] text-slate-500">
-              <span className="flex items-center gap-[4px]">
-                <span className="h-[6px] w-[6px] rounded-full bg-emerald-500" />
-                {liveCount} live
-              </span>
-              <span className="flex items-center gap-[4px]">
-                <span className="h-[6px] w-[6px] rounded-full bg-slate-300" />
-                {draftCount} {draftCount === 1 ? 'draft' : 'drafts'}
-              </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-[8px]">
+              <span className="min-w-0 truncate font-[family-name:var(--slg-font-family-emphasis)] text-[15px] font-semibold leading-[22px] text-[var(--slg-neutral-900)]">{t.title}</span>
+              {live && <StatusChip live />}
             </span>
-          )}
-        </div>
+            <span className="mt-[2px] block truncate text-[12px] leading-[16px] text-[var(--slg-color-text-secondary)]">
+              {kind.label} · {steps} {steps === 1 ? 'step' : 'steps'} · Edited {ago(t.updatedAt).toLowerCase()}
+            </span>
+          </span>
+        </button>
+        <RowActions label={`Actions for ${t.title}`} items={items} />
+      </div>
+      <div className="mx-[16px] flex flex-1 flex-col border-t border-[var(--slg-color-border-default)] pb-[10px] pt-[12px]">
         {uses.length === 0 ? (
-          <p className="px-[8px] pb-[4px] text-[12px] leading-snug text-slate-500">No one sees this until a play uses it.</p>
+          <div className="flex flex-col gap-[2px] pb-[4px]">
+            <span className="text-[13px] font-medium text-[var(--slg-color-text-primary)]">Not in a play yet</span>
+            <span className="text-[12px] leading-[18px] text-[var(--slg-color-text-muted)]">No one sees this until a play uses it.</span>
+          </div>
         ) : (
-          <ul className="flex flex-col gap-[2px]">
-            {uses.slice(0, USES_SHOWN).map((u) => (
-              <li key={u.play.id}>
-                <button
-                  type="button"
-                  onClick={() => openPlay(u.play.id)}
-                  title={`Open ${u.play.name}`}
-                  className="flex w-full items-center gap-[8px] rounded-lg px-[8px] py-[6px] text-left transition-colors hover:bg-white hover:shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-slate-800">{u.play.name}</span>
-                    <span className="block truncate text-[11.5px] text-slate-500">{u.roles.join(', ')}</span>
-                  </span>
-                  <StatusChip live={u.play.status === 'live'} />
-                </button>
-              </li>
-            ))}
-            {hidden > 0 && <li className="px-[8px] py-[4px] text-[11.5px] text-slate-500">{hidden} more</li>}
-          </ul>
+          <>
+            <div className="flex items-center justify-between gap-[8px] pb-[4px] text-[12px] leading-[16px]">
+              <span className="font-medium text-[var(--slg-color-text-secondary)]">
+                Used in {uses.length} {uses.length === 1 ? 'play' : 'plays'}
+              </span>
+              <span className={liveCount > 0 ? 'font-medium text-[var(--slg-green-700)]' : 'text-[var(--slg-color-text-muted)]'}>
+                {liveCount > 0 ? `${liveCount} live` : 'None live'}
+              </span>
+            </div>
+            <ul className="-mx-[8px] flex flex-col">
+              {uses.slice(0, USES_SHOWN).map((u) => {
+                const on = u.play.status === 'live'
+                return (
+                  <li key={u.play.id}>
+                    <button
+                      type="button"
+                      onClick={() => openPlay(u.play.id)}
+                      title={`Open ${u.play.name}`}
+                      className="group/use flex w-full items-center gap-[10px] px-[8px] py-[7px] text-left transition-colors hover:bg-[var(--slg-neutral-50)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--slg-color-focus-ring)]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium leading-[18px] text-[var(--slg-color-text-primary)]">{u.play.name}</span>
+                        <span className="block truncate text-[12px] leading-[16px] text-[var(--slg-color-text-muted)]">{u.roles.join(', ')}</span>
+                      </span>
+                      <span className={`flex flex-none items-center gap-[5px] text-[12px] ${on ? 'font-medium text-[var(--slg-green-700)]' : 'text-[var(--slg-color-text-muted)]'}`}>
+                        <span className={`h-[6px] w-[6px] rounded-full ${on ? 'bg-[var(--slg-green-500)]' : 'bg-[var(--slg-neutral-400)]'}`} />
+                        {on ? 'Live' : 'Draft'}
+                      </span>
+                      <SIcon name="chevron-right" size={14} className="flex-none text-[var(--slg-color-text-muted)] opacity-0 transition-opacity group-hover/use:opacity-100" />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            {hidden > 0 && (
+              <button
+                type="button"
+                onClick={onClick}
+                className="mt-[2px] self-start text-[12px] font-medium text-[var(--slg-color-text-secondary)] hover:text-[var(--slg-color-text-primary)]"
+              >
+                {hidden} more {hidden === 1 ? 'play' : 'plays'}
+              </button>
+            )}
+          </>
         )}
       </div>
-    </div>
+    </article>
   )
 }
 
