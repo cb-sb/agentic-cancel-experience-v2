@@ -16,21 +16,29 @@
   outline: none;
 }
 
-.slg-row.slg-row--open:is(:hover, :focus-visible) * {
+.slg-row.slg-row--open:is(:hover, :focus-visible) :not([role='menu'], [role='menu'] *) {
   color: inherit;
   border-color: color-mix(in oklch, var(--slg-white) 22%, transparent);
 }
 
-.slg-row.slg-row--open:is(:hover, :focus-visible) :is(.text-slate-400, .text-slate-500, .text-slate-600, .slg-muted) {
+.slg-row.slg-row--open:is(:hover, :focus-visible) [role='menu'] {
+  color: var(--slg-color-text-primary);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) :is(.text-slate-400, .text-slate-500, .text-slate-600, .slg-muted):not([role='menu'] *) {
   color: color-mix(in oklch, var(--slg-white) 68%, transparent);
 }
 
-.slg-row.slg-row--open:is(:hover, :focus-visible) :is(.slg-tag, .slg-avatar) {
+.slg-row.slg-row--open:is(:hover, :focus-visible) :is(.slg-tag, .slg-avatar):not([role='menu'] *) {
   background: color-mix(in oklch, var(--slg-white) 18%, transparent);
 }
 
-.slg-row.slg-row--open:is(:hover, :focus-visible) :is(button, [role='button']):hover {
+.slg-row.slg-row--open:is(:hover, :focus-visible) :is(button, [role='button']):not([role='menu'] *):hover {
   background: color-mix(in oklch, var(--slg-white) 14%, transparent);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) button[aria-expanded='true']:not([role='menu'] *) {
+  background: color-mix(in oklch, var(--slg-white) 18%, transparent);
 }
 
 .slg-check {

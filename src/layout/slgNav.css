@@ -22,18 +22,24 @@
   background-color: var(--slg-color-action-primary);
   color: var(--slg-color-text-on-solid, #fff);
 }
-.slg-nav-item.is-current * {
+.slg-nav-item.is-current :not([role='menu'], [role='menu'] *) {
   color: inherit;
 }
-.slg-nav-item.is-current :is(.text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .slg-muted) {
+.slg-nav-item.is-current [role='menu'] {
+  color: var(--slg-color-text-primary);
+}
+.slg-nav-item.is-current :is(.text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .slg-muted):not([role='menu'] *) {
   color: rgb(255 255 255 / 0.68);
 }
-.slg-nav-item.is-current :is(.slg-tag, .slg-avatar) {
+.slg-nav-item.is-current :is(.slg-tag, .slg-avatar):not([role='menu'] *) {
   background-color: rgb(255 255 255 / 0.18);
   border-color: transparent;
 }
-.slg-nav-item.is-current button:hover {
+.slg-nav-item.is-current button:not([role='menu'] *):hover {
   background-color: rgb(255 255 255 / 0.14);
+}
+.slg-nav-item.is-current button[aria-expanded='true']:not([role='menu'] *) {
+  background-color: rgb(255 255 255 / 0.18);
 }
 .slg-nav-item.is-drop {
   background-color: var(--slg-color-bg-info-subtle);
