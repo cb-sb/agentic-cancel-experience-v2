@@ -41,6 +41,28 @@ export function archiveExperienceItem(id: string): MenuItem {
   }
 }
 
+export function archivePlaysNow(plays: CancelPlay[]) {
+  if (plays.length === 1) return archivePlayNow(plays[0])
+  const ui = useWorkspaceUi.getState()
+  for (const p of plays) archivePlay(p.id)
+  if (ui.page === 'play' && plays.some((p) => p.id === ui.playId)) ui.setPage('order')
+  toast(`Archived ${plays.length} plays. Their experiences stay in the list.`)
+}
+
+export function archiveExperiencesNow(ids: string[]) {
+  if (ids.length === 1) return archiveExperienceNow(ids[0])
+  const inPlays = ids.filter((id) => playsUsing(id).length > 0).length
+  const ui = useWorkspaceUi.getState()
+  const open = ui.page === 'thread' && ids.includes(useWorkspace.getState().activeId)
+  for (const id of ids) archiveThread(id)
+  if (open) ui.setPage('index')
+  toast(
+    inPlays > 0
+      ? `Archived ${ids.length} experiences and took ${inPlays === 1 ? 'one' : inPlays} out of ${inPlays === 1 ? 'its plays' : 'their plays'}.`
+      : `Archived ${ids.length} experiences.`,
+  )
+}
+
 export function unarchivePlayNow(play: CancelPlay) {
   unarchivePlay(
     play.id,

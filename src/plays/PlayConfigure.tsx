@@ -28,6 +28,8 @@ import {
   updatePlay,
 } from './usePlays'
 import { RowMenu, toast, useOutside } from './ui'
+import { FRAME_FORM } from '../layout/frames'
+import { V9 } from '../layout/layoutMode'
 
 const STEPS: { step: ConfigureStep; label: string }[] = [
   { step: 1, label: 'Audience' },
@@ -792,29 +794,31 @@ export function PlayConfigure({ play }: { play: CancelPlay }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50">
-      <div className="flex flex-none items-center gap-[12px] border-b border-slate-200 bg-white px-[16px] py-[10px]">
-        <Stepper step={step} done={done} goTo={goTo} />
-        <div className="flex flex-none items-center gap-[6px]">
-          {prev && (
-            <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => goTo(prev.step)}>
-              <span className="inline-flex items-center gap-[4px]">
-                <SIcon name="arrow-left" size={12} /> {prev.label}
-              </span>
-            </SButton>
-          )}
-          {next && (
-            <span title={blocked ? 'Pick an audience first' : undefined}>
-              <SButton size="small" variant="primary" className="w-auto" disabled={blocked} onClick={() => goTo(next.step)}>
+      <div className="flex-none border-b border-slate-200 bg-white">
+        <div className={`flex items-center gap-[12px] px-[16px] py-[10px] ${V9 ? 'min-[1440px]:mx-auto min-[1440px]:max-w-[880px] min-[1440px]:px-[24px]' : ''}`}>
+          <Stepper step={step} done={done} goTo={goTo} />
+          <div className="flex flex-none items-center gap-[6px]">
+            {prev && (
+              <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => goTo(prev.step)}>
                 <span className="inline-flex items-center gap-[4px]">
-                  {next.label} <SIcon name="arrow-right" size={12} />
+                  <SIcon name="arrow-left" size={12} /> {prev.label}
                 </span>
               </SButton>
-            </span>
-          )}
+            )}
+            {next && (
+              <span title={blocked ? 'Pick an audience first' : undefined}>
+                <SButton size="small" variant="primary" className="w-auto" disabled={blocked} onClick={() => goTo(next.step)}>
+                  <span className="inline-flex items-center gap-[4px]">
+                    {next.label} <SIcon name="arrow-right" size={12} />
+                  </span>
+                </SButton>
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[620px] px-[24px] py-[24px]">
+        <div className={`px-[24px] py-[24px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[620px]'}`}>
           {step === 1 && <AudienceStep play={play} />}
           {step === 2 && <TargetingStep play={play} goTo={goTo} />}
           {step === 3 && <ReviewStep play={play} goTo={goTo} />}

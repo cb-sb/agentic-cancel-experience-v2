@@ -8,6 +8,7 @@ import { deleteArchivedThread, useWorkspace } from '../workspace/useWorkspace'
 import { SHELL_KIND, shellOf } from './experienceKind'
 import { PageHeader } from './SlgChrome'
 import { Ago, initials, RowMark, TABLE_ROW, TableEmpty, TableHead } from './SlgTable'
+import { FRAME_WIDE } from './frames'
 
 const ARCHIVE_COLS = 'grid grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_110px_120px] items-center gap-[16px]'
 
@@ -79,7 +80,7 @@ export function ArchivePage() {
   const threads = useWorkspace((s) => s.archived)
   return (
     <div className="h-full min-w-0 flex-1 overflow-y-auto bg-white">
-      <div className="mx-auto max-w-[900px] px-[28px] pb-[48px] pt-[22px]">
+      <div className={`${FRAME_WIDE} px-[28px] pb-[48px] pt-[22px]`}>
         <PageHeader
           title="Archive"
           meta={[`${plays.length} play${plays.length === 1 ? '' : 's'}`, `${threads.length} experience${threads.length === 1 ? '' : 's'}`]}

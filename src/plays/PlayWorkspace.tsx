@@ -15,6 +15,7 @@ import { renamePlay, setPlayLive, usePlays } from './usePlays'
 import { Chip, InlineName, RowMenu } from './ui'
 import type { CancelPlay } from './types'
 import { doInChat } from '../setup/actions'
+import { FRAME_FORM } from '../layout/frames'
 
 const PLAY_TAB: Record<PlayTab, { label: string; icon: SIconName; hint: string }> = {
   configure: { label: 'Configure', icon: 'sliders-horizontal', hint: 'Set up who sees this play and which pages they get' },
@@ -34,7 +35,7 @@ function PlaySummary({ play }: { play: CancelPlay }) {
   const rows = playRows(play.id, inputs)
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] space-y-[20px] px-[28px] py-[24px]">
+      <div className={`space-y-[20px] px-[28px] py-[24px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
           <h2 className="mt-[4px] text-[18px] font-semibold text-slate-900">{play.name}</h2>

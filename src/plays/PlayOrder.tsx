@@ -12,7 +12,7 @@ import { openTab } from '../workspace/paneTabs'
 import { fileOfThread, orderedThreads, useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { openArchive, openExperience, openPlay } from './navigate'
-import { archivePlayItem } from './archive'
+import { archivePlayItem, archivePlaysNow } from './archive'
 import { toast, type MenuItem } from './ui'
 import { nodeTypes, type CardData, type Tone } from './PlayCanvas'
 import { fmt, population, POPULATION_SIZE } from './population'
@@ -23,8 +23,9 @@ import { variantLetter, type CancelPlay } from './types'
 import { createPlay, duplicatePlay, usePlays, useRankedPlays } from './usePlays'
 import { V9 } from '../layout/layoutMode'
 import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch, ToolSelect } from '../layout/SlgChrome'
-import { Ago, initials, RowActions, RowMark, TABLE_ROW, TABLE_ROW_OPEN, TableEmpty, TableHead, TableRow } from '../layout/SlgTable'
+import { Ago, BulkAction, Check, initials, RowActions, RowMark, SelectHead, TABLE_ROW, TABLE_ROW_OPEN, TableEmpty, TableHead, TableRow, useSelection } from '../layout/SlgTable'
 import { logSession, markWalked, useTestSessions } from './useTestSessions'
+import { FRAME_WIDE } from '../layout/frames'
 
 const DRAG = 'application/x-cancel-play'
 type View = 'order' | 'canvas'
@@ -917,7 +918,7 @@ function newPlay() {
   useWorkspaceUi.getState().setRenaming(id)
 }
 
-const PLAYS_FRAME = 'mx-auto w-full max-w-[1080px] px-[28px]'
+const PLAYS_FRAME = `${FRAME_WIDE} px-[28px]`
 
 type PlaysView = 'mine' | 'order' | 'canvas'
 
@@ -941,16 +942,36 @@ function setupLine(p: CancelPlay): string {
   return `A/B test of ${p.variants.length}`
 }
 
-const MINE_COLS = 'grid grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.3fr)_60px_64px_88px_28px] items-center gap-[16px]'
+const MINE_COLS = 'grid grid-cols-[16px_minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.3fr)_60px_64px_88px_28px] items-center gap-[16px]'
 
 function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
   const titleOf = useTitleOf()
   const archived = usePlays((s) => s.archived.length)
   const rows = [...shown].sort((a, b) => b.updatedAt - a.updatedAt)
+  const sel = useSelection(rows.map((p) => p.id))
+  const pickedPlays = rows.filter((p) => sel.has(p.id))
+  const liveCount = pickedPlays.filter((p) => p.status === 'live').length
   return (
     <div>
       <div>
-        <TableHead cols={MINE_COLS}>
+        <SelectHead
+          cols={MINE_COLS}
+          total={rows.length}
+          picked={sel.picked.length}
+          onAll={sel.setAll}
+          onClear={sel.clear}
+          actions={
+            <BulkAction
+              icon="archive"
+              label="Archive"
+              confirm={liveCount > 0 ? `${liveCount} live ${liveCount === 1 ? 'play stops' : 'plays stop'} showing. Archive?` : undefined}
+              onClick={() => {
+                archivePlaysNow(pickedPlays)
+                sel.clear()
+              }}
+            />
+          }
+        >
           <span>Play</span>
           <span>Audience</span>
           <span>Experiences</span>
@@ -959,7 +980,7 @@ function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] 
           <span className="text-right">Priority</span>
           <span>Edited</span>
           <span />
-        </TableHead>
+        </SelectHead>
         {rows.map((p) => {
           const pages = [...new Set(p.variants.map((v) => v.experienceId))]
           const items: MenuItem[] = [
@@ -976,7 +997,8 @@ function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] 
             archivePlayItem(p),
           ]
           return (
-            <TableRow key={p.id} cols={MINE_COLS} onOpen={() => openPlay(p.id)}>
+            <TableRow key={p.id} cols={MINE_COLS} onOpen={() => openPlay(p.id)} className={sel.has(p.id) ? 'is-picked' : ''}>
+              <Check on={sel.has(p.id)} onChange={() => sel.toggle(p.id)} label={`Select ${p.name}`} />
               <div className="flex min-w-0 items-center gap-[10px]">
                 <RowMark>{initials(p.name)}</RowMark>
                 <span className="truncate">{p.name}</span>

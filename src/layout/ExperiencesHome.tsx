@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { useCancelLibrary, type LibCard, type LibOffer, type LibReason, type ReasonKind } from '../library/useCancelLibrary'
-import { archiveExperienceItem } from '../plays/archive'
+import { archiveExperienceItem, archiveExperiencesNow } from '../plays/archive'
 import { openArchive, openLibrary, openPlay } from '../plays/navigate'
 import { variantLetter, type CancelPlay, type PlayVariant } from '../plays/types'
 import { DropdownButton, type MenuItem } from '../plays/ui'
@@ -15,9 +15,10 @@ import { createMenuItems } from './createMenu'
 import { SHELL_KIND, shellOf, stepCount } from './experienceKind'
 import { V9 } from './layoutMode'
 import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch } from './SlgChrome'
-import { Ago, initials, RowActions, RowMark, TableHead, TableRow } from './SlgTable'
+import { Ago, BulkAction, Check, initials, RowActions, RowMark, SelectHead, TableRow, useSelection } from './SlgTable'
 import { StatusChip } from './StatusChip'
 import { ago } from './ThreadSidebar'
+import { FRAME_WIDE } from './frames'
 
 type View = 'list' | 'grid'
 type Kind = 'offers' | 'cards' | 'reasons'
@@ -29,6 +30,12 @@ const PLAY_FILTERS: { id: PlayFilter; label: string }[] = [
   { id: 'in', label: 'In a play' },
   { id: 'out', label: 'Not in a play' },
 ]
+
+const FILTER_LINE: Record<PlayFilter, string> = {
+  all: 'The pages a subscriber sees after clicking Cancel. Put one in a play to choose who sees it.',
+  in: 'Experiences at least one play shows to its audience.',
+  out: 'Experiences no play uses yet. Nobody sees these until you add them to a play.',
+}
 
 const VIEW_KEY = 'cancel-experience:components-view:v8'
 const EXP_VIEW_KEY = 'cancel-experience:experiences-view:v9'
@@ -157,7 +164,7 @@ export function ExperiencesHome() {
 
   return (
     <div className="h-full overflow-y-auto bg-white">
-      <div className={`mx-auto px-[32px] pb-[48px] ${V9 ? 'max-w-[1080px] pt-[20px]' : 'max-w-[960px] pt-[24px]'}`}>
+      <div className={`mx-auto px-[32px] pb-[48px] ${V9 ? `${FRAME_WIDE} pt-[20px]` : 'max-w-[960px] pt-[24px]'}`}>
         {V9 ? (
           <PageHeader
             title={
@@ -206,7 +213,8 @@ export function ExperiencesHome() {
         </div>
         )}
 
-        <section className={V9 ? 'mt-[20px]' : 'mt-[32px]'}>
+        {V9 && <p className="mb-[12px] mt-[16px] text-[13px] text-slate-500">{FILTER_LINE[playFilter]}</p>}
+        <section className={V9 ? '' : 'mt-[32px]'}>
           {!V9 && <SectionHead title="Cancel experiences" />}
           {experiences.length > 0 && V9 && expView === 'list' ? (
             <ExperienceList
@@ -433,13 +441,32 @@ function ExperienceTile({ title, live, edited, uses, onClick }: { title: string;
   )
 }
 
-const EXP_COLS = 'grid grid-cols-[minmax(0,1.6fr)_88px_52px_minmax(0,2.4fr)_60px_88px_28px] items-center gap-[16px]'
+const EXP_COLS = 'grid grid-cols-[16px_minmax(0,1.6fr)_88px_52px_minmax(0,2.4fr)_60px_88px_28px] items-center gap-[16px]'
 
 /** v9: the default Experiences view. One row each, with the plays it's in and whether each is live. */
 function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; live: boolean; uses: PlayUse[] }[]; onOpen: (id: string) => void }) {
+  const sel = useSelection(rows.map((r) => r.thread.id))
+  const inPlays = rows.filter((r) => sel.has(r.thread.id) && r.uses.length > 0).length
   return (
     <div>
-      <TableHead cols={EXP_COLS}>
+      <SelectHead
+        cols={EXP_COLS}
+        total={rows.length}
+        picked={sel.picked.length}
+        onAll={sel.setAll}
+        onClear={sel.clear}
+        actions={
+          <BulkAction
+            icon="archive"
+            label="Archive"
+            confirm={inPlays > 0 ? `Takes ${inPlays === 1 ? 'one' : inPlays} out of plays. Archive?` : undefined}
+            onClick={() => {
+              archiveExperiencesNow(sel.picked)
+              sel.clear()
+            }}
+          />
+        }
+      >
         <span>Experience</span>
         <span>Type</span>
         <span className="text-right">Steps</span>
@@ -447,7 +474,7 @@ function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; li
         <span>Status</span>
         <span>Edited</span>
         <span />
-      </TableHead>
+      </SelectHead>
       {rows.map(({ thread: t, live, uses }) => {
         const kind = SHELL_KIND[shellOf(t)]
         const steps = stepCount(t)
@@ -456,7 +483,8 @@ function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; li
           archiveExperienceItem(t.id),
         ]
         return (
-          <TableRow key={t.id} cols={EXP_COLS} onOpen={() => onOpen(t.id)}>
+          <TableRow key={t.id} cols={EXP_COLS} onOpen={() => onOpen(t.id)} className={sel.has(t.id) ? 'is-picked' : ''}>
+            <Check on={sel.has(t.id)} onChange={() => sel.toggle(t.id)} label={`Select ${t.title}`} />
             <div className="flex min-w-0 items-center gap-[10px]">
               <RowMark>{initials(t.title)}</RowMark>
               <span className="truncate">{t.title}</span>

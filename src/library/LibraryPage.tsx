@@ -24,6 +24,7 @@ import {
   type LibRedirect,
   type ReasonKind,
 } from './useCancelLibrary'
+import { FRAME_WIDE } from '../layout/frames'
 
 const KINDS: { id: LibraryKind; label: string; hint: string; add: string }[] = [
   { id: 'offers', label: 'Offers', hint: 'What you offer instead of letting them go, and how it’s applied', add: 'New offer' },
@@ -276,7 +277,7 @@ function RedirectForm({ r }: { r: LibRedirect }) {
   )
 }
 
-const LIB_COLS = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_150px] items-center gap-[16px]'
+const LIB_COLS = 'grid grid-cols-[minmax(0,360px)_minmax(0,1fr)_150px] items-center gap-[16px]'
 
 function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id: string; title: string; detail: string; open: boolean; onToggle: () => void; onDelete: () => void; children: ReactNode }) {
   const [asking, setAsking] = useState(false)
@@ -312,7 +313,11 @@ function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id
             </button>
           </div>
         </div>
-        {open && <div className="border-b border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] px-[16px] pb-[16px] pl-[69px] pt-[4px]">{children}</div>}
+        {open && (
+          <div className="border-b border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] px-[16px] pb-[16px] pl-[69px] pt-[4px]">
+            <div className="max-w-[760px]">{children}</div>
+          </div>
+        )}
       </li>
     )
   }
@@ -418,7 +423,7 @@ export function LibraryPage() {
   return (
     <div className={`flex h-full min-w-0 flex-1 ${V9 ? 'bg-white' : 'bg-slate-50'}`}>
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[760px] space-y-[14px] px-[28px] py-[24px]">
+        <div className={`space-y-[14px] px-[28px] py-[24px] ${V9 ? FRAME_WIDE : 'mx-auto max-w-[760px]'}`}>
           {V9 ? (
             <div>
               <PageHeader

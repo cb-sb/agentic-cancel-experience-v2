@@ -12,6 +12,7 @@ import { doInChat, openItem } from './actions'
 import { experienceChecks, failing, playChecks, type CheckResult } from './checks'
 import { experienceCtx, experienceRows, playRows, useSetupInputs, type SetupInputs } from './progress'
 import { experienceMap, playMap, tryItMap, workspaceMap, type MapRow } from './setupMap'
+import { FRAME_FORM } from '../layout/frames'
 
 type Gate = 'publish' | 'go live'
 
@@ -145,7 +146,7 @@ function Header({ title, live, checks, gate, onGate }: { title: string; live: bo
 function Page({ children }: { children: ReactNode }) {
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-[14px] px-[24px] py-[20px]">{children}</div>
+      <div className={`flex flex-col gap-[14px] px-[24px] py-[20px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>{children}</div>
     </div>
   )
 }

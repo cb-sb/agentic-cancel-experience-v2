@@ -1,5 +1,5 @@
 import { SIcon } from '@chargebee/sting-react'
-import { V8 } from '../layout/layoutMode'
+import { V8, V9 } from '../layout/layoutMode'
 import { useJourney } from '../store/useJourney'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { openTab } from '../workspace/paneTabs'
@@ -13,6 +13,7 @@ import type { SetupItemId } from './setupTracker'
 import { useCopilotThread } from './copilotThread'
 import { experienceRows, useSetupInputs, workspaceRows } from '../setup/progress'
 import { SettingsSection } from '../setup/SettingsSection'
+import { FRAME_FORM } from '../layout/frames'
 
 /** Where each setup row is fixed. Rows without a tab are answered in the chat. */
 const ROW_TAB: Partial<Record<SetupItemId, PaneTab>> = {
@@ -69,7 +70,7 @@ function PlanPage() {
   const rows = experienceRows(activeId, inputs).filter((r) => r.entry.id !== 'layout' && r.entry.id !== 'brand')
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] space-y-[28px] px-[28px] pb-[40px] pt-[28px]">
+      <div className={`space-y-[28px] px-[28px] pb-[40px] pt-[28px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>
         <div>
           <h2 className="text-[20px] font-semibold text-slate-900">{title ?? file.name}</h2>
           <p className="mt-[4px] text-[13px] text-slate-500">
@@ -99,7 +100,7 @@ function ReadinessPlan() {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-[20px] px-[28px] py-[24px]">
+      <div className={`flex flex-col gap-[20px] px-[28px] py-[24px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>
         <PlanSummary onJump={askBeat} />
 
         <section className="rounded-2xl border border-slate-200 bg-white">

@@ -32,3 +32,30 @@
 .slg-row.slg-row--open:is(:hover, :focus-visible) :is(button, [role='button']):hover {
   background: color-mix(in oklch, var(--slg-white) 14%, transparent);
 }
+
+.slg-check {
+  background: var(--slg-white, #fff);
+  border-color: var(--slg-neutral-400, #9ca3af);
+  color: var(--slg-color-text-on-solid, #fff);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.slg-check:hover {
+  border-color: var(--slg-neutral-900);
+}
+.slg-check.is-on {
+  background: var(--slg-neutral-900);
+  border-color: var(--slg-neutral-900);
+}
+.slg-row.slg-row--open:is(:hover, :focus-visible) .slg-check {
+  background: transparent;
+  border-color: var(--slg-white, #fff);
+}
+.slg-row.slg-row--open:is(:hover, :focus-visible) .slg-check.is-on {
+  background: var(--slg-white, #fff);
+  color: var(--slg-neutral-900);
+}
+.slg-row.is-picked:not(:hover, :focus-visible) {
+  background: var(--slg-neutral-50);
+}
