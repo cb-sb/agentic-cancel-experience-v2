@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from '../orchestration/paneTokens'
 import { Background, BackgroundVariant, ReactFlow, ReactFlowProvider, type Edge, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
@@ -817,7 +818,7 @@ function OrderCanvas({
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="var(--sk-slate-300, #d5dae1)" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={CANVAS_DOT_SIZE} color={CANVAS_DOT_COLOR} />
             <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>

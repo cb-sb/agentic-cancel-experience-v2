@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from '../orchestration/paneTokens'
 import {
   Background,
   BackgroundVariant,
@@ -369,7 +370,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="var(--sk-slate-300, #d5dae1)" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={CANVAS_DOT_SIZE} color={CANVAS_DOT_COLOR} />
             <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>

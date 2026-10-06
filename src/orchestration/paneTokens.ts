@@ -1,3 +1,5 @@
+import { V9 } from '../layout/layoutMode'
+
 /**
  * The widths of the three columns the shell is made of.
  *
@@ -45,3 +47,7 @@ export const NAV_FOLDED_W = 56
 /** The settings pane. Brand is narrower — its rows are shorter. */
 export const SETTINGS_W = 360
 export const SETTINGS_BRAND_W = 340
+
+/** The dot grid behind every canvas. v9 keeps it faint so the cards carry the page. */
+export const CANVAS_DOT_COLOR = V9 ? 'color-mix(in srgb, var(--sk-slate-300, #d5dae1) 55%, transparent)' : 'var(--sk-slate-300, #d5dae1)'
+export const CANVAS_DOT_SIZE = V9 ? 1.1 : 1.4

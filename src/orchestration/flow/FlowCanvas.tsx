@@ -1,3 +1,4 @@
+import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from '../paneTokens'
 import {
   useCallback,
   useEffect,
@@ -106,7 +107,7 @@ function minimapNodeColor(node: { type?: string }) {
 function CanvasBackground() {
   const zoom = useStore((s) => s.transform[2])
   return (
-    <Background variant={BackgroundVariant.Dots} gap={22 / zoom} size={1.4 / zoom} color="var(--sk-slate-300, #d5dae1)" />
+    <Background variant={BackgroundVariant.Dots} gap={22 / zoom} size={CANVAS_DOT_SIZE / zoom} color={CANVAS_DOT_COLOR} />
   )
 }
 

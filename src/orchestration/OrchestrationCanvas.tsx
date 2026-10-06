@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from './paneTokens'
 import { EASE_ENTER, EASE_LEAVE, PANEL_MS } from '../lib/motion'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { usePresence } from '../lib/usePresence'
@@ -34,7 +35,7 @@ export function DoorsBackdrop() {
       aria-hidden
       className="absolute inset-0 bg-slate-100"
       style={{
-        backgroundImage: 'radial-gradient(var(--sk-slate-300, #d5dae1) 1.4px, transparent 1.4px)',
+        backgroundImage: `radial-gradient(${CANVAS_DOT_COLOR} ${CANVAS_DOT_SIZE}px, transparent ${CANVAS_DOT_SIZE}px)`,
         backgroundSize: '22px 22px',
       }}
     />
