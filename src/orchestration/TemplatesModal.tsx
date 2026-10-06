@@ -161,7 +161,7 @@ function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
               <ToolSearch
                 value={query}
                 onChange={setQuery}
-                placeholder={libraryTab === 'yours' ? 'Search saved components' : 'Search templates'}
+                placeholder={libraryTab === 'yours' ? 'Search saved components…' : 'Search templates…'}
                 label={libraryTab === 'yours' ? 'Search saved components' : 'Search templates'}
               />
             }

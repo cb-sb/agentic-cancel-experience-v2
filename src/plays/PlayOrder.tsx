@@ -1082,7 +1082,7 @@ function PlaysPage() {
                     </ToolButton>
                   </>
                 ) : (
-                  <ToolSearch value={query} onChange={setQuery} placeholder="Search by name or audience" label="Search plays" />
+                  <ToolSearch value={query} onChange={setQuery} placeholder="Search plays…" label="Search plays" />
                 )}
                 <ToolSelect label="Status" value={view === 'canvas' && status === 'draft' ? 'all' : status} options={statusOptions} onChange={setStatus} />
                 <ToolDivider />

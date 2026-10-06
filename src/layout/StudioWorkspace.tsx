@@ -34,6 +34,7 @@ function ThreadView() {
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const paneShown = usePaneShown()
   const folded = useWorkspaceUi((s) => V8 && paneShown && s.copilotCollapsed)
+  const wide = useWorkspaceUi((s) => V9 && s.copilotWide)
   const uploadPage = useUpload((s) => V8 && s.phase !== 'closed' && !s.mappingOnly)
 
   if (uploadPage) {
@@ -72,7 +73,7 @@ function ThreadView() {
           folded
             ? 'w-[48px] flex-none border-l border-slate-200'
             : paneShown
-              ? `w-[clamp(360px,32%,500px)] flex-none border-slate-200 ${V8 ? 'border-l' : 'border-r'}`
+              ? `${wide ? 'w-[clamp(480px,50%,820px)]' : 'w-[clamp(360px,32%,500px)]'} flex-none border-slate-200 ${V8 ? 'border-l' : 'border-r'}`
               : 'min-w-0 flex-1'
         }`}
       >

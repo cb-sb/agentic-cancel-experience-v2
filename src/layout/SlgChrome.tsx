@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
+import { EASE_ENTER, EASE_LEAVE } from '../lib/motion'
 import { MenuList, useOutside, type MenuItem } from '../plays/ui'
 
 /**
@@ -291,36 +292,80 @@ export function ToolSelect<T extends string>({
   )
 }
 
-/** A search icon that opens into a field, and folds back when left empty. */
-export function ToolSearch({ value, onChange, placeholder, label = 'Search' }: { value: string; onChange: (v: string) => void; placeholder: string; label?: string }) {
+/** A search icon that slides open into a field, and folds back when left empty. */
+export function ToolSearch({
+  value,
+  onChange,
+  placeholder,
+  label = 'Search',
+  width = 240,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  label?: string
+  width?: number
+}) {
   const [open, setOpen] = useState(false)
-  if (!open && !value) return <ToolButton icon="search" label={label} onClick={() => setOpen(true)} />
+  const input = useRef<HTMLInputElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const shown = open || value !== ''
+  useOutside(open && !value, box, () => setOpen(false))
+  const fold = () => {
+    onChange('')
+    setOpen(false)
+  }
   return (
-    <div className="flex h-[28px] w-[200px] flex-none items-center gap-[6px] border border-[var(--slg-color-border-default)] bg-[var(--slg-color-bg-surface)] px-[8px] focus-within:border-[var(--slg-color-focus-ring)]">
-      <SIcon name="search" size={14} className="flex-none text-[var(--slg-color-text-muted)]" />
+    <div
+      ref={box}
+      style={{
+        width: shown ? width : 28,
+        transition: shown ? `width 240ms ${EASE_ENTER}` : `width 160ms ${EASE_LEAVE}`,
+      }}
+      className={`flex h-[28px] flex-none items-center overflow-hidden transition-colors ${shown ? '' : 'hover:bg-[var(--slg-color-bg-surface-muted)]'}`}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        title={shown ? undefined : label}
+        aria-expanded={shown}
+        tabIndex={shown ? -1 : 0}
+        onClick={() => {
+          setOpen(true)
+          input.current?.focus({ preventScroll: true })
+        }}
+        className="flex h-[28px] w-[28px] flex-none items-center justify-center text-[var(--slg-color-text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--slg-color-focus-ring)]"
+      >
+        <SIcon name="search" size={16} />
+      </button>
       <input
-        autoFocus
+        ref={input}
         value={value}
+        tabIndex={shown ? 0 : -1}
+        aria-hidden={!shown}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => !value && setOpen(false)}
         onKeyDown={(e) => {
           if (e.key !== 'Escape') return
-          onChange('')
-          setOpen(false)
+          fold()
+          input.current?.blur()
         }}
         placeholder={placeholder}
         aria-label={label}
-        className="min-w-0 flex-1 bg-transparent text-[12px] text-[var(--slg-color-text-primary)] outline-none placeholder:text-[var(--slg-color-text-muted)]"
+        className={`min-w-0 flex-1 bg-transparent pr-[6px] text-[13px] leading-[20px] text-[var(--slg-color-text-primary)] outline-none transition-opacity duration-200 placeholder:text-[var(--slg-color-text-secondary)] ${
+          shown ? 'opacity-100 delay-75' : 'opacity-0'
+        }`}
       />
       {value && (
         <button
           type="button"
           aria-label="Clear search"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             onChange('')
-            setOpen(false)
+            input.current?.focus({ preventScroll: true })
           }}
-          className="flex-none text-[var(--slg-color-text-muted)] hover:text-[var(--slg-color-text-primary)]"
+          className="mr-[6px] flex h-[18px] w-[18px] flex-none items-center justify-center text-[var(--slg-color-text-muted)] hover:text-[var(--slg-color-text-primary)]"
         >
           <SIcon name="x" size={13} />
         </button>

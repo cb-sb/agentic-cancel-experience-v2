@@ -33,6 +33,19 @@ export function singleTab(kind: PaneTab): ThreadTabs {
   return { open: [{ id, kind }], active: id }
 }
 
+/** v9: every view an experience has, in tab-bar order. */
+export const EVERY_TAB: PaneTab[] = ['editor', 'preview', 'plan', 'tasks', 'canvas']
+
+/** v9: adds the views that aren't open yet. Open tabs keep their id and state, so a second Preview stays. */
+export function withEveryTab(tabs: ThreadTabs): ThreadTabs {
+  const open = EVERY_TAB.flatMap((kind) => {
+    const mine = tabs.open.filter((t) => t.kind === kind)
+    return mine.length ? mine : [{ id: newTabId(kind), kind }]
+  })
+  const active = tabs.active && open.some((t) => t.id === tabs.active) ? tabs.active : open[0].id
+  return { open, active }
+}
+
 /** Threads saved before multi-tab kept `open` as a list of kinds. */
 export function normalizeTabs(raw: unknown): ThreadTabs {
   if (!raw || typeof raw !== 'object') return NO_TABS
@@ -111,6 +124,8 @@ interface WorkspaceUi {
   renaming: string | null
   /** v8: Copilot folded to a thin strip beside the tabs. */
   copilotCollapsed: boolean
+  /** v9: Copilot widened from its header. */
+  copilotWide: boolean
   setSidebarOpen: (open: boolean) => void
   setSearch: (search: string) => void
   setPaneHidden: (hidden: boolean) => void
@@ -159,6 +174,7 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   libraryFocus: null,
   renaming: null,
   copilotCollapsed: readCollapsed(),
+  copilotWide: false,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSearch: (search) => set({ search }),
   setPaneHidden: (paneHidden) => set({ paneHidden }),

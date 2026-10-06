@@ -180,7 +180,7 @@ export function ExperiencesHome() {
             tabs={<AngledTabs label="Play" items={PLAY_FILTERS} value={playFilter} onChange={setPlayFilter} />}
             actions={
               <>
-                <ToolSearch value={query} onChange={setQuery} placeholder="Search experiences" label="Search experiences" />
+                <ToolSearch value={query} onChange={setQuery} placeholder="Search experiences…" label="Search experiences" />
                 <ToolButton icon="list" label="List view" pressed={expView === 'list'} onClick={() => setExpView('list')} />
                 <ToolButton icon="layout-grid" label="Grid view" pressed={expView === 'grid'} onClick={() => setExpView('grid')} />
                 <ToolDivider />

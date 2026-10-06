@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { SIcon } from '@chargebee/sting-react'
+import { V9 } from '../layout/layoutMode'
+import { SUGGESTION_CHIP } from './CopilotChrome'
 
 export function SectionLabel({ children }: { children: string }) {
   return (
@@ -20,6 +22,14 @@ export function OptionBtn({
   pill?: boolean
   icon?: ReactNode
 }) {
+  if (pill && V9) {
+    return (
+      <button type="button" onClick={onClick} className={SUGGESTION_CHIP}>
+        {icon ? <span className="flex shrink-0">{icon}</span> : null}
+        {label}
+      </button>
+    )
+  }
   if (pill) {
     return (
       <button

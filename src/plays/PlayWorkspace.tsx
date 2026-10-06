@@ -82,6 +82,7 @@ export function PlayWorkspace() {
   const tabs = useWorkspaceUi((s) => (playId ? s.playTabs[playId] : undefined))
   const renaming = useWorkspaceUi((s) => s.renaming === playId)
   const collapsed = useWorkspaceUi((s) => s.copilotCollapsed)
+  const wide = useWorkspaceUi((s) => V9 && s.copilotWide)
 
   if (!play) {
     return (
@@ -233,7 +234,7 @@ export function PlayWorkspace() {
         </div>
       </div>
       <div
-        className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : 'w-[clamp(340px,30%,460px)]'}`}
+        className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : wide ? 'w-[clamp(480px,50%,820px)]' : 'w-[clamp(340px,30%,460px)]'}`}
       >
         {collapsed && <CopilotRail />}
         <div className={collapsed ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>

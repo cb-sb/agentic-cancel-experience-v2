@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { STUDIO, TABBED, V8 } from '../layout/layoutMode'
+import { STUDIO, TABBED, V8, V9 } from '../layout/layoutMode'
 import { LIBRARY, startFromTemplate, withLive } from '../journey/templates'
 import {
   DEFAULT_JOURNEY_BRAND,
@@ -20,7 +20,7 @@ import { nameProblem, uniqueName } from '../plays/names'
 import { dropExperience, initPlays, playsUsing } from '../plays/usePlays'
 import { startPaneSync, whilePaused } from './paneTabs'
 import { useCancelSettings } from './useCancelSettings'
-import { activeKind, normalizeTabs, NO_TABS, singleTab, useWorkspaceUi, type ThreadTabs } from './useWorkspaceUi'
+import { activeKind, normalizeTabs, NO_TABS, singleTab, useWorkspaceUi, withEveryTab, type ThreadTabs } from './useWorkspaceUi'
 
 /** Separate from the V5 draft key, so the two never overwrite each other. V7 and V8 tabs differ, so each keeps its own. */
 const KEY = V8
@@ -357,12 +357,26 @@ function openThreadNow(id: string) {
     installConnected: STUDIO || useWorkspace.getState().installConnected,
   })
   useWorkspaceUi.setState({ paneHidden: false, previewAs: '' })
+  if (V9) openEveryTab()
   resetHistoryBaseline()
+}
+
+/** v9: an experience opens with every view in the tab bar. A blank one stays with Copilot alone. */
+function openEveryTab() {
+  if (useJourney.getState().file.steps.length === 0) return
+  const { tabs } = useWorkspaceUi.getState()
+  useWorkspaceUi.setState({ tabs: withEveryTab(tabs), paneHidden: false })
+  if (tabs.active) return
+  useOrchestration.setState({ workSurface: 'editor' })
+  if (useExperience.getState().mode === 'play') useExperience.getState().setMode('compose')
 }
 
 export function switchThread(id: string) {
   const { activeId } = useWorkspace.getState()
-  if (id === activeId) return
+  if (id === activeId) {
+    if (V9) whilePaused(openEveryTab)
+    return
+  }
   storeActive()
   useWorkspace.setState({ activeId: id })
   openThread(id)

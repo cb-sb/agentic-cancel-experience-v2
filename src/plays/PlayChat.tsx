@@ -3,6 +3,8 @@ import { CollapseCopilotButton } from '../orchestration/CopilotRail'
 import { create } from 'zustand'
 import { SIcon } from '@chargebee/sting-react'
 import { CopilotMark } from '../orchestration/CopilotMark'
+import { CopilotComposer, CopilotDisclaimer, CopilotHeader, CopilotHeaderButton, SUGGESTION_CHIP } from '../orchestration/CopilotChrome'
+import { V9 } from '../layout/layoutMode'
 import { COPILOT_UI } from '../orchestration/copilotUi'
 import { experienceChecks, failing, playChecks } from '../setup/checks'
 import { finalCheck, finalCheckText, leftCount, nextRow, playChatRows, promptFor } from '../setup/chatSetup'
@@ -177,6 +179,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
   const rows = playChatRows(play.id, inputs)
   const left = leftCount(rows)
   const focus = thread.item ? [...playRows(play.id, inputs), ...workspaceRows(inputs)].find((r) => r.entry.id === thread.item!.id) ?? null : null
+  const wide = useWorkspaceUi((s) => s.copilotWide)
   const [draft, setDraft] = useState('')
   const scroll = useRef<HTMLDivElement>(null)
 
@@ -279,6 +282,12 @@ export function PlayChat({ play }: { play: CancelPlay }) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-white">
+      {V9 ? (
+        <CopilotHeader>
+          <CopilotHeaderButton label={wide ? 'Make Copilot narrower' : 'Make Copilot wider'} icon={wide ? 'minimize-2' : 'maximize-2'} onClick={() => useWorkspaceUi.setState({ copilotWide: !wide })} />
+          <CopilotHeaderButton label="Close Copilot" icon="x" onClick={() => useWorkspaceUi.getState().setCopilotCollapsed(true)} />
+        </CopilotHeader>
+      ) : (
       <div className="flex h-[60px] flex-none items-center gap-[10px] px-[16px]" style={{ background: COPILOT_UI.header, borderBottom: `1px solid ${COPILOT_UI.hairline}` }}>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[17px] font-bold leading-tight tracking-tight" style={{ color: COPILOT_UI.title }}>
@@ -290,6 +299,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
         </div>
         <CollapseCopilotButton />
       </div>
+      )}
       <div ref={scroll} className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[24px] pt-[12px]">
         <div className="space-y-[16px]">
           {thread.lines.map((l) =>
@@ -326,7 +336,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
                     const next = nextRow(rowsFor(play.id), { includeSkipped: true })
                     if (next) ask(play, next)
                   }}
-                  className="rounded-full border border-slate-200 bg-white px-[12px] py-[6px] text-[13px] font-medium text-slate-800 hover:bg-slate-50"
+                  className={V9 ? SUGGESTION_CHIP : 'rounded-full border border-slate-200 bg-white px-[12px] py-[6px] text-[13px] font-medium text-slate-800 hover:bg-slate-50'}
                 >
                   Resume setup ({left} left)
                 </button>
@@ -334,7 +344,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
               <button
                 type="button"
                 onClick={() => openPlayTab(play.id, 'canvas')}
-                className="rounded-full border border-slate-200 bg-white px-[12px] py-[6px] text-[13px] font-medium text-slate-800 hover:bg-slate-50"
+                className={V9 ? SUGGESTION_CHIP : 'rounded-full border border-slate-200 bg-white px-[12px] py-[6px] text-[13px] font-medium text-slate-800 hover:bg-slate-50'}
               >
                 Test with a subscriber
               </button>
@@ -343,6 +353,12 @@ export function PlayChat({ play }: { play: CancelPlay }) {
         </div>
       </div>
       <div className="flex-none px-[16px] pb-[12px] pt-[4px]">
+        {V9 ? (
+          <>
+            <CopilotComposer value={draft} onChange={setDraft} onSend={send} placeholder="Who it’s for, the split, control, order, or go live" />
+            <CopilotDisclaimer />
+          </>
+        ) : (
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -367,6 +383,7 @@ export function PlayChat({ play }: { play: CancelPlay }) {
             <SIcon name="arrow-up" size={14} />
           </button>
         </form>
+        )}
       </div>
     </div>
   )
