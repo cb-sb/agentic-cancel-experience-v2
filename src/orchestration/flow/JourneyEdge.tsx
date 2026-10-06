@@ -147,14 +147,14 @@ export function JourneyEdge({
                 // words: step wires are deliberately grey so the reason routing
                 // can be the only colour on the canvas, and grey type on white
                 // is what made these read as a watermark.
-                borderColor: stroke ? `${stroke}80` : '#cbd5e1',
+                borderColor: stroke ? `${stroke}80` : 'var(--sk-slate-300, #cbd5e1)',
                 boxShadow: '0 1px 2px rgba(15,23,42,0.10)',
               }}
             >
               <span
                 aria-hidden
                 className="h-[5px] w-[5px] flex-none rounded-full"
-                style={{ background: stroke ?? '#94a3b8' }}
+                style={{ background: stroke ?? 'var(--sk-slate-400, #94a3b8)' }}
               />
               {label}
             </span>

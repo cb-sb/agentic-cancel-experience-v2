@@ -34,7 +34,7 @@ export function DoorsBackdrop() {
       aria-hidden
       className="absolute inset-0 bg-slate-100"
       style={{
-        backgroundImage: 'radial-gradient(#d5dae1 1.4px, transparent 1.4px)',
+        backgroundImage: 'radial-gradient(var(--sk-slate-300, #d5dae1) 1.4px, transparent 1.4px)',
         backgroundSize: '22px 22px',
       }}
     />

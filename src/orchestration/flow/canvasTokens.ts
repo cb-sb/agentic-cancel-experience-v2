@@ -150,7 +150,7 @@ export const STEP_WIRE_W = 2
  */
 export const WIRE_COLOR = '#f0501e'
 /** Step-to-step wires: grey, so they stay behind the routing, but not a ghost. */
-export const STEP_WIRE_COLOR = '#94a3b8'
+export const STEP_WIRE_COLOR = 'var(--sk-slate-400, #94a3b8)'
 
 /* ──────────────────────────────── Ports ───────────────────────────────── */
 

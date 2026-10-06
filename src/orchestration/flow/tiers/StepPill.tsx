@@ -29,7 +29,7 @@ const PAD_X = 4
  */
 export function StepPill({ step, w, selected }: { step: Step; w: number; selected: boolean }) {
   const lead = leadComponent(step)
-  const accent = lead ? ACCENTS[lead.kind] : '#94a3b8'
+  const accent = lead ? ACCENTS[lead.kind] : 'var(--sk-slate-400, #94a3b8)'
   const label = compactStepLabel(step)
   const fontSize = clamp((w - PAD_X * 2) / (label.length * CHAR_W), MIN_FONT, MAX_FONT)
 

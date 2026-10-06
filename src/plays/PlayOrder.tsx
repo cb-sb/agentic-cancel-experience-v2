@@ -17,6 +17,7 @@ import { RowMenu, toast, type MenuItem } from './ui'
 import { nodeTypes, type CardData, type Tone } from './PlayCanvas'
 import { fmt, population, POPULATION_SIZE } from './population'
 import { audienceText, overlaps, resolveWorkspace, variantShare, type WorkspaceEntry, type WorkspaceRun } from './resolve'
+import { RefitOn, SlideDrawer, testButtonClass } from './drawerMotion'
 import { SubscriberPicker } from './TestDrawer'
 import { variantLetter, type CancelPlay } from './types'
 import { createPlay, duplicatePlay, usePlays, useRankedPlays } from './usePlays'
@@ -454,9 +455,9 @@ function buildGraph(
       target,
       type: 'smoothstep',
       animated: lit,
-      style: { stroke: lit ? '#6366f1' : '#cbd5e1', strokeWidth: lit ? 2.5 : 1.5 },
-      labelStyle: { fontSize: 11, fill: '#64748b', fontWeight: 500 },
-      labelBgStyle: { fill: '#f8fafc' },
+      style: { stroke: lit ? 'var(--sk-indigo-500, #6366f1)' : 'var(--sk-slate-300, #cbd5e1)', strokeWidth: lit ? 2.5 : 1.5 },
+      labelStyle: { fontSize: 11, fill: 'var(--sk-slate-500, #64748b)', fontWeight: 500 },
+      labelBgStyle: { fill: 'var(--sk-slate-50, #f8fafc)' },
       labelBgPadding: [4, 2] as [number, number],
       ...extra,
     })
@@ -825,7 +826,7 @@ function OrderCanvas({
       <div className="relative min-w-0 flex-1 bg-slate-50">
         <ReactFlowProvider>
           <ReactFlow
-            key={`${ranked.map((p) => p.id).join('|')}-${testing}`}
+            key={ranked.map((p) => p.id).join('|')}
             nodes={graph.nodes}
             edges={graph.edges}
             nodeTypes={nodeTypes}
@@ -838,7 +839,8 @@ function OrderCanvas({
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#d5dae1" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="var(--sk-slate-300, #d5dae1)" />
+            <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>
         {!bar && (
@@ -872,17 +874,15 @@ function OrderCanvas({
               </span>
             )}
           </div>
-          {!testing && (
-            <SButton size="small" variant="primary" className="pointer-events-auto w-auto" onClick={() => setTesting(true)}>
-              <span className="inline-flex items-center gap-[5px]">
-                <SIcon name="flask-conical" size={13} /> Test
-              </span>
-            </SButton>
-          )}
+          <SButton size="small" variant="primary" className={testButtonClass(testing)} onClick={() => setTesting(true)}>
+            <span className="inline-flex items-center gap-[5px]">
+              <SIcon name="flask-conical" size={13} /> Test
+            </span>
+          </SButton>
         </div>
         )}
       </div>
-      {testing && (
+      <SlideDrawer open={testing}>
         <OrderTestDrawer
           ranked={ranked}
           onRun={setRun}
@@ -891,7 +891,7 @@ function OrderCanvas({
             setRun(null)
           }}
         />
-      )}
+      </SlideDrawer>
     </div>
     </div>
   )

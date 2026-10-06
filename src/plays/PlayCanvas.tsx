@@ -22,6 +22,7 @@ import { fmt, playCounts, POPULATION_SIZE, type PlayCounts } from './population'
 import { audienceText, variantShare, type PlayRun, type TraceStep } from './resolve'
 import { variantLetter, type CancelPlay } from './types'
 import { useRankedPlays } from './usePlays'
+import { RefitOn, SlideDrawer, testButtonClass } from './drawerMotion'
 import { TestDrawer } from './TestDrawer'
 import { openExperience } from './navigate'
 
@@ -147,7 +148,7 @@ function build(play: CancelPlay, variants: VariantInfo[], globalControl: number,
       target,
       type: 'smoothstep',
       animated: lit,
-      style: { stroke: lit ? '#6366f1' : '#cbd5e1', strokeWidth: lit ? 2.5 : 1.5 },
+      style: { stroke: lit ? 'var(--sk-indigo-500, #6366f1)' : 'var(--sk-slate-300, #cbd5e1)', strokeWidth: lit ? 2.5 : 1.5 },
       ...opts,
     })
 
@@ -321,7 +322,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
       <div className="relative min-w-0 flex-1 bg-slate-50">
         <ReactFlowProvider>
           <ReactFlow
-            key={`${play.id}-${variants.length}-${testing}`}
+            key={`${play.id}-${variants.length}`}
             nodes={graph.nodes}
             edges={graph.edges}
             nodeTypes={nodeTypes}
@@ -334,7 +335,8 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#d5dae1" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="var(--sk-slate-300, #d5dae1)" />
+            <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-[8px] p-[12px]">
@@ -367,16 +369,14 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
               </span>
             )}
           </div>
-          {!testing && (
-            <SButton size="small" variant="primary" className="pointer-events-auto w-auto" onClick={() => setTesting(true)}>
-              <span className="inline-flex items-center gap-[5px]">
-                <SIcon name="flask-conical" size={13} /> Test
-              </span>
-            </SButton>
-          )}
+          <SButton size="small" variant="primary" className={testButtonClass(testing)} onClick={() => setTesting(true)}>
+            <span className="inline-flex items-center gap-[5px]">
+              <SIcon name="flask-conical" size={13} /> Test
+            </span>
+          </SButton>
         </div>
       </div>
-      {testing && (
+      <SlideDrawer open={testing}>
         <TestDrawer
           play={play}
           onRun={setRun}
@@ -385,7 +385,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             setRun(null)
           }}
         />
-      )}
+      </SlideDrawer>
     </div>
   )
 }

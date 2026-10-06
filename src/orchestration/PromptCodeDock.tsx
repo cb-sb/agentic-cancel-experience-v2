@@ -1167,7 +1167,7 @@ export function PromptCodeDock({
               className="rounded-[8px] px-[8px] py-[6px] text-[12px] font-semibold"
               style={{
                 color: dockMode === id ? COPILOT_UI.title : COPILOT_UI.muted,
-                background: dockMode === id ? '#e7f1fe' : 'transparent',
+                background: dockMode === id ? 'var(--sk-blue-50, #e7f1fe)' : 'transparent',
               }}
             >
               {label}

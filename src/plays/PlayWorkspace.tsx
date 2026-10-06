@@ -113,12 +113,18 @@ export function PlayWorkspace() {
           </button>
           <GoLive play={play} />
         </header>
-        <div role="tablist" aria-label="Play tabs" className="flex h-[40px] flex-none items-center gap-[2px] border-b border-slate-200 px-[10px]">
+        <div role="tablist" aria-label="Play tabs" className="flex h-[50px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
           {open.map((ref) => {
             const on = ref.id === active?.id
             const meta = PLAY_TAB[ref.kind]
+            const label = tabLabel(open, ref)
             return (
-              <div key={ref.id} className={`group flex h-[30px] items-center rounded-lg ${on ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
+              <div
+                key={ref.id}
+                className={`group -mb-px flex h-[42px] flex-none items-center gap-1 rounded-t-xl border px-3 text-[13px] font-semibold ${
+                  on ? 'border-slate-200 border-b-white bg-white text-slate-900' : 'border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                }`}
+              >
                 <button
                   type="button"
                   role="tab"
@@ -126,25 +132,25 @@ export function PlayWorkspace() {
                   title={meta.hint}
                   onClick={() => setActive(ref.id)}
                   onAuxClick={(e) => e.button === 1 && open.length > 1 && closePlayTab(play.id, ref.id)}
-                  className={`flex items-center gap-[6px] pl-[10px] pr-[4px] text-[12.5px] font-semibold ${on ? 'text-slate-900' : 'text-slate-500'}`}
+                  className="whitespace-nowrap px-1"
                 >
-                  <SIcon name={meta.icon} size={13} />
-                  {tabLabel(open, ref)}
+                  {label}
                 </button>
                 {open.length > 1 && (
                   <button
                     type="button"
-                    aria-label={`Close ${tabLabel(open, ref)}`}
+                    aria-label={`Close ${label}`}
+                    title={`Close ${label}`}
                     onClick={() => closePlayTab(play.id, ref.id)}
-                    className="mr-[4px] flex h-[18px] w-[18px] items-center justify-center rounded text-slate-400 opacity-0 hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100"
+                    className="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-800"
                   >
-                    <SIcon name="x" size={11} />
+                    <SIcon name="x" size={12} />
                   </button>
                 )}
               </div>
             )
           })}
-          <div className="relative">
+          <div className="relative flex h-[42px] flex-none items-center">
             <RowMenu
               label="Open a tab"
               icon="plus"
