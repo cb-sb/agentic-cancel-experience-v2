@@ -33,7 +33,7 @@ export function useOutside(open: boolean, ref: React.RefObject<HTMLElement | nul
   }, [open, ref, close])
 }
 
-function MenuList({ items, close }: { items: MenuItem[]; close: () => void }) {
+export function MenuList({ items, close }: { items: MenuItem[]; close: () => void }) {
   const [confirming, setConfirming] = useState<string | null>(null)
   const [nested, setNested] = useState<MenuItem | null>(null)
   if (nested) {
@@ -312,7 +312,7 @@ export function Chip({ children, tone = 'slate', title }: { children: ReactNode;
     rose: 'bg-rose-50 text-rose-700',
   }
   return (
-    <span title={title} className={`inline-flex flex-none items-center rounded-full px-[6px] py-[1px] text-[10.5px] font-semibold ${tones[tone]}`}>
+    <span title={title} className={`slg-tag inline-flex flex-none items-center rounded-full px-[6px] py-[1px] text-[10.5px] font-semibold ${tones[tone]}`}>
       {children}
     </span>
   )

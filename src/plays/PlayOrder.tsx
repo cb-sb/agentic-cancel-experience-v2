@@ -3,7 +3,6 @@ import { Background, BackgroundVariant, ReactFlow, ReactFlowProvider, type Edge,
 import '@xyflow/react/dist/style.css'
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 import { StatusChip } from '../layout/StatusChip'
-import { ago as editedAgo } from '../layout/ThreadSidebar'
 import type { SampleSubscriber } from '../play/resolve'
 import { markTested, setMark } from '../setup/useSetupState'
 import { useJourney } from '../store/useJourney'
@@ -13,7 +12,7 @@ import { fileOfThread, orderedThreads, useWorkspace } from '../workspace/useWork
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { openArchive, openExperience, openPlay } from './navigate'
 import { archivePlayItem } from './archive'
-import { RowMenu, toast, type MenuItem } from './ui'
+import { toast, type MenuItem } from './ui'
 import { nodeTypes, type CardData, type Tone } from './PlayCanvas'
 import { fmt, population, POPULATION_SIZE } from './population'
 import { audienceText, overlaps, resolveWorkspace, variantShare, type WorkspaceEntry, type WorkspaceRun } from './resolve'
@@ -22,6 +21,8 @@ import { SubscriberPicker } from './TestDrawer'
 import { variantLetter, type CancelPlay } from './types'
 import { createPlay, duplicatePlay, usePlays, useRankedPlays } from './usePlays'
 import { V9 } from '../layout/layoutMode'
+import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch, ToolSelect } from '../layout/SlgChrome'
+import { Ago, initials, RowActions, RowMark, TABLE_ROW, TABLE_ROW_OPEN, TableEmpty, TableHead, TableRow } from '../layout/SlgTable'
 import { logSession, markWalked, useTestSessions } from './useTestSessions'
 
 const DRAG = 'application/x-cancel-play'
@@ -233,24 +234,20 @@ function OrderList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[
 /** v9: a fixed step before or after the plays, laid out like the priority page in the app. */
 function PriorityPinned({ icon, title, lines, children }: { icon: SIconName; title: string; lines: string[]; children: ReactNode }) {
   return (
-    <li className="flex items-start gap-[10px]">
-      <span className="mt-[14px] flex h-[24px] w-[24px] flex-none items-center justify-center rounded-md border border-indigo-100 bg-indigo-50 text-indigo-600">
-        <SIcon name={icon} size={13} />
+    <li className={`${TABLE_ROW} flex items-center gap-[16px] bg-[var(--slg-neutral-50)] py-[8px]`}>
+      <span className="flex w-[44px] flex-none">
+        <RowMark icon={icon} />
       </span>
-      <div className="flex min-w-0 flex-1 items-center gap-[16px] rounded-lg border border-slate-200 bg-slate-100/70 px-[14px] py-[11px]">
-        <div className="min-w-0 flex-1">
-          <div className="text-[13.5px] font-semibold text-slate-900">{title}</div>
-          {lines.map((l) => (
-            <div key={l} className="truncate text-[12px] leading-[18px] text-slate-500">
-              {l}
-            </div>
-          ))}
-        </div>
-        {children}
+      <div className="flex min-w-0 flex-1 items-baseline gap-[10px]">
+        <span className="flex-none">{title}</span>
+        <span className="truncate text-[12px] font-normal text-slate-500">{lines.join('. ')}</span>
       </div>
+      {children}
     </li>
   )
 }
+
+const PRIORITY_COLS = 'grid grid-cols-[44px_minmax(0,1.8fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_60px_56px] items-center gap-[16px]'
 
 /** v9: the priority list. Filtered plays keep their real place in the order. */
 function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
@@ -263,7 +260,18 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
   const [drag, setDrag] = useState<number | null>(null)
   const [over, setOver] = useState<number | null>(null)
   return (
-    <ol className="flex flex-col gap-[8px]">
+    <ol>
+      <li>
+        <TableHead cols={PRIORITY_COLS}>
+          <span className="text-right">#</span>
+          <span>Play</span>
+          <span>Audience</span>
+          <span>Page type</span>
+          <span>Split</span>
+          <span>Status</span>
+          <span />
+        </TableHead>
+      </li>
       <PriorityPinned
         icon="shield"
         title="Global control"
@@ -281,9 +289,9 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
         <span className="w-[32px] flex-none text-right text-[12.5px] font-medium tabular-nums text-slate-700">{globalControl === 0 ? 'Off' : `${globalControl}%`}</span>
       </PriorityPinned>
 
-      <li className="flex items-center gap-[6px] pl-[34px] text-[12.5px] text-slate-500">
-        <SIcon name="arrow-down" size={13} className="flex-none text-slate-400" />
-        Send the remaining {100 - globalControl}% of traffic to these plays, in order:
+      <li className="flex items-center gap-[6px] border-b border-[var(--slg-color-border-default)] px-[16px] py-[8px] text-[12px] text-slate-500">
+        <SIcon name="arrow-down" size={12} className="flex-none text-slate-400" />
+        Send the remaining {100 - globalControl}% of traffic to these plays, in order. Drag a row to change it.
       </li>
 
       {shown.map((p) => {
@@ -314,77 +322,71 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
               setDrag(null)
               setOver(null)
             }}
-            className={`group flex items-start gap-[10px] pl-[34px] ${drag === i ? 'opacity-50' : ''}`}
+            className={drag === i ? 'opacity-50' : ''}
           >
-            <span className="mt-[9px] flex h-[24px] w-[24px] flex-none items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[12px] font-medium tabular-nums text-slate-600">
-              {i + 1}
-            </span>
             <div
-              className={`min-w-0 flex-1 rounded-lg border bg-white transition-[border-color,box-shadow] ${
-                over === i && drag !== i ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'
+              role="button"
+              tabIndex={0}
+              onClick={() => openPlay(p.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.target === e.currentTarget) openPlay(p.id)
+              }}
+              className={`${PRIORITY_COLS} ${TABLE_ROW_OPEN} group active:cursor-grabbing ${
+                over === i && drag !== i ? 'shadow-[inset_0_2px_0_var(--slg-color-focus-ring)]' : ''
               }`}
             >
-              <div className="flex items-center gap-[8px] py-[8px] pl-[8px] pr-[8px]">
-                <span className="flex h-[24px] w-[18px] flex-none cursor-grab items-center justify-center text-slate-400 active:cursor-grabbing" aria-hidden>
-                  <SIcon name="grip-vertical" size={13} />
-                </span>
-                <button type="button" onClick={() => openPlay(p.id)} className="flex min-w-0 flex-1 items-center gap-[8px] text-left">
-                  <span className="truncate text-[13.5px] font-semibold text-slate-900 hover:underline">{p.name}</span>
-                  <StatusChip live={p.status === 'live'} />
+              <span className="flex items-center justify-end gap-[6px]">
+                <SIcon name="grip-vertical" size={12} className="flex-none cursor-grab text-slate-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                <span className="tabular-nums">{i + 1}</span>
+              </span>
+              <div className="flex min-w-0 items-center gap-[10px]">
+                <RowMark>{initials(p.name)}</RowMark>
+                <span className="truncate">{p.name}</span>
+              </div>
+              <span className="flex min-w-0 items-center gap-[6px]">
+                <SIcon name="users" size={12} className="flex-none text-slate-500" />
+                <span className="truncate">{audienceText(p.audience)}</span>
+              </span>
+              <span className="truncate">{(shells.get(p.id) ?? []).map((s) => SHELL[s]?.label ?? s).join(', ') || <span className="text-slate-500">None yet</span>}</span>
+              <span className="truncate">
+                {p.splitBy === 'segments'
+                  ? `${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
+                  : `${p.variants.length} variant${p.variants.length === 1 ? '' : 's'}`}
+              </span>
+              <span>
+                <StatusChip live={p.status === 'live'} />
+              </span>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center justify-end opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+              >
+                <button type="button" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => commitOrder(move(ids, i, i - 1))} className="p-[3px] disabled:opacity-30">
+                  <SIcon name="chevron-up" size={13} />
                 </button>
-                <div className="flex flex-none items-center gap-[6px]">
-                  <Tag icon="users">{audienceText(p.audience)}</Tag>
-                  {(shells.get(p.id) ?? []).map((s) => (
-                    <Tag key={s} icon={SHELL[s]?.icon ?? 'layers'}>
-                      {SHELL[s]?.label ?? s}
-                    </Tag>
-                  ))}
-                  <Tag icon="split">
-                    {p.splitBy === 'segments'
-                      ? `${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
-                      : `${p.variants.length} variant${p.variants.length === 1 ? '' : 's'}`}
-                  </Tag>
-                </div>
-                <div className="flex flex-none items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                  <button type="button" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => commitOrder(move(ids, i, i - 1))} className="rounded p-[2px] text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30">
-                    <SIcon name="chevron-up" size={13} />
-                  </button>
-                  <button type="button" aria-label={`Move ${p.name} down`} disabled={i === ranked.length - 1} onClick={() => commitOrder(move(ids, i, i + 1))} className="rounded p-[2px] text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30">
-                    <SIcon name="chevron-down" size={13} />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  aria-label={`Edit ${p.name}`}
-                  title="Edit play"
-                  onClick={() => openPlay(p.id)}
-                  className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                >
-                  <SIcon name="pencil" size={13} />
+                <button type="button" aria-label={`Move ${p.name} down`} disabled={i === ranked.length - 1} onClick={() => commitOrder(move(ids, i, i + 1))} className="p-[3px] disabled:opacity-30">
+                  <SIcon name="chevron-down" size={13} />
                 </button>
               </div>
-              {coverPlay && (
-                <div className="mx-[10px] mb-[10px] flex items-center gap-[8px] rounded-md bg-amber-50 px-[10px] py-[6px] text-[12px] text-amber-800">
-                  <SIcon name="triangle-alert" size={13} className="flex-none" />
-                  <span className="min-w-0 flex-1">Nobody reaches this play. {coverPlay.name} is above it and already covers everyone it would.</span>
-                  <button
-                    type="button"
-                    onClick={() => commitOrder(move(ids, i, ranked.indexOf(coverPlay)))}
-                    className="flex-none rounded-md bg-white px-[8px] py-[3px] font-semibold text-amber-800 shadow-sm hover:bg-amber-100"
-                  >
-                    Move up
-                  </button>
-                </div>
-              )}
             </div>
+            {coverPlay && (
+              <div className="flex items-center gap-[8px] border-b border-[var(--slg-color-border-default)] bg-amber-50 px-[16px] py-[7px] pl-[76px] text-[12px] text-amber-800">
+                <SIcon name="triangle-alert" size={13} className="flex-none" />
+                <span className="min-w-0 flex-1">Nobody reaches this play. {coverPlay.name} is above it and already covers everyone it would.</span>
+                <button
+                  type="button"
+                  onClick={() => commitOrder(move(ids, i, ranked.indexOf(coverPlay)))}
+                  className="flex-none bg-white px-[8px] py-[3px] font-semibold text-amber-800 shadow-sm hover:bg-amber-100"
+                >
+                  Move up
+                </button>
+              </div>
+            )}
           </li>
         )
       })}
       {shown.length === 0 && (
-        <li className="pl-[68px]">
-          <div className="rounded-lg border border-dashed border-slate-200 px-[14px] py-[11px] text-[13px] text-slate-500">
-            {ranked.length === 0 ? 'No plays yet.' : 'No plays match.'}
-          </div>
+        <li>
+          <TableEmpty>{ranked.length === 0 ? 'No plays yet.' : 'No plays match.'}</TableEmpty>
         </li>
       )}
 
@@ -397,7 +399,7 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
           value={fallbackId ?? ''}
           onChange={(e) => useCancelSettings.getState().setGlobalFallback(e.target.value || null)}
           aria-label="Fallback"
-          className="h-[32px] w-[220px] flex-none rounded-lg border border-slate-200 bg-white px-[8px] text-[13px] outline-none focus:border-slate-400"
+          className="h-[28px] w-[220px] flex-none border border-slate-200 bg-white px-[8px] text-[13px] outline-none focus:border-slate-400"
         >
           <option value="">No cancel page</option>
           {orderedThreads(threads).map((t) => (
@@ -752,26 +754,35 @@ function OrderTestDrawer({ ranked, onRun, onClose }: { ranked: CancelPlay[]; onR
   )
 }
 
+/** v9 passes status, counts and testing in from the page header; the classic page keeps its own floating controls. */
 function OrderCanvas({
   ranked,
   status,
-  onStatus,
-  counts: statusCounts,
+  showCounts: shownFromHeader,
+  testing: testingFromHeader,
+  onTesting,
 }: {
   ranked: CancelPlay[]
   status?: StatusFilter
-  onStatus?: (s: StatusFilter) => void
-  counts?: Record<StatusFilter, number>
+  showCounts?: boolean
+  testing?: boolean
+  onTesting?: (v: boolean) => void
 }) {
   const globalControl = useCancelSettings((s) => s.globalControl)
   const fallbackId = useCancelSettings((s) => s.globalFallbackId)
   const titleOf = useTitleOf()
   const [ownMode, setMode] = useState<Mode>('draft')
   const mode: Mode = status ? (status === 'live' ? 'live' : 'draft') : ownMode
-  const bar = Boolean(status && onStatus && statusCounts)
-  const [showCounts, setShowCounts] = useState(true)
-  const [testing, setTesting] = useState(false)
+  const bar = status !== undefined
+  const [ownCounts, setShowCounts] = useState(true)
+  const [ownTesting, setOwnTesting] = useState(false)
+  const showCounts = bar ? shownFromHeader !== false : ownCounts
+  const testing = bar ? Boolean(testingFromHeader) : ownTesting
+  const setTesting = (v: boolean) => (bar ? onTesting?.(v) : setOwnTesting(v))
   const [run, setRun] = useState<WorkspaceRun | null>(null)
+  useEffect(() => {
+    if (!testing) setRun(null)
+  }, [testing])
   const counts = useMemo(() => (showCounts ? orderCounts(ranked, globalControl, mode) : null), [showCounts, ranked, globalControl, mode])
   const graph = useMemo(
     () =>
@@ -789,39 +800,6 @@ function OrderCanvas({
   )
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-        {bar && (
-          <PlaysBar>
-            <button
-              type="button"
-              aria-pressed={showCounts}
-              onClick={() => setShowCounts((v) => !v)}
-              className={`inline-flex h-[32px] flex-none items-center gap-[6px] rounded-lg border px-[10px] text-[12.5px] font-medium ${
-                showCounts ? 'border-slate-300 bg-white text-slate-900' : 'border-slate-200 bg-white text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <SIcon name="users" size={13} /> Who sees this?
-            </button>
-            <span className="min-w-0 flex-1 truncate text-[12px] text-slate-500">
-              {showCounts
-                ? `Out of ${fmt(POPULATION_SIZE)} recent cancel clicks${mode === 'draft' ? ', as if every draft went live' : ', live plays only'}`
-                : ''}
-            </span>
-            <button
-              type="button"
-              aria-pressed={testing}
-              onClick={() => {
-                if (testing) setRun(null)
-                setTesting(!testing)
-              }}
-              className={`inline-flex h-[32px] flex-none items-center gap-[6px] rounded-lg border px-[10px] text-[12.5px] font-medium ${
-                testing ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <SIcon name="flask-conical" size={13} /> Test
-            </button>
-            <StatusSwitch status={status!} onChange={onStatus!} options={['all', 'live']} counts={statusCounts!} />
-          </PlaysBar>
-        )}
     <div className="relative flex min-h-0 flex-1">
       <div className="relative min-w-0 flex-1 bg-slate-50">
         <ReactFlowProvider>
@@ -843,6 +821,11 @@ function OrderCanvas({
             <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>
+        {bar && showCounts && (
+          <span className="pointer-events-none absolute left-[12px] top-[12px] bg-white/80 px-[8px] py-[4px] text-[11.5px] text-slate-500">
+            Out of {fmt(POPULATION_SIZE)} recent cancel clicks{mode === 'draft' ? ', as if every draft went live' : ', live plays only'}
+          </span>
+        )}
         {!bar && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-[8px] p-[12px]">
           <div className="pointer-events-auto flex items-center gap-[8px]">
@@ -933,106 +916,20 @@ function newPlay() {
   useWorkspaceUi.getState().setRenaming(id)
 }
 
-const PLAYS_FRAME = 'mx-auto w-full max-w-[900px] px-[28px]'
-
-/** v9: the row under the tabs. Same frame and height in List and Canvas so nothing moves when you switch. */
-function PlaysBar({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex-none border-b border-slate-200 bg-slate-50">
-      <div className={`${PLAYS_FRAME} flex h-[56px] items-center gap-[10px]`}>{children}</div>
-    </div>
-  )
-}
-
-/** v9: one status switch for both views. The canvas has no drafts-only view, so Drafts reads as All there. */
-function StatusSwitch({
-  status,
-  onChange,
-  options,
-  counts,
-}: {
-  status: StatusFilter
-  onChange: (s: StatusFilter) => void
-  options: StatusFilter[]
-  counts: Record<StatusFilter, number>
-}) {
-  const current = options.includes(status) ? status : 'all'
-  return (
-    <div role="radiogroup" aria-label="Status" className="flex flex-none items-center rounded-lg border border-slate-200 bg-white p-[2px]">
-      {options.map((o) => (
-        <button
-          key={o}
-          type="button"
-          role="radio"
-          aria-checked={current === o}
-          onClick={() => onChange(o)}
-          className={`flex h-[28px] items-center gap-[6px] rounded-md px-[10px] text-[12.5px] font-medium transition-colors ${
-            current === o ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          {STATUS_LABEL[o]}
-          <span className="tabular-nums text-slate-400">{counts[o]}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function SearchBox({ query, onQuery }: { query: string; onQuery: (q: string) => void }) {
-  return (
-    <div className="flex h-[32px] min-w-0 flex-1 items-center gap-[8px] rounded-lg border border-slate-200 bg-white px-[10px] focus-within:border-slate-400">
-      <SIcon name="search" size={14} className="flex-none text-slate-400" />
-      <input
-        value={query}
-        onChange={(e) => onQuery(e.target.value)}
-        placeholder="Search plays by name or audience"
-        aria-label="Search plays"
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 outline-none placeholder:text-slate-400"
-      />
-      {query && (
-        <button type="button" aria-label="Clear search" onClick={() => onQuery('')} className="flex-none rounded p-[2px] text-slate-400 hover:text-slate-700">
-          <SIcon name="x" size={14} />
-        </button>
-      )}
-    </div>
-  )
-}
+const PLAYS_FRAME = 'mx-auto w-full max-w-[1080px] px-[28px]'
 
 type PlaysView = 'mine' | 'order' | 'canvas'
 
-const VIEW_TABS: { id: PlaysView; label: string; icon: SIconName; hint: string }[] = [
-  { id: 'mine', label: 'My plays', icon: 'layout-list', hint: 'Every play, newest edits first' },
-  { id: 'order', label: 'Priority list', icon: 'list-ordered', hint: 'Plays in the order they are checked' },
-  { id: 'canvas', label: 'Canvas', icon: 'workflow', hint: 'Where every cancel click goes, and a test run' },
+const VIEW_TABS: { id: PlaysView; label: string; hint: string }[] = [
+  { id: 'mine', label: 'My plays', hint: 'Every play, newest edits first' },
+  { id: 'order', label: 'Priority list', hint: 'Plays in the order they are checked' },
+  { id: 'canvas', label: 'Canvas', hint: 'Where every cancel click goes, and a test run' },
 ]
 
 const VIEW_LINE: Record<PlaysView, string> = {
   mine: 'Each play picks an audience and the cancel experiences they see.',
   order: 'When someone clicks Cancel, plays are checked from the top and the first one they qualify for wins.',
   canvas: 'When someone clicks Cancel, plays are checked from the top and the first one they qualify for wins.',
-}
-
-function ViewTabs({ view, onChange }: { view: PlaysView; onChange: (v: PlaysView) => void }) {
-  return (
-    <div role="tablist" aria-label="View" className="flex items-end gap-[20px]">
-      {VIEW_TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          aria-selected={view === t.id}
-          title={t.hint}
-          onClick={() => onChange(t.id)}
-          className={`-mb-px flex items-center gap-[6px] border-b-2 pb-[10px] text-[13.5px] font-semibold transition-colors ${
-            view === t.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <SIcon name={t.icon} size={14} />
-          {t.label}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 /** What the play does with its audience, in a few words. */
@@ -1043,7 +940,7 @@ function setupLine(p: CancelPlay): string {
   return `A/B test of ${p.variants.length}`
 }
 
-const MINE_COLS = 'grid grid-cols-[minmax(0,2.1fr)_minmax(0,1.3fr)_minmax(0,1.7fr)_64px_92px_32px] items-center gap-[14px]'
+const MINE_COLS = 'grid grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.3fr)_60px_64px_88px_28px] items-center gap-[16px]'
 
 function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
   const titleOf = useTitleOf()
@@ -1051,15 +948,17 @@ function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] 
   const rows = [...shown].sort((a, b) => b.updatedAt - a.updatedAt)
   return (
     <div>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className={`${MINE_COLS} border-b border-slate-200 bg-slate-50 px-[16px] py-[8px] text-[11px] font-semibold uppercase tracking-wide text-slate-400`}>
+      <div>
+        <TableHead cols={MINE_COLS}>
           <span>Play</span>
           <span>Audience</span>
           <span>Experiences</span>
-          <span>Priority</span>
+          <span>Setup</span>
+          <span>Status</span>
+          <span className="text-right">Priority</span>
           <span>Edited</span>
           <span />
-        </div>
+        </TableHead>
         {rows.map((p) => {
           const pages = [...new Set(p.variants.map((v) => v.experienceId))]
           const items: MenuItem[] = [
@@ -1076,50 +975,36 @@ function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] 
             archivePlayItem(p),
           ]
           return (
-            <div
-              key={p.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openPlay(p.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') openPlay(p.id)
-              }}
-              className={`${MINE_COLS} group cursor-pointer border-b border-slate-100 last:border-b-0 px-[16px] py-[12px] transition-colors hover:bg-slate-50`}
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-[8px]">
-                  <span className="truncate text-[13.5px] font-semibold text-slate-900">{p.name}</span>
-                  <StatusChip live={p.status === 'live'} />
-                </div>
-                <div className="truncate text-[12px] text-slate-500">{setupLine(p)}</div>
+            <TableRow key={p.id} cols={MINE_COLS} onOpen={() => openPlay(p.id)}>
+              <div className="flex min-w-0 items-center gap-[10px]">
+                <RowMark>{initials(p.name)}</RowMark>
+                <span className="truncate">{p.name}</span>
               </div>
-              <div className="min-w-0">
-                <span className="inline-flex max-w-full items-center gap-[5px] rounded-md border border-slate-200 bg-slate-50 px-[7px] py-[2px] text-[12px] text-slate-600">
-                  <SIcon name="users" size={11} className="flex-none text-slate-400" />
-                  <span className="truncate">{audienceText(p.audience)}</span>
-                </span>
-              </div>
-              <div className="min-w-0 truncate text-[12.5px] text-slate-600">
+              <span className="flex min-w-0 items-center gap-[6px]">
+                <SIcon name="users" size={12} className="flex-none text-slate-500" />
+                <span className="truncate">{audienceText(p.audience)}</span>
+              </span>
+              <span className="min-w-0 truncate">
                 {pages.length === 0 ? (
-                  <span className="text-slate-400">None yet</span>
+                  <span className="text-slate-500">None yet</span>
                 ) : (
                   <>
                     {titleOf(pages[0])}
-                    {pages.length > 1 && <span className="text-slate-400"> +{pages.length - 1}</span>}
+                    {pages.length > 1 && <span className="text-slate-500"> +{pages.length - 1}</span>}
                   </>
                 )}
-              </div>
-              <span className="text-[12.5px] tabular-nums text-slate-600">#{ranked.indexOf(p) + 1}</span>
-              <span className="truncate text-[12.5px] text-slate-500">{editedAgo(p.updatedAt)}</span>
-              <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
-                <RowMenu label={`Actions for ${p.name}`} items={items} />
-              </div>
-            </div>
+              </span>
+              <span className="truncate text-slate-600">{setupLine(p)}</span>
+              <span>
+                <StatusChip live={p.status === 'live'} />
+              </span>
+              <span className="text-right tabular-nums">{ranked.indexOf(p) + 1}</span>
+              <Ago at={p.updatedAt} />
+              <RowActions label={`Actions for ${p.name}`} items={items} />
+            </TableRow>
           )
         })}
-        {rows.length === 0 && (
-          <p className="px-[16px] py-[16px] text-[13px] text-slate-500">{ranked.length === 0 ? 'No plays yet. Use New play to make one.' : 'No plays match.'}</p>
-        )}
+        {rows.length === 0 && <TableEmpty>{ranked.length === 0 ? 'No plays yet. Use New play to make one.' : 'No plays match.'}</TableEmpty>}
       </div>
       {archived > 0 && (
         <button type="button" onClick={openArchive} className="mt-[12px] flex items-center gap-[6px] text-[12.5px] font-medium text-slate-500 hover:text-slate-900">
@@ -1136,6 +1021,8 @@ function PlaysPage() {
   const [view, setView] = useState<PlaysView>('mine')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
+  const [showCounts, setShowCounts] = useState(true)
+  const [testing, setTesting] = useState(false)
   const q = query.trim().toLowerCase()
   const shown = ranked.filter(
     (p) =>
@@ -1144,38 +1031,55 @@ function PlaysPage() {
   )
   const live = ranked.filter((p) => p.status === 'live').length
   const counts: Record<StatusFilter, number> = { all: ranked.length, live, draft: ranked.length - live }
+  const statusOptions = (view === 'canvas' ? (['all', 'live'] as const) : (['all', 'live', 'draft'] as const)).map((o) => ({
+    id: o,
+    label: STATUS_LABEL[o],
+    count: counts[o],
+  }))
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col bg-slate-50">
-      <header className="flex-none border-b border-slate-200 bg-white">
-        <div className={`${PLAYS_FRAME} pt-[22px]`}>
-          <div className="flex items-start justify-between gap-[16px]">
-            <div className="min-w-0">
-              <h1 className="text-[20px] font-semibold text-slate-900">Plays</h1>
-              <p className="mt-[4px] truncate text-[13px] text-slate-500">{VIEW_LINE[view]}</p>
-            </div>
-            <SButton size="small" variant="primary" className="w-auto flex-none" onClick={newPlay}>
-              New play
-            </SButton>
-          </div>
-          <div className="mt-[16px]">
-            <ViewTabs view={view} onChange={setView} />
-          </div>
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-white">
+      <header className="flex-none bg-white">
+        <div className={`${PLAYS_FRAME} pt-[20px]`}>
+          <PageHeader
+            title="Plays"
+            meta={[
+              `${ranked.length} play${ranked.length === 1 ? '' : 's'}`,
+              <span className={live > 0 ? 'text-[var(--slg-green-700)]' : ''}>{live} live</span>,
+            ]}
+            tabs={<AngledTabs label="View" items={VIEW_TABS.map((t) => ({ id: t.id, label: t.label, hint: t.hint }))} value={view} onChange={setView} />}
+            actions={
+              <>
+                {view === 'canvas' ? (
+                  <>
+                    <ToolButton icon="users" label="Who sees this?" pressed={showCounts} onClick={() => setShowCounts((v) => !v)}>
+                      Who sees this?
+                    </ToolButton>
+                    <ToolButton icon="flask-conical" label="Test with a subscriber" pressed={testing} onClick={() => setTesting((v) => !v)}>
+                      Test
+                    </ToolButton>
+                  </>
+                ) : (
+                  <ToolSearch value={query} onChange={setQuery} placeholder="Search by name or audience" label="Search plays" />
+                )}
+                <ToolSelect label="Status" value={view === 'canvas' && status === 'draft' ? 'all' : status} options={statusOptions} onChange={setStatus} />
+                <ToolDivider />
+                <SButton size="small" variant="primary" className="w-auto flex-none" onClick={newPlay}>
+                  New play
+                </SButton>
+              </>
+            }
+          />
         </div>
       </header>
       {view === 'canvas' ? (
-        <OrderCanvas ranked={ranked} status={status} onStatus={setStatus} counts={counts} />
+        <OrderCanvas ranked={ranked} status={status} showCounts={showCounts} testing={testing} onTesting={setTesting} />
       ) : (
-        <>
-          <PlaysBar>
-            <SearchBox query={query} onQuery={setQuery} />
-            <StatusSwitch status={status} onChange={setStatus} options={['all', 'live', 'draft']} counts={counts} />
-          </PlaysBar>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className={`${PLAYS_FRAME} pb-[32px] pt-[16px]`}>
-              {view === 'mine' ? <MyPlays ranked={ranked} shown={shown} /> : <PriorityList ranked={ranked} shown={shown} />}
-            </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className={`${PLAYS_FRAME} pb-[32px] pt-[16px]`}>
+            <p className="mb-[12px] text-[13px] text-slate-500">{VIEW_LINE[view]}</p>
+            {view === 'mine' ? <MyPlays ranked={ranked} shown={shown} /> : <PriorityList ranked={ranked} shown={shown} />}
           </div>
-        </>
+        </div>
       )}
     </div>
   )

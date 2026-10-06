@@ -13,6 +13,8 @@ import {
 import '@xyflow/react/dist/style.css'
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 import type { JourneyStepKind } from '../journey/types'
+import { V9 } from '../layout/layoutMode'
+import { ToolButton, ToolSelect } from '../layout/SlgChrome'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
@@ -317,9 +319,41 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
   const graph = useMemo(() => build(play, variants, globalControl, counts, testing ? run : null), [play, variants, globalControl, counts, testing, run])
   const notLive = mode === 'live' && play.status !== 'live'
 
+  const reach = notLive ? 'This play isn’t live, so nobody reaches it yet.' : `Out of ${fmt(POPULATION_SIZE)} recent cancel clicks${mode === 'draft' ? ', if this draft went live' : ''}`
+
   return (
     <div className="relative flex h-full min-h-0 w-full">
-      <div className="relative min-w-0 flex-1 bg-slate-50">
+      <div className="relative flex min-w-0 flex-1 flex-col bg-slate-50">
+        {V9 && (
+          <div role="toolbar" aria-label="Canvas" className="flex h-[44px] flex-none items-center gap-[4px] border-b border-slate-200 bg-white px-[12px]">
+            <ToolSelect
+              align="left"
+              label="Counts for"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { id: 'draft', label: 'Draft', hint: 'As if this play went live' },
+                { id: 'live', label: 'Live', hint: 'What subscribers get today' },
+              ]}
+            />
+            <ToolButton icon="users" label="Who sees this?" pressed={showCounts} onClick={() => setShowCounts((v) => !v)}>
+              Who sees this?
+            </ToolButton>
+            <span className="min-w-0 flex-1 truncate px-[8px] text-[12px] text-slate-500">{showCounts ? reach : ''}</span>
+            <ToolButton
+              icon="flask-conical"
+              label="Test with a subscriber"
+              pressed={testing}
+              onClick={() => {
+                if (testing) setRun(null)
+                setTesting(!testing)
+              }}
+            >
+              Test
+            </ToolButton>
+          </div>
+        )}
+        <div className="relative min-h-0 flex-1">
         <ReactFlowProvider>
           <ReactFlow
             key={`${play.id}-${variants.length}`}
@@ -339,6 +373,8 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>
+        </div>
+        {!V9 && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-[8px] p-[12px]">
           <div className="pointer-events-auto flex items-center gap-[8px]">
             <div role="radiogroup" aria-label="Counts for" className="flex rounded-xl border border-slate-200 bg-white p-[2px] shadow-sm">
@@ -363,11 +399,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             >
               <SIcon name="users" size={12} /> Who sees this?
             </button>
-            {showCounts && (
-              <span className="rounded-lg bg-white/80 px-[8px] py-[4px] text-[11.5px] text-slate-500">
-                {notLive ? 'This play isn’t live, so nobody reaches it yet.' : `Out of ${fmt(POPULATION_SIZE)} recent cancel clicks${mode === 'draft' ? ', if this draft went live' : ''}`}
-              </span>
-            )}
+            {showCounts && <span className="rounded-lg bg-white/80 px-[8px] py-[4px] text-[11.5px] text-slate-500">{reach}</span>}
           </div>
           <SButton size="small" variant="primary" className={testButtonClass(testing)} onClick={() => setTesting(true)}>
             <span className="inline-flex items-center gap-[5px]">
@@ -375,6 +407,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             </span>
           </SButton>
         </div>
+        )}
       </div>
       <SlideDrawer open={testing}>
         <TestDrawer

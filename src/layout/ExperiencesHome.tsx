@@ -5,7 +5,7 @@ import { useCancelLibrary, type LibCard, type LibOffer, type LibReason, type Rea
 import { archiveExperienceItem } from '../plays/archive'
 import { openArchive, openLibrary, openPlay } from '../plays/navigate'
 import { variantLetter, type CancelPlay, type PlayVariant } from '../plays/types'
-import { DropdownButton, RowMenu, type MenuItem } from '../plays/ui'
+import { DropdownButton, type MenuItem } from '../plays/ui'
 import { usePlays } from '../plays/usePlays'
 import { BackButton, backToHome } from '../shell/BackButton'
 import { useOrchestration } from '../store/useOrchestration'
@@ -14,6 +14,8 @@ import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { createMenuItems } from './createMenu'
 import { SHELL_KIND, shellOf, stepCount } from './experienceKind'
 import { V9 } from './layoutMode'
+import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch } from './SlgChrome'
+import { Ago, initials, RowActions, RowMark, TableHead, TableRow } from './SlgTable'
 import { StatusChip } from './StatusChip'
 import { ago } from './ThreadSidebar'
 
@@ -106,6 +108,7 @@ export function ExperiencesHome() {
 
   const cancelThreads = threads.filter((t) => t.title !== 'New experience' || t.snapshot?.chat.lines.length)
   const inAPlay = new Set(plays.flatMap((p) => p.variants.map((v) => v.experienceId)))
+  const liveCount = cancelThreads.filter((t) => threadIsLive(t, activeId, activeLive)).length
   const experiences = orderedThreads(cancelThreads).filter(
     (t) => matches(t.title) && (playFilter === 'all' || (playFilter === 'in') === inAPlay.has(t.id)),
   )
@@ -154,7 +157,31 @@ export function ExperiencesHome() {
 
   return (
     <div className="h-full overflow-y-auto bg-white">
-      <div className="mx-auto max-w-[960px] px-[32px] pb-[48px] pt-[24px]">
+      <div className={`mx-auto px-[32px] pb-[48px] ${V9 ? 'max-w-[1080px] pt-[20px]' : 'max-w-[960px] pt-[24px]'}`}>
+        {V9 ? (
+          <PageHeader
+            title={
+              <div className="flex min-w-0 items-center gap-[6px]">
+                <BackButton fallback={backToHome} className="-ml-[8px]" />
+                <h1 className="truncate">Experiences</h1>
+              </div>
+            }
+            meta={[
+              `${cancelThreads.length} experience${cancelThreads.length === 1 ? '' : 's'}`,
+              <span className={liveCount > 0 ? 'text-[var(--slg-green-700)]' : ''}>{liveCount} live</span>,
+            ]}
+            tabs={<AngledTabs label="Play" items={PLAY_FILTERS} value={playFilter} onChange={setPlayFilter} />}
+            actions={
+              <>
+                <ToolSearch value={query} onChange={setQuery} placeholder="Search experiences" label="Search experiences" />
+                <ToolButton icon="list" label="List view" pressed={expView === 'list'} onClick={() => setExpView('list')} />
+                <ToolButton icon="layout-grid" label="Grid view" pressed={expView === 'grid'} onClick={() => setExpView('grid')} />
+                <ToolDivider />
+                <DropdownButton label="New" items={createMenuItems()} />
+              </>
+            }
+          />
+        ) : (
         <div className="flex items-center gap-[12px]">
           <div className="flex min-w-0 flex-1 items-center gap-[6px]">
             <BackButton fallback={backToHome} className="-ml-[8px]" />
@@ -177,31 +204,10 @@ export function ExperiencesHome() {
           </div>
           <DropdownButton label="New" items={createMenuItems()} />
         </div>
+        )}
 
-        <section className="mt-[32px]">
-          {V9 ? (
-            <div className="mb-[14px] flex items-center gap-[12px]">
-            <div role="tablist" aria-label="Play" className="flex min-w-0 flex-1 flex-wrap items-center gap-[6px]">
-              {PLAY_FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={playFilter === f.id}
-                  onClick={() => setPlayFilter(f.id)}
-                  className={`flex h-[28px] items-center rounded-full border px-[12px] text-[12.5px] font-medium transition-colors ${
-                    playFilter === f.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <ViewToggle view={expView} onChange={setExpView} />
-            </div>
-          ) : (
-            <SectionHead title="Cancel experiences" />
-          )}
+        <section className={V9 ? 'mt-[20px]' : 'mt-[32px]'}>
+          {!V9 && <SectionHead title="Cancel experiences" />}
           {experiences.length > 0 && V9 && expView === 'list' ? (
             <ExperienceList
               rows={experiences.map((t) => ({ thread: t, live: threadIsLive(t, activeId, activeLive), uses: uses.get(t.id) ?? [] }))}
@@ -427,20 +433,21 @@ function ExperienceTile({ title, live, edited, uses, onClick }: { title: string;
   )
 }
 
-const EXP_COLS = 'grid grid-cols-[minmax(0,1.5fr)_96px_minmax(0,2.6fr)_56px_84px_32px] items-center gap-[14px]'
+const EXP_COLS = 'grid grid-cols-[minmax(0,1.6fr)_88px_52px_minmax(0,2.4fr)_60px_88px_28px] items-center gap-[16px]'
 
 /** v9: the default Experiences view. One row each, with the plays it's in and whether each is live. */
 function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; live: boolean; uses: PlayUse[] }[]; onOpen: (id: string) => void }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className={`${EXP_COLS} border-b border-slate-200 bg-slate-50 px-[16px] py-[8px] text-[11px] font-semibold uppercase tracking-wide text-slate-400`}>
+    <div>
+      <TableHead cols={EXP_COLS}>
         <span>Experience</span>
         <span>Type</span>
+        <span className="text-right">Steps</span>
         <span>Used in</span>
         <span>Status</span>
         <span>Edited</span>
         <span />
-      </div>
+      </TableHead>
       {rows.map(({ thread: t, live, uses }) => {
         const kind = SHELL_KIND[shellOf(t)]
         const steps = stepCount(t)
@@ -449,31 +456,19 @@ function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; li
           archiveExperienceItem(t.id),
         ]
         return (
-          <div
-            key={t.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onOpen(t.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onOpen(t.id)
-            }}
-            className={`${EXP_COLS} cursor-pointer border-b border-slate-100 last:border-b-0 px-[16px] py-[11px] transition-colors hover:bg-slate-50`}
-          >
+          <TableRow key={t.id} cols={EXP_COLS} onOpen={() => onOpen(t.id)}>
             <div className="flex min-w-0 items-center gap-[10px]">
-              <span className="flex h-[32px] w-[32px] flex-none items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500">
-                <SIcon name={kind.icon} size={15} />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[13.5px] font-semibold text-slate-900">{t.title}</span>
-                <span className="block truncate text-[12px] text-slate-500">
-                  {steps} step{steps === 1 ? '' : 's'}
-                </span>
-              </span>
+              <RowMark>{initials(t.title)}</RowMark>
+              <span className="truncate">{t.title}</span>
             </div>
-            <span className="truncate text-[12.5px] text-slate-600">{kind.label}</span>
+            <span className="flex min-w-0 items-center gap-[6px]">
+              <SIcon name={kind.icon} size={12} className="flex-none text-slate-500" />
+              <span className="truncate">{kind.label}</span>
+            </span>
+            <span className="text-right tabular-nums">{steps}</span>
             <div className="flex min-w-0 items-center gap-[6px]">
               {uses.length === 0 ? (
-                <span className="text-[12.5px] text-slate-400">Not in a play</span>
+                <span className="text-slate-500">Not in a play</span>
               ) : (
                 <>
                   {uses.slice(0, 2).map((u) => (
@@ -485,7 +480,7 @@ function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; li
                         e.stopPropagation()
                         openPlay(u.play.id)
                       }}
-                      className="inline-flex min-w-0 max-w-[170px] shrink items-center gap-[5px] rounded-md border border-slate-200 bg-white px-[7px] py-[2px] text-[12px] text-slate-700 hover:border-slate-300 hover:text-slate-900"
+                      className="slg-tag inline-flex min-w-0 max-w-[170px] shrink items-center gap-[5px] bg-[var(--slg-neutral-100)] px-[6px] py-[1px] text-[12px] hover:bg-[var(--slg-neutral-200)]"
                     >
                       <span className={`h-[6px] w-[6px] flex-none rounded-full ${u.play.status === 'live' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                       <span className="truncate">{u.play.name}</span>
@@ -502,11 +497,9 @@ function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; li
             <span>
               <StatusChip live={live} />
             </span>
-            <span className="truncate text-[12.5px] text-slate-500">{ago(t.updatedAt)}</span>
-            <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
-              <RowMenu label={`Actions for ${t.title}`} items={items} />
-            </div>
-          </div>
+            <Ago at={t.updatedAt} />
+            <RowActions label={`Actions for ${t.title}`} items={items} />
+          </TableRow>
         )
       })}
     </div>

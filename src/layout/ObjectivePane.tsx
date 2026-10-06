@@ -12,6 +12,7 @@ import { useWorkspaceUi, type LibraryKind } from '../workspace/useWorkspaceUi'
 import { createMenuItems } from './createMenu'
 import { SHELL_KIND, shellOf } from './experienceKind'
 import { LooseRow, PlayRow } from './PlaysTree'
+import { navItem } from './navStyle'
 import { SettingRow } from './ThreadSidebar'
 import { useRecent, type RecentItem } from './useRecent'
 
@@ -32,9 +33,9 @@ function HeaderButton({ label, icon, onClick }: { label: string; icon: SIconName
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-900"
+      className={`${navItem()} flex h-8 w-8 flex-none items-center justify-center`}
     >
-      <SIcon name={icon} size={16} />
+      <SIcon name={icon} size={18} className="slg-nav-icon" />
     </button>
   )
 }
@@ -44,6 +45,7 @@ function PaneRow({
   icon,
   label,
   active,
+  section,
   onClick,
   add,
   trailing,
@@ -51,23 +53,25 @@ function PaneRow({
   icon: SIconName
   label: string
   active?: boolean
+  section?: boolean
   onClick: () => void
   add?: ReactNode
   trailing?: ReactNode
 }) {
   return (
-    <div className={`group flex h-9 items-center rounded-lg pr-[4px] transition-colors ${active ? 'bg-slate-200/70' : 'hover:bg-slate-200/50'}`}>
+    <div className={`group relative flex h-10 items-center ${navItem(active, section)}`}>
       <button
         type="button"
         onClick={onClick}
-        className={`flex h-full min-w-0 flex-1 items-center gap-[10px] px-[10px] text-left text-[13px] font-medium ${active ? 'text-slate-900' : 'text-slate-700 hover:text-slate-900'}`}
+        aria-current={active ? 'page' : undefined}
+        className="flex h-full min-w-0 flex-1 items-center gap-[12px] px-[10px] text-left"
       >
-        <SIcon name={icon} size={16} className="flex-none text-slate-500" />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <SIcon name={icon} size={18} className="slg-nav-icon flex-none" />
+        <span className="slg-nav-label min-w-0 flex-1 truncate">{label}</span>
         {trailing}
       </button>
       {add && (
-        <div className="flex flex-none opacity-0 transition-opacity group-hover:opacity-100 has-[:focus-visible]:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+        <div className="absolute right-[6px] top-1/2 flex -translate-y-1/2 bg-inherit pl-[4px] opacity-0 transition-opacity group-hover:opacity-100 has-[:focus-visible]:opacity-100 has-[[aria-expanded=true]]:opacity-100">
           {add}
         </div>
       )}
@@ -92,7 +96,7 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
 function SectionHead({ title }: { title: string }) {
   return (
     <div className="flex h-7 items-center px-[10px]">
-      <span className="text-[10.5px] font-bold uppercase tracking-wide text-slate-400">{title}</span>
+      <span className="slg-nav-head">{title}</span>
     </div>
   )
 }
@@ -177,9 +181,9 @@ function audiencesOf(plays: CancelPlay[]): AudienceUse[] {
 
 function GroupHead({ icon, title }: { icon: SIconName; title: string }) {
   return (
-    <div className="mb-[2px] flex h-6 items-center gap-[12px] pl-[12px]">
-      <SIcon name={icon} size={12} className="flex-none text-slate-400" />
-      <span className="text-[11.5px] font-medium text-slate-500">{title}</span>
+    <div className="mb-[2px] flex h-6 items-center gap-[10px] pl-[11px]">
+      <SIcon name={icon} size={14} className="flex-none text-[var(--slg-color-text-muted)]" />
+      <span className="text-[12px] font-medium text-[var(--slg-color-text-muted)]">{title}</span>
     </div>
   )
 }
@@ -190,7 +194,7 @@ function AudienceRow({ use }: { use: AudienceUse }) {
       type="button"
       onClick={() => openConfigure(use.play.id, 1)}
       title={`Used in ${use.play.name}. Opens its audience.`}
-      className="group flex h-8 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[36px] pr-[8px] text-left text-[13px] text-slate-700 transition-colors hover:bg-slate-200/50"
+      className={`${navItem()} group flex h-8 w-full min-w-0 items-center gap-[6px] pl-[36px] pr-[8px] text-left text-[13px] font-medium`}
     >
       <span className="min-w-0 flex-1 truncate">{use.name}</span>
       <span className="hidden max-w-[96px] flex-none truncate text-[11.5px] text-slate-400 group-hover:block">{use.play.name}</span>
@@ -255,9 +259,9 @@ export function ObjectivePane() {
   )
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-slate-50">
+    <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
       <div className={`flex h-[60px] flex-none items-center border-b border-slate-200 ${folded ? 'justify-center' : 'gap-[2px] px-[14px]'}`}>
-        {!folded && <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-slate-900">Retention</span>}
+        {!folded && <span className="min-w-0 flex-1 truncate font-[family-name:var(--slg-font-family-emphasis)] text-[16px] font-semibold text-[var(--slg-neutral-900)]">Retention</span>}
         {!folded && <HeaderButton label="Search" icon="search" onClick={() => setSearchOpen(true)} />}
         <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setSidebarOpen(folded)} />
       </div>
@@ -278,20 +282,22 @@ export function ObjectivePane() {
               icon="layers"
               label="Experiences"
               active={page === 'index'}
+              section={page === 'thread' && templatesOpen}
               onClick={openExperiences}
               add={<RowMenu label="New experience" icon="plus" items={newExperienceItems()} width={270} align="beside" />}
             />
-            <div className="ml-[18px] flex flex-col gap-[1px] border-l border-slate-200 pl-[6px]">
+            <div className="slg-nav-tree ml-[19px] flex flex-col gap-[2px] border-l pl-[6px]">
               <PaneRow icon="layout-template" label="Templates" active={page === 'thread' && templatesOpen} onClick={openTemplates} />
             </div>
             <PaneRow
               icon="library"
               label="Library"
+              section={inLibrary}
               onClick={openLibraryRow}
-              trailing={<SIcon name="chevron-right" size={13} className={`flex-none text-slate-400 transition-transform ${libraryOpen ? 'rotate-90' : ''}`} />}
+              trailing={<SIcon name="chevron-down" size={16} className={`slg-nav-icon flex-none transition-transform ${libraryOpen ? 'rotate-180' : ''}`} />}
             />
             {libraryOpen && (
-              <div className="ml-[18px] flex flex-col gap-[1px] border-l border-slate-200 pl-[6px]">
+              <div className="slg-nav-tree ml-[19px] flex flex-col gap-[2px] border-l pl-[6px]">
                 {LIBRARY_ROWS.map((r) => (
                   <PaneRow
                     key={r.kind}

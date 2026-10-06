@@ -3,6 +3,9 @@ import { SButton, SIcon } from '@chargebee/sting-react'
 import type { AfterAccept, OfferFulfilment, OfferKey } from '../journey/types'
 import { OFFER_VARIANTS, offerVariantLabel, offerVariantPatch } from '../lib/offerVariants'
 import { useWorkspaceUi, type LibraryKind } from '../workspace/useWorkspaceUi'
+import { V9 } from '../layout/layoutMode'
+import { PageHeader } from '../layout/SlgChrome'
+import { initials, RowMark, TABLE_ROW_OPEN, TableEmpty, TableHead } from '../layout/SlgTable'
 import {
   OFFER_ACTIONS,
   nameTakenIn,
@@ -273,8 +276,46 @@ function RedirectForm({ r }: { r: LibRedirect }) {
   )
 }
 
+const LIB_COLS = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_150px] items-center gap-[16px]'
+
 function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id: string; title: string; detail: string; open: boolean; onToggle: () => void; onDelete: () => void; children: ReactNode }) {
   const [asking, setAsking] = useState(false)
+  if (V9) {
+    return (
+      <li data-lib-item={id}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target === e.currentTarget) onToggle()
+          }}
+          className={`${LIB_COLS} ${TABLE_ROW_OPEN} ${open ? 'bg-[var(--slg-neutral-50)]' : ''}`}
+        >
+          <div className="flex min-w-0 items-center gap-[10px]">
+            <SIcon name={open ? 'chevron-down' : 'chevron-right'} size={13} className="flex-none text-slate-500" />
+            <RowMark>{initials(title)}</RowMark>
+            <span className="truncate">{title}</span>
+          </div>
+          <span className="truncate">{detail}</span>
+          <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
+            <button
+              type="button"
+              aria-label={asking ? 'Click again to delete' : `Delete ${title}`}
+              title={asking ? undefined : 'Delete'}
+              onClick={() => (asking ? onDelete() : setAsking(true))}
+              onBlur={() => setAsking(false)}
+              className={`flex h-[28px] flex-none items-center px-[8px] text-[12px] font-medium ${asking ? 'bg-rose-50 text-rose-700' : 'text-slate-500'}`}
+            >
+              {asking ? 'Click again to delete' : <SIcon name="trash-2" size={13} />}
+            </button>
+          </div>
+        </div>
+        {open && <div className="border-b border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] px-[16px] pb-[16px] pl-[69px] pt-[4px]">{children}</div>}
+      </li>
+    )
+  }
   return (
     <li data-lib-item={id} className="border-b border-slate-100 last:border-b-0">
       <div className="flex items-center gap-[10px] px-[14px] py-[10px]">
@@ -375,9 +416,25 @@ export function LibraryPage() {
   const count = kind === 'offers' ? lib.offers.length : lib[kind].length
 
   return (
-    <div className="flex h-full min-w-0 flex-1 bg-slate-50">
+    <div className={`flex h-full min-w-0 flex-1 ${V9 ? 'bg-white' : 'bg-slate-50'}`}>
       <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[760px] space-y-[14px] px-[28px] py-[24px]">
+          {V9 ? (
+            <div>
+              <PageHeader
+                title={meta.label}
+                meta={[`${count} saved`]}
+                actions={
+                  <SButton size="small" variant="primary" className="w-auto flex-none" onClick={create}>
+                    <span className="inline-flex items-center gap-[5px]">
+                      <SIcon name="plus" size={13} /> {meta.add}
+                    </span>
+                  </SButton>
+                }
+              />
+              <p className="mt-[12px] text-[13px] text-slate-500">{meta.hint}</p>
+            </div>
+          ) : (
           <div className="flex items-start gap-[12px]">
             <div className="min-w-0 flex-1">
               <h1 className="text-[20px] font-semibold text-slate-900">{meta.label}</h1>
@@ -389,10 +446,29 @@ export function LibraryPage() {
               </span>
             </SButton>
           </div>
+          )}
+          {V9 ? (
+            <div>
+              <TableHead cols={LIB_COLS}>
+                <span>Name</span>
+                <span>Details</span>
+                <span />
+              </TableHead>
+              <ul>
+                {rows}
+                {count === 0 && (
+                  <li>
+                    <TableEmpty>Nothing here yet.</TableEmpty>
+                  </li>
+                )}
+              </ul>
+            </div>
+          ) : (
           <ul className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {rows}
             {count === 0 && <li className="px-[14px] py-[12px] text-[13px] text-slate-500">Nothing here yet.</li>}
           </ul>
+          )}
         </div>
       </div>
     </div>

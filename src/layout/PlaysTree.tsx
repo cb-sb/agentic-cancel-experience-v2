@@ -34,6 +34,7 @@ import { copyMarks } from '../setup/useSetupState'
 import { separateCopy } from '../plays/ExperienceContext'
 import { archiveExperienceItem, archivePlayItem } from '../plays/archive'
 import { V9 } from './layoutMode'
+import { navItem } from './navStyle'
 
 const DRAG_TYPE = 'application/x-cancel-experience'
 
@@ -180,12 +181,16 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
       onClick={() => openExperience(v.experienceId, play.id)}
       aria-current={current ? 'true' : undefined}
       title={`Variant ${variantLetter(index)}, ${variantShare(play, v)}`}
-      className={`group flex cursor-pointer items-center rounded-lg pr-[4px] transition-colors ${V9 ? 'h-7 gap-[7px] pl-[6px]' : 'h-8 gap-[6px] pl-[8px]'} ${
-        current ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
-      }`}
+      className={
+        V9
+          ? `group flex h-8 cursor-pointer items-center gap-[8px] pl-[8px] pr-[4px] ${navItem(current)}`
+          : `group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] transition-colors ${
+              current ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
+            }`
+      }
     >
       {split && (
-        <span className="flex h-[16px] w-[16px] flex-none items-center justify-center rounded-[4px] bg-slate-200/80 text-[10px] font-semibold text-slate-500">
+        <span className="slg-avatar flex h-[16px] w-[16px] flex-none items-center justify-center bg-slate-200/80 text-[10px] font-semibold text-slate-500">
           {split.letter}
         </span>
       )}
@@ -195,7 +200,7 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
         onStart={() => useWorkspaceUi.getState().setRenaming(v.experienceId)}
         onDone={() => useWorkspaceUi.getState().setRenaming(null)}
         onCommit={(name) => renameThread(v.experienceId, name)}
-        className={`flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : V9 ? 'text-slate-600' : 'text-slate-700'}`}
+        className={V9 ? 'flex-1 text-[13px] font-medium' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
       />
       {!renaming && (
         <>
@@ -272,6 +277,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
   }
   const childPicked = pickedNow('audience', 1) || play.subAudiences.some((x) => pickedNow(x.id, 2)) || pickedNow('fallback', 2)
   const current = page === 'play' && playId === play.id && !childPicked
+  const inside = (page === 'play' && playId === play.id && childPicked) || (page === 'thread' && playId === play.id && play.variants.some((v) => v.experienceId === activeId))
   const audienceLine = play.audience.targetAll ? 'All subscribers' : audienceUnset(play.audience) ? 'No audience yet' : audienceText(play.audience)
   const variantRow = (v: PlayVariant) => (
     <VariantRow
@@ -329,9 +335,13 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           if (!open) onToggle()
         }}
         aria-current={current ? 'true' : undefined}
-        className={`group relative flex h-8 cursor-pointer items-center rounded-lg pr-[4px] transition-colors ${V9 ? 'gap-[6px] pl-[6px]' : 'gap-[2px]'} ${
-          over ? 'bg-indigo-50 ring-2 ring-indigo-300' : current ? 'bg-slate-200/70' : 'hover:bg-slate-200/50'
-        }`}
+        className={
+          V9
+            ? `group relative flex h-8 cursor-pointer items-center gap-[6px] pl-[6px] pr-[4px] ${over ? 'slg-nav-item is-drop' : navItem(current, inside)}`
+            : `group relative flex h-8 cursor-pointer items-center gap-[2px] rounded-lg pr-[4px] transition-colors ${
+                over ? 'bg-indigo-50 ring-2 ring-indigo-300' : current ? 'bg-slate-200/70' : 'hover:bg-slate-200/50'
+              }`
+        }
       >
         <button
           type="button"
@@ -351,7 +361,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           onStart={() => useWorkspaceUi.getState().setRenaming(play.id)}
           onDone={() => useWorkspaceUi.getState().setRenaming(null)}
           onCommit={(name) => renamePlay(play.id, name)}
-          className={`flex-1 text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}
+          className={V9 ? 'flex-1 text-[13px] font-semibold' : `flex-1 text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}
         />
         {over ? (
           <span className="flex-none pr-[4px] text-[11px] font-medium text-indigo-600">Drop to add · ⌥ to move</span>
@@ -374,18 +384,14 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           title="Audience. Opens Configure."
           onClick={() => configure('audience', 1)}
           aria-current={pickedNow('audience', 1) ? 'true' : undefined}
-          className={`-mt-[3px] mb-[3px] ml-[30px] flex h-[22px] max-w-[calc(100%-34px)] items-center gap-[5px] rounded-md px-[6px] text-left text-[11.5px] ${
-            pickedNow('audience', 1)
-              ? 'bg-white font-medium text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200'
-              : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-900'
-          }`}
+          className={`${navItem(pickedNow('audience', 1))} slg-nav-quiet mb-[2px] ml-[30px] flex h-[24px] max-w-[calc(100%-34px)] items-center gap-[6px] px-[6px] text-left text-[12px] font-medium`}
         >
-          <SIcon name="users" size={11} className="flex-none text-slate-400" />
+          <SIcon name="users" size={12} className="slg-nav-icon flex-none" />
           <span className="min-w-0 truncate">{audienceLine}</span>
         </button>
       )}
       {open && (
-        <div className={`flex flex-col gap-[1px] border-l border-slate-200 ${V9 ? 'mb-[6px] ml-[18px] pl-[12px]' : 'ml-[15px] py-[2px] pl-[6px]'}`}>
+        <div className={`flex flex-col border-l ${V9 ? 'slg-nav-tree mb-[6px] ml-[18px] gap-[2px] pl-[12px]' : 'ml-[15px] gap-[1px] border-slate-200 py-[2px] pl-[6px]'}`}>
           {!V9 && (
             <TreeLabel icon="users" muted title="Audience. Opens Configure." onClick={() => openConfigure(play.id, 1)}>
               {audienceLine}
@@ -465,20 +471,24 @@ function TreeLabel({
       title={title}
       onClick={onClick}
       aria-current={active ? 'true' : undefined}
-      className={`flex h-7 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] text-left text-[12px] ${
-        active
-          ? 'bg-white font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200'
-          : `hover:bg-slate-200/50 ${muted ? 'text-slate-400' : 'font-medium text-slate-600'}`
-      }`}
+      className={
+        V9
+          ? `${navItem(active)} slg-nav-quiet flex h-7 w-full min-w-0 items-center gap-[6px] pl-[8px] pr-[4px] text-left text-[12px] font-medium`
+          : `flex h-7 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] text-left text-[12px] ${
+              active
+                ? 'bg-white font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200'
+                : `hover:bg-slate-200/50 ${muted ? 'text-slate-400' : 'font-medium text-slate-600'}`
+            }`
+      }
     >
-      <SIcon name={icon} size={12} className="flex-none opacity-80" />
+      <SIcon name={icon} size={12} className={V9 ? 'slg-nav-icon flex-none' : 'flex-none opacity-80'} />
       <span className="min-w-0 flex-1 truncate">{children}</span>
     </button>
   )
 }
 
 function Nested({ children }: { children: React.ReactNode }) {
-  return <div className="ml-[13px] flex flex-col gap-[1px] border-l border-slate-200 pl-[6px]">{children}</div>
+  return <div className={`ml-[13px] flex flex-col border-l pl-[6px] ${V9 ? 'slg-nav-tree gap-[2px]' : 'gap-[1px] border-slate-200'}`}>{children}</div>
 }
 
 function EmptyLine() {
@@ -503,9 +513,11 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
       onDragStart={(e) => startDrag(e, { experienceId: thread.id, fromPlayId: null, variantId: null })}
       onClick={() => openExperience(thread.id, null)}
       aria-current={current ? 'true' : undefined}
-      className={`group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pr-[4px] transition-colors ${V9 ? 'pl-[36px]' : 'pl-[10px]'} ${
-        current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'
-      }`}
+      className={
+        V9
+          ? `group flex h-8 cursor-pointer items-center gap-[6px] pl-[36px] pr-[4px] ${navItem(current)}`
+          : `group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[10px] pr-[4px] transition-colors ${current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'}`
+      }
     >
       <InlineName
         value={thread.title}
@@ -513,7 +525,7 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
         onStart={() => useWorkspaceUi.getState().setRenaming(thread.id)}
         onDone={() => useWorkspaceUi.getState().setRenaming(null)}
         onCommit={(name) => renameThread(thread.id, name)}
-        className={`flex-1 ${V9 ? 'text-[13px]' : 'text-[12.5px]'} ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
+        className={V9 ? 'flex-1 text-[13px] font-medium' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
       />
       {!renaming && (
         <>

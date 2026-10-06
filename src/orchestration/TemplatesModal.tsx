@@ -3,7 +3,8 @@ import { SIcon } from '@chargebee/sting-react'
 import type { JourneyKind } from '../journey/types'
 import { LibraryBrowse } from './LibraryBrowse'
 import { YoursBrowse } from './YoursBrowse'
-import { V8 } from '../layout/layoutMode'
+import { V8, V9 } from '../layout/layoutMode'
+import { AngledTabs, PageHeader, ToolSearch } from '../layout/SlgChrome'
 import { BackButton } from '../shell/BackButton'
 import { goBack } from '../shell/navHistory'
 import { useOrchestration } from '../store/useOrchestration'
@@ -136,6 +137,39 @@ function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+      {V9 ? (
+        <div className="flex-none px-[20px] pt-[16px]">
+          <PageHeader
+            title={
+              <div className="flex min-w-0 items-center gap-[6px]">
+                <BackButton fallback={closeTemplates} />
+                <h1 className="truncate">Templates and components</h1>
+              </div>
+            }
+            tabs={
+              <AngledTabs
+                label="Library"
+                value={libraryTab}
+                onChange={setLibraryTab}
+                items={[
+                  { id: 'ours', label: 'Templates', hint: 'Cancel experiences to start from' },
+                  { id: 'yours', label: 'Saved components', hint: 'Screens and offers you saved' },
+                ]}
+              />
+            }
+            actions={
+              <ToolSearch
+                value={query}
+                onChange={setQuery}
+                placeholder={libraryTab === 'yours' ? 'Search saved components' : 'Search templates'}
+                label={libraryTab === 'yours' ? 'Search saved components' : 'Search templates'}
+              />
+            }
+          />
+          <p className="pt-[12px] text-[13px] text-slate-500">Start from a template, or reuse screens and offers you saved.</p>
+        </div>
+      ) : (
+      <>
       <div className="flex h-[60px] flex-none items-center gap-[10px] border-b border-slate-100 px-[20px]">
         <BackButton fallback={closeTemplates} />
         <div className="min-w-0">
@@ -160,6 +194,8 @@ function GrowthLibraryPage({ onUpload }: { onUpload: () => void }) {
           />
         </div>
       </div>
+      </>
+      )}
       {libraryTab === 'yours' ? (
         <YoursBrowse
           kind={kind}
@@ -203,11 +239,28 @@ export function CopilotLibrary({ onUpload }: { onUpload: () => void }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-[8px] border-b border-slate-100 px-[16px] py-[10px]">
+      <div
+        className={
+          V9
+            ? 'relative flex items-end justify-between gap-[8px] px-[12px] pt-[10px] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[var(--slg-color-border-strong)]'
+            : 'flex items-center justify-between gap-[8px] border-b border-slate-100 px-[16px] py-[10px]'
+        }
+      >
         <div className="flex min-w-0 flex-1 gap-[6px]">
-          {(['ours', 'yours'] as const).map((id) => (
-            <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />
-          ))}
+          {V9 ? (
+            <AngledTabs
+              size="sm"
+              label="Library"
+              value={libraryTab}
+              onChange={setLibraryTab}
+              items={[
+                { id: 'ours', label: 'Templates' },
+                { id: 'yours', label: 'Saved components' },
+              ]}
+            />
+          ) : (
+            (['ours', 'yours'] as const).map((id) => <Tab key={id} id={id} active={libraryTab === id} onClick={() => setLibraryTab(id)} />)
+          )}
         </div>
         <button
           type="button"
