@@ -11,7 +11,8 @@ import { GrowthPane } from './GrowthPane'
 import { OrderPage } from './OrderPage'
 import { PlayPage } from './PlayPage'
 import { TemplatesPage } from './TemplatesPage'
-import { useGrowthView } from './useGrowthUi'
+import { SoonPage } from '../Soon'
+import { goGrowth, useGrowthView } from './useGrowthUi'
 
 function Page({ objective }: { objective: GrowthObjective }) {
   const view = useGrowthView(objective)
@@ -30,6 +31,8 @@ function Page({ objective }: { objective: GrowthObjective }) {
       return <PricingTablesPage objective={objective} />
     case 'brand':
       return <BrandingStudio />
+    case 'soon':
+      return view.soon ? <SoonPage place={view.soon} onBack={() => goGrowth(objective, { page: 'index' })} /> : <ExperiencesPage objective={objective} />
     default:
       return <ExperiencesPage objective={objective} />
   }

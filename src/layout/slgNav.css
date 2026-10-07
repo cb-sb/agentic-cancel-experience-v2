@@ -1,0 +1,57 @@
+/* One navigation language for the global rail and every objective pane. */
+.slg-nav-item {
+  --slg-nav-hover: color-mix(in srgb, var(--slg-orange-500, #f97316) 9%, white);
+  border-radius: var(--slg-radius-md, 8px);
+  color: var(--slg-neutral-900, #0f172a);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.slg-nav-item.slg-nav-quiet {
+  color: var(--slg-neutral-600, #475569);
+}
+.slg-nav-item .slg-nav-icon {
+  color: var(--slg-neutral-900, #0f172a);
+  transition: color 150ms ease;
+}
+.slg-nav-item:not(.is-current):is(:hover, :focus-visible, :has(:focus-visible), .is-section) {
+  background-color: var(--slg-nav-hover);
+}
+.slg-nav-item:not(.is-current):is(:hover, :focus-visible, :has(:focus-visible), .is-section) .slg-nav-icon {
+  color: var(--slg-orange-500, #f97316);
+}
+.slg-nav-item.is-current {
+  background-color: var(--slg-color-action-primary, #171c34);
+  color: var(--slg-color-text-on-solid, #fff);
+}
+.slg-nav-item.is-current :not([role='menu'], [role='menu'] *) {
+  color: inherit;
+}
+.slg-nav-item.is-current [role='menu'] {
+  color: var(--slg-color-text-primary, #0f172a);
+}
+.slg-nav-item.is-current :is(.text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .slg-muted):not([role='menu'] *) {
+  color: rgb(255 255 255 / 0.68);
+}
+.slg-nav-item.is-current button:not([role='menu'] *):hover {
+  background-color: rgb(255 255 255 / 0.14);
+}
+.slg-nav-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+.slg-pane-label {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+}
+.slg-pane-head {
+  color: var(--slg-color-text-muted, #64748b);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.slg-nav-tree {
+  border-color: var(--slg-color-border-default, #e2e8f0);
+}

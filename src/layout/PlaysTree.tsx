@@ -228,7 +228,7 @@ function AddVariant({ play }: { play: CancelPlay }) {
   )
 }
 
-function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; onToggle: () => void }) {
+export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; onToggle: () => void }) {
   const page = useWorkspaceUi((s) => s.page)
   const playId = useWorkspaceUi((s) => s.playId)
   const activeId = useWorkspace((s) => s.activeId)
@@ -340,7 +340,7 @@ function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: boolean; on
   )
 }
 
-function LooseRow({ thread, current }: { thread: ExperienceThread; current: boolean }) {
+export function LooseRow({ thread, current }: { thread: ExperienceThread; current: boolean }) {
   const renaming = useWorkspaceUi((s) => s.renaming === thread.id)
   const dirty = useOrchestration((s) => s.dirty)
   const activeLive = useOrchestration((s) => s.play.publishState === 'live')

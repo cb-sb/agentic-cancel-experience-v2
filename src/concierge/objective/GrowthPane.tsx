@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { DEFAULT_JOURNEY_BRAND } from '../../journey/types'
-import { SettingRow } from '../../layout/ThreadSidebar'
 import { StatusChip } from '../../layout/StatusChip'
 import { variantShare } from '../../plays/resolve'
 import { variantLetter } from '../../plays/types'
@@ -32,11 +31,13 @@ import {
   type GrowthPlay,
 } from '../useGrowthPlays'
 import { existingExperienceItems, experienceName, newExperienceItems } from './actions'
+import { SOON, type SoonPlace } from '../Soon'
 import { SEARCH_ID } from './ExperiencesPage'
+import { ObjectivePaneShell, PaneSection, type PaneRowSpec } from './ObjectivePaneShell'
 import { otherObjective, SharedMark } from './ui'
 import { goGrowth, openGrowthExperience, openGrowthPlay, setRenaming, useGrowthUi, useGrowthView } from './useGrowthUi'
 
-function HeaderButton({ label, icon, onClick }: { label: string; icon: 'search' | 'panel-left'; onClick: () => void }) {
+export function HeaderButton({ label, icon, onClick }: { label: string; icon: 'search' | 'panel-left'; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -352,7 +353,7 @@ function LooseRow({ x, current }: { x: GrowthExperience; current: boolean }) {
   )
 }
 
-function PlaysTree({ objective }: { objective: GrowthObjective }) {
+export function PlaysTree({ objective }: { objective: GrowthObjective }) {
   const plays = useRankedGrowthPlays(objective)
   const allPlays = useGrowthPlays((s) => s.plays)
   const items = useGrowthExperiences((s) => s.items)
@@ -422,7 +423,7 @@ function PlaysTree({ objective }: { objective: GrowthObjective }) {
   )
 }
 
-function BrandPopover({ objective, onClose }: { objective: GrowthObjective; onClose: () => void }) {
+export function BrandPopover({ objective, onClose }: { objective: GrowthObjective; onClose: () => void }) {
   const brand = useWorkspace((s) => s.brand) ?? DEFAULT_JOURNEY_BRAND
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -460,74 +461,160 @@ function BrandPopover({ objective, onClose }: { objective: GrowthObjective; onCl
   )
 }
 
-const LIBRARY_ROWS: { page: 'offers' | 'pricing_tables'; label: string; icon: SIconName }[] = [
-  { page: 'offers', label: 'Offers', icon: 'gift' },
-  { page: 'pricing_tables', label: 'Pricing tables', icon: 'table' },
-]
+type PartRow = { page: 'templates' | 'pricing_tables'; label: string; icon: SIconName } | { soon: SoonPlace }
+
+const TEMPLATES_ROW: PartRow = { page: 'templates', label: 'Templates', icon: 'layout-template' }
+const PRICING_ROW: PartRow = { page: 'pricing_tables', label: 'Pricing tables', icon: 'table' }
+
+/** What each objective's experiences are made of. The soon rows are placeholders. */
+const EXPERIENCE_PARTS: Record<GrowthObjective, PartRow[]> = {
+  acquisition: [TEMPLATES_ROW, { soon: SOON.checkout }, PRICING_ROW, { soon: SOON.notifications }],
+  expansion: [TEMPLATES_ROW, { soon: SOON.portal }, { soon: SOON.planChanges }, PRICING_ROW, { soon: SOON.notifications }],
+}
 
 /** Acquisition or Expansion's own pane, beside the Growth nav, laid out like Retention's. */
 export function GrowthPane({ objective }: { objective: GrowthObjective }) {
   const open = useWorkspaceUi((s) => s.sidebarOpen)
   const setOpen = useWorkspaceUi((s) => s.setSidebarOpen)
   const view = useGrowthView(objective)
-  const [brandOpen, setBrandOpen] = useState(false)
   const folded = !open
   const go = (page: typeof view.page) => goGrowth(objective, { page })
+  const goSoon = (soon: SoonPlace) => goGrowth(objective, { page: 'soon', soon })
+  const onSoon = (soon: SoonPlace) => view.page === 'soon' && view.soon?.id === soon.id
+  const plays = useRankedGrowthPlays(objective).slice(0, 4)
+  const allPlays = useGrowthPlays((s) => s.plays)
+  const items = useGrowthExperiences((s) => s.items)
+  const inAPlay = new Set(allPlays.flatMap((p) => p.variants.map((v) => v.experienceId)))
+  const loose = experiencesFor(items, allPlays, objective).filter((x) => !inAPlay.has(x.id)).slice(0, 4)
+  const [openPlays, setOpenPlays] = useState<Set<string>>(() => new Set(view.playId ? [view.playId] : []))
+
+  useEffect(() => {
+    if (view.playId) setOpenPlays((s) => (s.has(view.playId!) ? s : new Set(s).add(view.playId!)))
+  }, [view.playId])
+
+  const toggle = (id: string) =>
+    setOpenPlays((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const parts: PaneRowSpec[] = EXPERIENCE_PARTS[objective].map((part) =>
+    'soon' in part
+      ? {
+          id: part.soon.id,
+          label: part.soon.label,
+          icon: part.soon.icon,
+          active: onSoon(part.soon),
+          onClick: () => goSoon(part.soon),
+        }
+      : {
+          id: part.page,
+          label: part.label,
+          icon: part.icon,
+          active: view.page === part.page,
+          onClick: () =>
+            part.page === 'templates'
+              ? goGrowth(objective, { page: 'templates', fillId: null })
+              : go(part.page),
+        },
+  )
+
+  const allExperiences: PaneRowSpec = {
+    id: 'all-experiences',
+    label: 'All experiences',
+    icon: 'layers',
+    active: view.page === 'index',
+    section: parts.some((row) => row.active),
+    showWhenFolded: true,
+    onClick: () => go('index'),
+    add: <RowMenu label="New experience" icon="plus" items={newExperienceItems(objective)} width={270} align="beside" />,
+  }
+
+  const performance: PaneRowSpec = {
+    id: SOON.performance.id,
+    label: SOON.performance.label,
+    icon: SOON.performance.icon,
+    active: onSoon(SOON.performance),
+    showWhenFolded: true,
+    onClick: () => goSoon(SOON.performance),
+  }
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-slate-50">
-      <div className={`flex h-[60px] flex-none items-center border-b border-slate-200 ${folded ? 'justify-center' : 'gap-[2px] px-[14px]'}`}>
-        {!folded && <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-slate-900">{objectiveLabel(objective)}</span>}
-        {!folded && (
-          <HeaderButton
-            label="Search"
-            icon="search"
-            onClick={() => {
-              go('index')
-              window.requestAnimationFrame(() => document.getElementById(SEARCH_ID)?.focus())
-            }}
-          />
-        )}
-        <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setOpen(folded)} />
-      </div>
-
-      <div className={`relative flex flex-none flex-col gap-[2px] py-[10px] ${folded ? 'px-[8px]' : 'px-[10px]'}`}>
-        {folded ? (
-          <SettingRow icon="layers" label="Experiences" folded active={view.page === 'index'} onClick={() => go('index')} />
-        ) : (
-          <div className={`flex h-9 items-center rounded-lg pr-[4px] transition-colors ${view.page === 'index' ? 'bg-slate-200/70' : 'hover:bg-slate-200/50'}`}>
-            <button
-              type="button"
-              onClick={() => go('index')}
-              className="flex h-full min-w-0 flex-1 items-center gap-[10px] px-[10px] text-left text-[13px] font-medium text-slate-700 hover:text-slate-900"
-            >
-              <SIcon name="layers" size={16} className="flex-none text-slate-500" />
-              <span className="truncate">Experiences</span>
-            </button>
-            <RowMenu label="New experience" icon="plus" items={newExperienceItems(objective)} width={270} align="beside" />
-          </div>
-        )}
-        <SettingRow icon="layout-template" label="Templates" folded={folded} active={view.page === 'templates'} onClick={() => goGrowth(objective, { page: 'templates', fillId: null })} />
-        <SettingRow icon="list-ordered" label="Play order and testing" folded={folded} active={view.page === 'order'} onClick={() => go('order')} />
-        <div className="relative">
-          <SettingRow icon="palette" label="Brand" folded={folded} active={brandOpen || view.page === 'brand'} onClick={() => setBrandOpen((v) => !v)} />
-          {brandOpen && <BrandPopover objective={objective} onClose={() => setBrandOpen(false)} />}
-        </div>
-      </div>
-
-      {!folded && (
-        <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-200 px-[10px] pb-[10px] pt-[10px]">
-          <PlaysTree objective={objective} />
-          <div className="mt-[12px] border-t border-slate-200 pt-[12px]">
-            <SectionHead title="Library" />
-            <div className="flex flex-col gap-[2px]">
-              {LIBRARY_ROWS.map((r) => (
-                <SettingRow key={r.page} icon={r.icon} label={r.label} folded={false} active={view.page === r.page} onClick={() => go(r.page)} />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </aside>
+    <ObjectivePaneShell
+      title={objectiveLabel(objective)}
+      folded={folded}
+      onSearch={() => {
+        go('index')
+        window.requestAnimationFrame(() => document.getElementById(SEARCH_ID)?.focus())
+      }}
+      onToggle={() => setOpen(folded)}
+      topRows={[
+        {
+          id: 'plays',
+          label: 'Plays',
+          icon: 'list-ordered',
+          active: view.page === 'order' || view.page === 'play',
+          showWhenFolded: true,
+          onClick: () => go('order'),
+          add: (
+            <RowMenu
+              label="New play"
+              icon="plus"
+              items={[{ label: 'New play', icon: 'plus', onClick: () => openGrowthPlay(objective, createGrowthPlay(objective)) }]}
+              align="beside"
+            />
+          ),
+        },
+      ]}
+      sections={[
+        {
+          id: 'experiences',
+          title: 'Experiences',
+          rows: [
+            allExperiences,
+            ...parts,
+            { id: 'brand', label: 'Brand', icon: 'palette', active: view.page === 'brand', onClick: () => go('brand') },
+          ],
+        },
+        {
+          id: 'offers',
+          title: 'Offers and pages',
+          rows: [
+            {
+              id: 'offers',
+              label: 'Offers',
+              icon: 'gift',
+              active: view.page === 'offers',
+              showWhenFolded: true,
+              onClick: () => go('offers'),
+            },
+          ],
+        },
+        { id: 'reporting', title: 'Reporting', rows: [performance] },
+      ]}
+      recent={
+        <>
+          {plays.length > 0 && (
+            <PaneSection title="Recent plays">
+              {plays.map((play) => <PlayRow key={play.id} play={play} open={openPlays.has(play.id)} onToggle={() => toggle(play.id)} />)}
+            </PaneSection>
+          )}
+          {loose.length > 0 && (
+            <PaneSection title="Recent experiences">
+              {loose.map((x) => <LooseRow key={x.id} x={x} current={view.page === 'experience' && view.experienceId === x.id && !view.playId} />)}
+            </PaneSection>
+          )}
+        </>
+      }
+      footer={{
+        id: SOON.archive.id,
+        label: SOON.archive.label,
+        icon: SOON.archive.icon,
+        active: onSoon(SOON.archive),
+        onClick: () => goSoon(SOON.archive),
+      }}
+    />
   )
 }

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useOrchestration } from '../store/useOrchestration'
 import { useUpload } from '../upload/useUpload'
 import { growthKey, growthPlace, restoreGrowthPlace, useGrowthUi, type GrowthPlace } from '../concierge/objective/useGrowthUi'
+import { useRetentionSoon, type SoonPlace } from '../concierge/Soon'
 import { V8 } from '../layout/layoutMode'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { switchThread, useWorkspace } from '../workspace/useWorkspace'
@@ -21,6 +22,8 @@ interface Place {
   libraryKind?: LibraryKind
   /** Concierge: where the merchant is inside Acquisition or Expansion. */
   growth?: GrowthPlace
+  /** Concierge: the not-yet-built place open in Retention. */
+  soon?: SoonPlace | null
 }
 
 interface EntryState {
@@ -43,6 +46,7 @@ function currentPlace(): Place {
     playId: ui.playId,
     libraryKind: ui.libraryKind,
     growth: growthPlace(),
+    soon: useRetentionSoon.getState().place,
   }
 }
 
@@ -61,6 +65,7 @@ function keyOf(p: Place): string {
     p.readOnlyId ?? '',
     p.playId ?? '',
     p.page === 'library' ? (p.libraryKind ?? '') : '',
+    p.page === 'soon' ? (p.soon?.id ?? '') : '',
     growthKey(p.growth),
   ].join('|')
 }
@@ -101,6 +106,7 @@ function schedule() {
 
 function apply(place: Place) {
   if (place.growth) restoreGrowthPlace(place.growth)
+  if (place.soon !== undefined) useRetentionSoon.setState({ place: place.soon })
   useGrowthShell.getState().go(place.route)
   const ws = useWorkspace.getState()
   if (place.threadId !== ws.activeId && ws.threads.some((t) => t.id === place.threadId)) {
@@ -150,6 +156,7 @@ export function startNavHistory() {
   useOrchestration.subscribe(schedule)
   useUpload.subscribe(schedule)
   useGrowthUi.subscribe(schedule)
+  useRetentionSoon.subscribe(schedule)
   window.addEventListener('popstate', onPopState)
 }
 

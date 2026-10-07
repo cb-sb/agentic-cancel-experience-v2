@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { useGrowthShell } from '../../shell/useGrowthShell'
 import type { GrowthObjective, GrowthType } from '../model'
+import type { SoonPlace } from '../Soon'
 
-export type GrowthPage = 'index' | 'experience' | 'play' | 'order' | 'templates' | 'offers' | 'pricing_tables' | 'brand'
+export type GrowthPage = 'index' | 'experience' | 'play' | 'order' | 'templates' | 'offers' | 'pricing_tables' | 'brand' | 'soon'
 export type PlayTab = 'summary' | 'tasks'
 export type ExperienceTab = 'preview' | 'summary'
 
@@ -17,6 +18,8 @@ export interface GrowthView {
   /** Templates opened from a blank experience fill that experience. */
   fillId: string | null
   templateType: GrowthType | 'all'
+  /** The not-yet-built place the 'soon' page shows. */
+  soon: SoonPlace | null
 }
 
 /** Where the merchant is in Acquisition and in Expansion. Each keeps its own place. */
@@ -31,6 +34,7 @@ const START: GrowthView = {
   withCopilot: false,
   fillId: null,
   templateType: 'all',
+  soon: null,
 }
 
 interface GrowthUiState {
@@ -76,7 +80,7 @@ export function growthPlace(): GrowthPlace {
 
 export function growthKey(place?: GrowthPlace): string {
   if (!place) return ''
-  const key = (v: GrowthView) => [v.page, v.experienceId ?? '', v.playId ?? '', v.withCopilot ? 1 : 0].join(':')
+  const key = (v: GrowthView) => [v.page, v.experienceId ?? '', v.playId ?? '', v.withCopilot ? 1 : 0, v.soon?.id ?? ''].join(':')
   return `${key(place.acquisition)}/${key(place.expansion)}`
 }
 

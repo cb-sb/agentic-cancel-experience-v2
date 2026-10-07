@@ -10,6 +10,8 @@ import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { CopilotRail } from '../orchestration/CopilotRail'
 import { LibraryPanel } from '../orchestration/TemplatesModal'
 import { CONCIERGE, V8 } from './layoutMode'
+import { SoonPage, useRetentionSoon } from '../concierge/Soon'
+import { RetentionPane } from '../concierge/objective/RetentionPane'
 import { AgentSlot } from '../concierge/AgentSlot'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 import { UploadFlow } from '../upload/UploadFlow'
@@ -94,6 +96,7 @@ function ThreadView() {
 export function StudioWorkspace() {
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
   const page = useWorkspaceUi((s) => s.page)
+  const soon = useRetentionSoon((s) => s.place)
   const beatAsk = useWorkspaceUi((s) => s.beatAsk)
   const setAssistantOpen = useOrchestration((s) => s.setAssistantOpen)
   const focusTarget = useOrchestration((s) => s.focusTarget)
@@ -125,7 +128,7 @@ export function StudioWorkspace() {
         transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
       }}
     >
-      <ExperiencesPane />
+      {CONCIERGE ? <RetentionPane /> : <ExperiencesPane />}
       <div className="flex min-h-0 min-w-0">
         {page === 'index' ? (
           <div className="min-w-0 flex-1">
@@ -137,6 +140,8 @@ export function StudioWorkspace() {
           <PlayOrder />
         ) : V8 && page === 'library' ? (
           <LibraryPage />
+        ) : CONCIERGE && page === 'soon' && soon ? (
+          <SoonPage place={soon} onBack={() => useWorkspaceUi.getState().setPage('index')} />
         ) : (
           <ThreadView />
         )}

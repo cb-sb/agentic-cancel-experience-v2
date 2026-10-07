@@ -1,4 +1,6 @@
 import { SIcon, type SIconName } from '@chargebee/sting-react'
+import { CONCIERGE } from '../layout/layoutMode'
+import { navItem } from '../layout/navStyle'
 import { NAV, type NavGroup, type NavLeaf, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
 
@@ -18,6 +20,21 @@ function LeafButton({
   compact?: boolean
 }) {
   const go = useGrowthShell((s) => s.go)
+
+  if (CONCIERGE) {
+    return (
+      <button
+        type="button"
+        title={leaf.label}
+        aria-current={active ? 'page' : undefined}
+        onClick={() => go(leaf.id)}
+        className={`${navItem(active)} flex h-10 w-full items-center text-left ${compact ? 'justify-center' : `gap-[10px] px-[10px] ${nested ? 'pl-[14px]' : ''}`}`}
+      >
+        <SIcon name={leaf.icon} size={18} className="slg-nav-icon flex-none" />
+        {!compact && <span className="slg-nav-label min-w-0 flex-1 truncate">{leaf.label}</span>}
+      </button>
+    )
+  }
 
   return (
     <button
@@ -46,6 +63,45 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
   const openGroup = useGrowthShell((s) => s.openGroup)
   const setNavOpen = useGrowthShell((s) => s.setNavOpen)
   const childActive = group.children.some((c) => c.id === route)
+
+  if (compact && CONCIERGE) {
+    return (
+      <button
+        type="button"
+        title={group.label}
+        aria-current={childActive ? 'page' : undefined}
+        onClick={() => {
+          setNavOpen(true)
+          openGroup(group.id)
+        }}
+        className={`${navItem(childActive)} flex h-10 w-full items-center justify-center`}
+      >
+        <SIcon name={group.icon} size={18} className="slg-nav-icon" />
+      </button>
+    )
+  }
+
+  if (CONCIERGE) {
+    return (
+      <div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => toggleGroup(group.id)}
+          className={`${navItem(false, childActive)} flex h-10 w-full items-center gap-[10px] px-[10px] text-left`}
+        >
+          <SIcon name={group.icon} size={18} className="slg-nav-icon flex-none" />
+          <span className="slg-nav-label min-w-0 flex-1 truncate">{group.label}</span>
+          <SIcon name="chevron-down" size={16} className={`slg-nav-icon flex-none transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="slg-nav-tree mb-[2px] ml-[19px] mt-[2px] flex flex-col gap-[2px] border-l pl-[4px]">
+            {group.children.map((leaf) => <LeafButton key={leaf.id} leaf={leaf} active={leaf.id === route} nested />)}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (compact) {
     return (
@@ -99,6 +155,52 @@ export function GrowthNav() {
   const route = useGrowthShell((s) => s.route)
   const navOpen = useGrowthShell((s) => s.navOpen)
   const toggleNav = useGrowthShell((s) => s.toggleNav)
+
+  if (CONCIERGE) {
+    return (
+      <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
+        <div className={`flex h-[60px] flex-none items-center gap-[8px] border-b border-slate-200 ${navOpen ? 'px-[10px]' : 'justify-center'}`}>
+          <button
+            type="button"
+            onClick={toggleNav}
+            title={navOpen ? 'Collapse navigation' : 'Open Growth navigation'}
+            aria-label={navOpen ? 'Collapse navigation' : 'Open Growth navigation'}
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] bg-[var(--slg-orange-500,#f97316)] text-[13px] font-bold text-white hover:bg-[var(--slg-orange-700,#c2410c)]"
+          >
+            G
+          </button>
+          {navOpen && (
+            <button type="button" title="Switch site" className={`${navItem()} flex h-9 min-w-0 flex-1 items-center gap-[8px] px-[6px] text-left`}>
+              <span className="flex flex-none items-center gap-[4px] bg-emerald-50 px-[6px] py-[2px] text-[10px] font-semibold uppercase tracking-[0.04em] text-emerald-700">
+                <span className="h-[6px] w-[6px] rounded-full bg-emerald-500" /> Live
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">cbgrowthdemo.chargebee.com</span>
+              <SIcon name="chevrons-up-down" size={16} className="slg-nav-icon flex-none" />
+            </button>
+          )}
+        </div>
+        <nav className="min-h-0 flex-1 overflow-y-auto px-[8px] py-[10px]">
+          <div className="flex flex-col gap-[2px]">
+            {NAV.map((entry) =>
+              entry.kind === 'group'
+                ? <GroupBlock key={entry.group.id} group={entry.group} route={route} compact={!navOpen} />
+                : <LeafButton key={entry.leaf.id} leaf={entry.leaf} active={entry.leaf.id === route} compact={!navOpen} />,
+            )}
+          </div>
+        </nav>
+        <div className="flex flex-none flex-col gap-[2px] border-t border-slate-200 px-[8px] py-[10px]">
+          <button type="button" title="Need help?" className={`${navItem()} flex h-10 w-full items-center ${navOpen ? 'gap-[10px] px-[10px]' : 'justify-center'}`}>
+            <SIcon name="circle-help" size={18} className="slg-nav-icon flex-none" />
+            {navOpen && <span className="slg-nav-label min-w-0 flex-1 truncate text-left">Need help?</span>}
+          </button>
+          <button type="button" title="John" className={`${navItem()} flex h-10 w-full items-center ${navOpen ? 'gap-[10px] px-[10px]' : 'justify-center'}`}>
+            <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-slate-900 text-[10px] font-semibold text-white">J</span>
+            {navOpen && <span className="min-w-0 flex-1 truncate text-left text-[13px] font-medium">John</span>}
+          </button>
+        </div>
+      </aside>
+    )
+  }
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">

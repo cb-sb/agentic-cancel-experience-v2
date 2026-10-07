@@ -60,8 +60,9 @@ export type Objective = 'acquisition' | 'expansion' | 'retention'
 /**
  * The experience being built, the Experiences page, or a read-only play from it.
  * v8 adds a play's own workspace, play order and testing, and the retention library.
+ * The concierge adds 'soon', a placeholder for places not built yet.
  */
-export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library'
+export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library' | 'soon'
 
 export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations' | 'redirects'
 
