@@ -200,7 +200,7 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
         onStart={() => useWorkspaceUi.getState().setRenaming(v.experienceId)}
         onDone={() => useWorkspaceUi.getState().setRenaming(null)}
         onCommit={(name) => renameThread(v.experienceId, name)}
-        className={V9 ? 'flex-1 text-[13px] font-medium' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
+        className={V9 ? 'flex-1 text-[13px] font-normal' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
       />
       {!renaming && (
         <>
@@ -361,7 +361,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           onStart={() => useWorkspaceUi.getState().setRenaming(play.id)}
           onDone={() => useWorkspaceUi.getState().setRenaming(null)}
           onCommit={(name) => renamePlay(play.id, name)}
-          className={V9 ? 'flex-1 text-[13px] font-semibold' : `flex-1 text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}
+          className={V9 ? 'flex-1 text-[13px] font-normal' : `flex-1 text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}
         />
         {over ? (
           <span className="flex-none pr-[4px] text-[11px] font-medium text-indigo-600">Drop to add · ⌥ to move</span>
@@ -525,7 +525,7 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
         onStart={() => useWorkspaceUi.getState().setRenaming(thread.id)}
         onDone={() => useWorkspaceUi.getState().setRenaming(null)}
         onCommit={(name) => renameThread(thread.id, name)}
-        className={V9 ? 'flex-1 text-[13px] font-medium' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
+        className={V9 ? 'flex-1 text-[13px] font-normal' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
       />
       {!renaming && (
         <>

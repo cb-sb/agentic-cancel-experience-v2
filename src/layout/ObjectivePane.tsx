@@ -62,15 +62,15 @@ function PaneRow({
   trailing?: ReactNode
 }) {
   return (
-    <div className={`group relative flex h-10 items-center ${navItem(active, section)}`}>
+    <div className={`group relative flex h-8 items-center ${navItem(active, section)}`}>
       <button
         type="button"
         onClick={onClick}
         aria-current={active ? 'page' : undefined}
-        className="flex h-full min-w-0 flex-1 items-center gap-[12px] px-[10px] text-left"
+        className="flex h-full min-w-0 flex-1 items-center gap-[10px] px-[10px] text-left"
       >
-        <SIcon name={icon} size={18} className="slg-nav-icon flex-none" />
-        <span className="slg-nav-label min-w-0 flex-1 truncate">{label}</span>
+        <SIcon name={icon} size={16} className="slg-nav-icon flex-none" />
+        <span className="slg-pane-label min-w-0 flex-1 truncate">{label}</span>
         {trailing}
       </button>
       {add && (
@@ -96,10 +96,20 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   )
 }
 
+/** A group's name above its rows, in sentence case. */
 function SectionHead({ title }: { title: string }) {
   return (
-    <div className="flex h-7 items-center px-[10px]">
-      <span className="slg-nav-head">{title}</span>
+    <div className="flex h-7 items-end px-[10px] pb-[4px]">
+      <span className="slg-pane-head">{title}</span>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-[2px]">
+      <SectionHead title={title} />
+      {children}
     </div>
   )
 }
@@ -182,22 +192,13 @@ function audiencesOf(plays: CancelPlay[]): AudienceUse[] {
   return out.slice(0, AUDIENCES_SHOWN)
 }
 
-function GroupHead({ icon, title }: { icon: SIconName; title: string }) {
-  return (
-    <div className="mb-[2px] flex h-6 items-center gap-[10px] pl-[11px]">
-      <SIcon name={icon} size={14} className="flex-none text-[var(--slg-color-text-muted)]" />
-      <span className="text-[12px] font-medium text-[var(--slg-color-text-muted)]">{title}</span>
-    </div>
-  )
-}
-
 function AudienceRow({ use }: { use: AudienceUse }) {
   return (
     <button
       type="button"
       onClick={() => openConfigure(use.play.id, 1)}
       title={`Used in ${use.play.name}. Opens its audience.`}
-      className={`${navItem()} group flex h-8 w-full min-w-0 items-center gap-[6px] pl-[36px] pr-[8px] text-left text-[13px] font-medium`}
+      className={`${navItem()} group flex h-8 w-full min-w-0 items-center gap-[6px] pl-[36px] pr-[8px] text-left text-[13px] font-normal`}
     >
       <span className="min-w-0 flex-1 truncate">{use.name}</span>
       <span className="hidden max-w-[96px] flex-none truncate text-[11.5px] text-slate-400 group-hover:block">{use.play.name}</span>
@@ -258,29 +259,33 @@ export function ObjectivePane() {
         <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setSidebarOpen(folded)} />
       </div>
 
-      <div className={`relative flex flex-none flex-col gap-[2px] py-[10px] ${folded ? 'px-[8px]' : 'px-[10px]'}`}>
-        {folded ? (
-          <>
+      {folded ? (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col gap-[2px] px-[8px] py-[10px]">
             <SettingRow icon="search" label="Search" folded onClick={() => setSearchOpen(true)} />
             <SettingRow icon="list-ordered" label="Plays" folded active={page === 'order'} onClick={openOrder} />
             <SettingRow icon="layers" label="Experiences" folded active={inExperiences} onClick={openExperiences} />
             {OWN_ITEMS.map((r) => (
               <SettingRow key={r.kind} icon={r.icon} label={r.label} folded active={onLibrary(r.kind)} onClick={() => openLibrary(r.kind)} />
             ))}
+          </div>
+          <div className="flex-none border-t border-slate-200 px-[8px] py-[8px]">
             <SettingRow icon="archive" label="Archive" folded active={page === 'archive'} onClick={openArchive} />
-          </>
-        ) : (
-          <>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto px-[10px] pb-[16px] pt-[10px]">
             <PaneRow icon="list-ordered" label="Plays" active={page === 'order'} onClick={openOrder} add={<AddButton label="New play" onClick={newPlay} />} />
-            <PaneRow
-              icon="layers"
-              label="Experiences"
-              active={page === 'index'}
-              section={inExperiences && page !== 'index'}
-              onClick={openExperiences}
-              add={<RowMenu label="New experience" icon="plus" items={newExperienceItems()} width={270} align="beside" />}
-            />
-            <div className="slg-nav-tree ml-[19px] flex flex-col gap-[2px] border-l pl-[6px]">
+
+            <Section title="Experiences">
+              <PaneRow
+                icon="layers"
+                label="All experiences"
+                active={page === 'index'}
+                onClick={openExperiences}
+                add={<RowMenu label="New experience" icon="plus" items={newExperienceItems()} width={270} align="beside" />}
+              />
               <PaneRow icon="layout-template" label="Templates" active={page === 'thread' && templatesOpen} onClick={openTemplates} />
               {EXPERIENCE_PARTS.map((r) => (
                 <PaneRow
@@ -292,17 +297,52 @@ export function ObjectivePane() {
                   add={<AddButton label={r.add} onClick={() => openLibrary(r.kind, true)} />}
                 />
               ))}
-            </div>
-            {OWN_ITEMS.map((r) => (
-              <PaneRow
-                key={r.kind}
-                icon={r.icon}
-                label={r.label}
-                active={onLibrary(r.kind)}
-                onClick={() => openLibrary(r.kind)}
-                add={<AddButton label={r.add} onClick={() => openLibrary(r.kind, true)} />}
-              />
-            ))}
+            </Section>
+
+            <Section title="Offers and pages">
+              {OWN_ITEMS.map((r) => (
+                <PaneRow
+                  key={r.kind}
+                  icon={r.icon}
+                  label={r.label}
+                  active={onLibrary(r.kind)}
+                  onClick={() => openLibrary(r.kind)}
+                  add={<AddButton label={r.add} onClick={() => openLibrary(r.kind, true)} />}
+                />
+              ))}
+            </Section>
+
+            {recent.length === 0 && (
+              <Section title="Recent">
+                <p className="px-[10px] py-[4px] text-[12px] leading-snug text-slate-400">Plays and experiences you open show up here.</p>
+              </Section>
+            )}
+            {recentPlays.length > 0 && (
+              <Section title="Recent plays">
+                {recentPlays.map((p) => (
+                  <PlayRow key={p.id} play={p} open={playOpen(p)} onToggle={() => toggle(p.id)} />
+                ))}
+              </Section>
+            )}
+            {(Object.keys(SHELL_KIND) as ShellLayout[])
+              .filter((k) => byShell.has(k))
+              .map((k) => (
+                <Section key={k} title={`Recent ${SHELL_KIND[k].plural.toLowerCase()}`}>
+                  {byShell.get(k)!.map((t) => (
+                    <LooseRow key={t.id} thread={t} current={page === 'thread' && !templatesOpen && activeId === t.id && !openedInPlay} />
+                  ))}
+                </Section>
+              ))}
+            {audiences.length > 0 && (
+              <Section title="Recent audiences">
+                {audiences.map((a) => (
+                  <AudienceRow key={a.key} use={a} />
+                ))}
+              </Section>
+            )}
+          </div>
+
+          <div className="flex-none border-t border-slate-200 px-[10px] py-[8px]">
             <PaneRow
               icon="archive"
               label="Archive"
@@ -310,51 +350,8 @@ export function ObjectivePane() {
               onClick={openArchive}
               trailing={archivedCount > 0 ? <span className="flex-none text-[11.5px] tabular-nums text-slate-400">{archivedCount}</span> : undefined}
             />
-          </>
-        )}
-      </div>
-
-      {!folded && (
-        <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto border-t border-slate-200 px-[10px] pb-[16px] pt-[12px]">
-          <div className="-mb-[10px]">
-            <SectionHead title="Recent" />
           </div>
-          {recent.length === 0 && (
-            <p className="px-[10px] py-[4px] text-[12px] leading-snug text-slate-400">Plays and experiences you open show up here.</p>
-          )}
-          {recentPlays.length > 0 && (
-            <div>
-              <GroupHead icon="list-ordered" title="Plays" />
-              <div className="flex flex-col gap-[1px]">
-                {recentPlays.map((p) => (
-                  <PlayRow key={p.id} play={p} open={playOpen(p)} onToggle={() => toggle(p.id)} />
-                ))}
-              </div>
-            </div>
-          )}
-          {(Object.keys(SHELL_KIND) as ShellLayout[])
-            .filter((k) => byShell.has(k))
-            .map((k) => (
-              <div key={k}>
-                <GroupHead icon={SHELL_KIND[k].icon} title={SHELL_KIND[k].plural} />
-                <div className="flex flex-col gap-[1px]">
-                  {byShell.get(k)!.map((t) => (
-                    <LooseRow key={t.id} thread={t} current={page === 'thread' && !templatesOpen && activeId === t.id && !openedInPlay} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          {audiences.length > 0 && (
-            <div>
-              <GroupHead icon="users" title="Audiences" />
-              <div className="flex flex-col gap-[1px]">
-                {audiences.map((a) => (
-                  <AudienceRow key={a.key} use={a} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        </>
       )}
     </aside>
   )
