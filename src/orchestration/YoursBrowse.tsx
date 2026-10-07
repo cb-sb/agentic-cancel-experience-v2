@@ -13,7 +13,8 @@ import { CB_KIND_LABELS, CB_KINDS, type CbKind } from '../upload/contract'
 import { ChromeThumb } from '../upload/ChromeThumb'
 import type { MerchantComponent, MerchantTemplate } from '../library/types'
 import type { JourneyKind } from '../journey/types'
-import { V8 } from '../layout/layoutMode'
+import { V8, V9 } from '../layout/layoutMode'
+import { useCancelLibrary, type LibCard, type LibOffer, type LibReason } from '../library/useCancelLibrary'
 
 type KindFilter = 'all' | CbKind
 type JourneyFilter = 'all' | string
@@ -40,6 +41,56 @@ function firstJourneyName(component: MerchantComponent, templates: MerchantTempl
   return journeysFor(component, templates)[0]?.name ?? ''
 }
 
+function catalogOffer(o: LibOffer): SharedOffer {
+  return {
+    id: o.id,
+    name: o.name,
+    offer: o.type,
+    title: o.title,
+    description: o.description,
+    primaryCta: o.cta,
+    contentHash: o.id,
+    savedAt: 0,
+  }
+}
+
+function catalogCard(c: LibCard): SharedCard {
+  const keep = c.keep.map((x) => x.trim()).filter(Boolean)
+  const lose = c.lose.map((x) => x.trim()).filter(Boolean)
+  return {
+    id: c.id,
+    kind: 'loss_aversion',
+    name: c.name,
+    title: c.title,
+    description: lose.slice(0, 3).join(' · ') || c.title,
+    keepItems: keep,
+    loseItems: lose,
+    surveyReasons: [],
+    surveyPrompt: '',
+    contentHash: c.id,
+    savedAt: 0,
+  }
+}
+
+/** The survey reasons kept under Experiences, as one screen an experience can reuse. */
+function catalogSurvey(reasons: LibReason[]): SharedCard | null {
+  const labels = reasons.map((r) => r.label.trim()).filter(Boolean)
+  if (labels.length === 0) return null
+  return {
+    id: 'catalog_survey',
+    kind: 'survey',
+    name: 'Survey reasons',
+    title: 'Why are you cancelling?',
+    description: labels.slice(0, 3).join(' · '),
+    keepItems: [],
+    loseItems: [],
+    surveyReasons: labels,
+    surveyPrompt: reasons.find((r) => r.followUp.trim())?.followUp.trim() ?? '',
+    contentHash: labels.join('|'),
+    savedAt: 0,
+  }
+}
+
 export function YoursBrowse({
   onApplyJourney,
   onApplyComponents,
@@ -64,17 +115,31 @@ export function YoursBrowse({
   const allOffers = useMerchantLibrary((s) => s.offers)
   const allCards = useMerchantLibrary((s) => s.cards)
   const allJourneys = useMerchantLibrary((s) => s.journeys)
+  const catalog = useCancelLibrary()
   const q = query.trim().toLowerCase()
   const hit = (...text: string[]) => !q || text.some((t) => t.toLowerCase().includes(q))
   const templates = allTemplates.filter((t) => (!kind || t.kind === kind) && hit(t.name, ...t.stepLabels))
   const journeys = allJourneys.filter((j) => (!kind || (j.file.kind ?? 'cancel') === kind) && hit(j.name))
-  const offers = kind && kind !== 'cancel' ? [] : allOffers.filter((o) => hit('offers', o.name, o.title, o.description))
-  const cards =
-    kind && kind !== 'cancel'
-      ? []
-      : allCards.filter((c) =>
-          hit(c.kind === 'survey' ? 'survey reasons' : 'loss aversion', c.name, c.title, c.description, ...c.surveyReasons),
-        )
+  const fromCatalog = V9 && (!kind || kind === 'cancel')
+  const catalogOffers = fromCatalog ? catalog.offers.map(catalogOffer) : []
+  const catalogCards = fromCatalog
+    ? [...catalog.cards.map(catalogCard), catalogSurvey(catalog.reasons)].filter((c): c is SharedCard => c != null)
+    : []
+  const offers = (kind && kind !== 'cancel' ? [] : allOffers.filter((o) => hit('offers', o.name, o.title, o.description))).concat(
+    catalogOffers.filter((o) => !allOffers.some((x) => x.id === o.id) && hit('offers', o.name, o.title, o.description)),
+  )
+  const cards = (kind && kind !== 'cancel'
+    ? []
+    : allCards.filter((c) =>
+        hit(c.kind === 'survey' ? 'survey reasons' : 'loss aversion', c.name, c.title, c.description, ...c.surveyReasons),
+      )
+  ).concat(
+    catalogCards.filter(
+      (c) =>
+        !allCards.some((x) => x.id === c.id) &&
+        hit(c.kind === 'survey' ? 'survey reasons' : 'loss aversion', c.name, c.title, c.description, ...c.surveyReasons),
+    ),
+  )
   const components = allComponents.filter((c) => {
     const from = journeysFor(c, allTemplates)
     const fits = !kind || (from.length === 0 ? kind === 'cancel' : from.some((t) => t.kind === kind))
@@ -85,7 +150,8 @@ export function YoursBrowse({
     allComponents.length === 0 &&
     allOffers.length === 0 &&
     allCards.length === 0 &&
-    allJourneys.length === 0
+    allJourneys.length === 0 &&
+    (!V9 || (catalog.offers.length === 0 && catalog.cards.length === 0 && catalog.reasons.length === 0))
   const removeTemplate = useMerchantLibrary((s) => s.removeTemplate)
   const syncJourney = useMerchantLibrary((s) => s.syncJourney)
   const closeTemplates = useOrchestration((s) => s.closeTemplates)
@@ -131,6 +197,8 @@ export function YoursBrowse({
       return
     }
     commitAdded(placed.file)
+    const added = placed.file.steps.find((s) => s.sharedOfferId === offer.id)
+    if (V9 && added) showStep(added.id)
   }
 
   const useCard = (card: SharedCard) => {
@@ -147,6 +215,8 @@ export function YoursBrowse({
       return
     }
     commitAdded(placed.file)
+    const added = placed.file.steps.find((s) => s.sharedCardId === card.id)
+    if (V9 && added) showStep(added.id)
   }
 
   const openJourney = (journey: SavedJourney) => {

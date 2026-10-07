@@ -19,10 +19,13 @@ import { useRecent, type RecentItem } from './useRecent'
 const RECENT_SHOWN = 8
 const AUDIENCES_SHOWN = 3
 
-const LIBRARY_ROWS: { kind: LibraryKind; label: string; icon: SIconName; add: string }[] = [
-  { kind: 'offers', label: 'Offers', icon: 'gift', add: 'New offer' },
+const EXPERIENCE_PARTS: { kind: LibraryKind; label: string; icon: SIconName; add: string }[] = [
   { kind: 'reasons', label: 'Survey reasons', icon: 'message-square', add: 'New survey reason' },
   { kind: 'cards', label: 'Loss aversion cards', icon: 'shield', add: 'New loss aversion card' },
+]
+
+const OWN_ITEMS: { kind: LibraryKind; label: string; icon: SIconName; add: string }[] = [
+  { kind: 'offers', label: 'Offers', icon: 'gift', add: 'New offer' },
   { kind: 'redirects', label: 'Redirect pages', icon: 'external-link', add: 'New redirect page' },
 ]
 
@@ -217,13 +220,9 @@ export function ObjectivePane() {
   const archivedCount = usePlays((s) => s.archived.length) + useWorkspace((s) => s.archived.length)
   const recent = useLiveRecent()
   const folded = !sidebarOpen
-  const inLibrary = page === 'library'
-  const [libraryOpen, setLibraryOpen] = useState(inLibrary)
+  const onLibrary = (kind: LibraryKind) => page === 'library' && libraryKind === kind
+  const inExperiences = page === 'index' || (page === 'thread' && templatesOpen) || onLibrary('reasons') || onLibrary('cards')
   const [open, setOpen] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    if (inLibrary) setLibraryOpen(true)
-  }, [inLibrary])
 
   const inPlay = (page === 'play' || page === 'thread') && playId ? playId : null
   useEffect(() => {
@@ -237,13 +236,6 @@ export function ObjectivePane() {
       else next.add(id)
       return next
     })
-
-  const openLibraryRow = () => {
-    if (folded) {
-      setSidebarOpen(true)
-      setLibraryOpen(true)
-    } else setLibraryOpen((v) => !v)
-  }
 
   const recentPlays = recent.filter((x) => x.kind === 'play').map((x) => plays.find((p) => p.id === x.id)).filter((p): p is CancelPlay => Boolean(p))
   const recentThreads = recent
@@ -271,8 +263,10 @@ export function ObjectivePane() {
           <>
             <SettingRow icon="search" label="Search" folded onClick={() => setSearchOpen(true)} />
             <SettingRow icon="list-ordered" label="Plays" folded active={page === 'order'} onClick={openOrder} />
-            <SettingRow icon="layers" label="Experiences" folded active={page === 'index' || (page === 'thread' && templatesOpen)} onClick={openExperiences} />
-            <SettingRow icon="library" label="Library" folded active={inLibrary} onClick={openLibraryRow} />
+            <SettingRow icon="layers" label="Experiences" folded active={inExperiences} onClick={openExperiences} />
+            {OWN_ITEMS.map((r) => (
+              <SettingRow key={r.kind} icon={r.icon} label={r.label} folded active={onLibrary(r.kind)} onClick={() => openLibrary(r.kind)} />
+            ))}
             <SettingRow icon="archive" label="Archive" folded active={page === 'archive'} onClick={openArchive} />
           </>
         ) : (
@@ -282,34 +276,33 @@ export function ObjectivePane() {
               icon="layers"
               label="Experiences"
               active={page === 'index'}
-              section={page === 'thread' && templatesOpen}
+              section={inExperiences && page !== 'index'}
               onClick={openExperiences}
               add={<RowMenu label="New experience" icon="plus" items={newExperienceItems()} width={270} align="beside" />}
             />
             <div className="slg-nav-tree ml-[19px] flex flex-col gap-[2px] border-l pl-[6px]">
               <PaneRow icon="layout-template" label="Templates" active={page === 'thread' && templatesOpen} onClick={openTemplates} />
+              {EXPERIENCE_PARTS.map((r) => (
+                <PaneRow
+                  key={r.kind}
+                  icon={r.icon}
+                  label={r.label}
+                  active={onLibrary(r.kind)}
+                  onClick={() => openLibrary(r.kind)}
+                  add={<AddButton label={r.add} onClick={() => openLibrary(r.kind, true)} />}
+                />
+              ))}
             </div>
-            <PaneRow
-              icon="library"
-              label="Library"
-              section={inLibrary}
-              onClick={openLibraryRow}
-              trailing={<SIcon name="chevron-down" size={16} className={`slg-nav-icon flex-none transition-transform ${libraryOpen ? 'rotate-180' : ''}`} />}
-            />
-            {libraryOpen && (
-              <div className="slg-nav-tree ml-[19px] flex flex-col gap-[2px] border-l pl-[6px]">
-                {LIBRARY_ROWS.map((r) => (
-                  <PaneRow
-                    key={r.kind}
-                    icon={r.icon}
-                    label={r.label}
-                    active={page === 'library' && libraryKind === r.kind}
-                    onClick={() => openLibrary(r.kind)}
-                    add={<AddButton label={r.add} onClick={() => openLibrary(r.kind, true)} />}
-                  />
-                ))}
-              </div>
-            )}
+            {OWN_ITEMS.map((r) => (
+              <PaneRow
+                key={r.kind}
+                icon={r.icon}
+                label={r.label}
+                active={onLibrary(r.kind)}
+                onClick={() => openLibrary(r.kind)}
+                add={<AddButton label={r.add} onClick={() => openLibrary(r.kind, true)} />}
+              />
+            ))}
             <PaneRow
               icon="archive"
               label="Archive"

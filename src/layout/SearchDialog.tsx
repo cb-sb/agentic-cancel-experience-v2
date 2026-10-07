@@ -11,12 +11,15 @@ import {
   useWorkspace,
 } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
+import { V9 } from './layoutMode'
+import { openLibrary } from '../plays/navigate'
+import { useCancelLibrary } from '../library/useCancelLibrary'
 
 type IconName = Parameters<typeof SIcon>[0]['name']
 
 interface Result {
   id: string
-  group: 'Experiences' | 'Templates' | 'Saved components'
+  group: 'Experiences' | 'Templates' | 'Saved components' | 'Offers' | 'Survey reasons' | 'Loss aversion cards' | 'Redirect pages'
   icon: IconName
   label: string
   detail: string
@@ -33,6 +36,7 @@ export function SearchDialog() {
   const threads = useWorkspace((s) => s.threads)
   const savedTemplates = useMerchantLibrary((s) => s.templates)
   const components = useMerchantLibrary((s) => s.components)
+  const catalog = useCancelLibrary()
   const [query, setQuery] = useState('')
   const [at, setAt] = useState(0)
 
@@ -106,8 +110,54 @@ export function SearchDialog() {
           run: inThread(() => useOrchestration.getState().openTemplates('yours')),
         })),
     ].slice(0, LIMIT)
-    return [...exp, ...tpl, ...saved]
-  }, [query, threads, savedTemplates, components, setOpen, setPage])
+    const catalogRows: Result[] = !V9 ? [] : [
+      ...catalog.offers.filter((o) => hit(o.name, o.title)).map((o) => ({
+        id: o.id,
+        group: 'Offers' as const,
+        icon: 'gift' as IconName,
+        label: o.name,
+        detail: o.title,
+        run: () => {
+          close()
+          openLibrary('offers', false, o.id)
+        },
+      })),
+      ...catalog.reasons.filter((r) => hit(r.label)).map((r) => ({
+        id: r.id,
+        group: 'Survey reasons' as const,
+        icon: 'message-square' as IconName,
+        label: r.label,
+        detail: 'Survey reason',
+        run: () => {
+          close()
+          openLibrary('reasons', false, r.id)
+        },
+      })),
+      ...catalog.cards.filter((c) => hit(c.name, c.title)).map((c) => ({
+        id: c.id,
+        group: 'Loss aversion cards' as const,
+        icon: 'shield' as IconName,
+        label: c.name,
+        detail: c.title,
+        run: () => {
+          close()
+          openLibrary('cards', false, c.id)
+        },
+      })),
+      ...catalog.redirects.filter((r) => hit(r.name, r.url)).map((r) => ({
+        id: r.id,
+        group: 'Redirect pages' as const,
+        icon: 'external-link' as IconName,
+        label: r.name,
+        detail: r.url || 'Redirect page',
+        run: () => {
+          close()
+          openLibrary('redirects', false, r.id)
+        },
+      })),
+    ].slice(0, LIMIT)
+    return [...exp, ...tpl, ...saved, ...catalogRows]
+  }, [query, threads, savedTemplates, components, catalog, setOpen, setPage])
 
   if (!open) return null
 
