@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { setGrowthView } from '../concierge/objective/useGrowthUi'
+import { V10 } from '../layout/layoutMode'
 import type { GrowthObjective, GrowthType } from '../concierge/model'
 import { addGrowthExperience } from '../concierge/useGrowthExperiences'
-import { createGrowthPlay } from '../concierge/useGrowthPlays'
-import { createExperience, openExperience, openPlay } from '../plays/navigate'
-import { createPlay } from '../plays/usePlays'
+import { createGrowthPlay, useGrowthPlays } from '../concierge/useGrowthPlays'
+import { createExperience, openConfigure, openExperience } from '../plays/navigate'
+import { createPlay, playsUsing } from '../plays/usePlays'
 import type { NavLeafId } from '../shell/nav'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { createAudience } from './useAudiences'
@@ -44,13 +45,16 @@ interface V10State {
   recent: V10Ref[]
   filters: Record<V10Tab, Filters>
   saved: SavedView[]
+  /** The added view on screen. Null shows the default view for the route. */
+  active: string | null
   /** Extra tags a merchant added. Absent means the item keeps the tag it already has. */
   tags: Record<string, Tag[]>
   close: () => void
   togglePin: (ref: V10Ref) => void
   setFilters: (tab: V10Tab, patch: Partial<Filters>) => void
-  saveView: (tab: V10Tab, name: string) => void
-  applyView: (id: string) => void
+  selectView: (tab: V10Tab, id: string | null) => void
+  addView: (tab: V10Tab, name?: string, from?: Filters) => string
+  updateView: (id: string, patch: Partial<Filters> & { name?: string }) => void
   deleteView: (id: string) => void
   setTags: (id: string, tags: Tag[]) => void
 }
@@ -78,11 +82,14 @@ interface SavedShape {
   recent?: V10Ref[]
   filters?: Record<V10Tab, Filters>
   saved?: SavedView[]
+  active?: string | null
   tags?: Record<string, Tag[]>
 }
 
-function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'tags'> {
-  const empty = { pins: [], recent: [], filters: { plays: EMPTY_FILTERS, experiences: EMPTY_FILTERS, audiences: EMPTY_FILTERS }, saved: [], tags: {} }
+const TAB_NAME: Record<V10Tab, string> = { plays: 'Plays', experiences: 'Experiences', audiences: 'Audiences' }
+
+function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'active' | 'tags'> {
+  const empty = { pins: [], recent: [], filters: { plays: EMPTY_FILTERS, experiences: EMPTY_FILTERS, audiences: EMPTY_FILTERS }, saved: [], active: null, tags: {} }
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return empty
@@ -92,6 +99,7 @@ function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'tags'
       recent: Array.isArray(parsed.recent) ? parsed.recent : [],
       filters: { ...empty.filters, ...parsed.filters },
       saved: Array.isArray(parsed.saved) ? parsed.saved : [],
+      active: typeof parsed.active === 'string' ? parsed.active : null,
       tags: parsed.tags ?? {},
     }
   } catch {
@@ -108,26 +116,27 @@ export const useV10 = create<V10State>((set, get) => ({
       pins: state.pins.some((pin) => same(pin, ref)) ? state.pins.filter((pin) => !same(pin, ref)) : [ref, ...state.pins],
     })),
   setFilters: (tab, patch) => set((state) => ({ filters: { ...state.filters, [tab]: { ...state.filters[tab], ...patch } } })),
-  saveView: (tab, name) => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    const view: SavedView = { ...get().filters[tab], id: `view-${Date.now().toString(36)}`, name: trimmed, tab }
-    set((state) => ({ saved: [view, ...state.saved] }))
+  selectView: (tab, id) => {
+    set({ open: null, active: id })
+    if (useGrowthShell.getState().route !== TAB_ROUTE[tab]) useGrowthShell.getState().go(TAB_ROUTE[tab])
   },
-  applyView: (id) => {
-    const view = get().saved.find((item) => item.id === id)
-    if (!view) return
-    const { id: _id, name: _name, tab, ...filters } = view
-    set((state) => ({ open: null, filters: { ...state.filters, [tab]: filters } }))
-    useGrowthShell.getState().go(TAB_ROUTE[tab])
+  addView: (tab, name, from) => {
+    const taken = new Set(get().saved.map((view) => view.name))
+    let fallback = `${TAB_NAME[tab]} view`
+    for (let n = 2; taken.has(fallback); n += 1) fallback = `${TAB_NAME[tab]} view ${n}`
+    const view: SavedView = { ...(from ?? EMPTY_FILTERS), id: `view-${Date.now().toString(36)}`, name: name?.trim() || fallback, tab }
+    set((state) => ({ saved: [...state.saved, view] }))
+    get().selectView(tab, view.id)
+    return view.id
   },
-  deleteView: (id) => set((state) => ({ saved: state.saved.filter((view) => view.id !== id) })),
+  updateView: (id, patch) => set((state) => ({ saved: state.saved.map((view) => (view.id === id ? { ...view, ...patch } : view)) })),
+  deleteView: (id) => set((state) => ({ saved: state.saved.filter((view) => view.id !== id), active: state.active === id ? null : state.active })),
   setTags: (id, tags) => set((state) => ({ tags: { ...state.tags, [id]: tags } })),
 }))
 
 useV10.subscribe((state) => {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ pins: state.pins, recent: state.recent, filters: state.filters, saved: state.saved, tags: state.tags }))
+    localStorage.setItem(KEY, JSON.stringify({ pins: state.pins, recent: state.recent, filters: state.filters, saved: state.saved, active: state.active, tags: state.tags }))
   } catch {
     /* storage full or blocked */
   }
@@ -137,14 +146,26 @@ function remember(ref: V10Ref) {
   useV10.setState((state) => ({ recent: [ref, ...state.recent.filter((item) => !same(item, ref))].slice(0, MAX_RECENT) }))
 }
 
+/** Keep the V10 detail on the play or experience a V9 tree just opened. */
+export function noteV10Open(ref: V10Ref) {
+  if (!V10) return
+  remember(ref)
+  useV10.setState({ open: ref })
+  const route = TAB_ROUTE[tabOf(ref)]
+  if (useGrowthShell.getState().route !== route) useGrowthShell.getState().go(route)
+}
+
 /** Open a play, experience or audience, and show its tab. */
 export function openRef(ref: V10Ref) {
   if (ref.source === 'growth' && ref.objective) {
     if (ref.kind === 'play') setGrowthView(ref.objective, { page: 'play', playId: ref.id, playTab: 'configure' })
-    if (ref.kind === 'experience') setGrowthView(ref.objective, { page: 'experience', experienceId: ref.id, playId: null })
+    if (ref.kind === 'experience') {
+      const playId = useGrowthPlays.getState().plays.find((play) => play.objective === ref.objective && play.variants.some((variant) => variant.experienceId === ref.id))?.id ?? null
+      setGrowthView(ref.objective, { page: 'experience', experienceId: ref.id, playId })
+    }
   }
-  if (ref.source === 'retention' && ref.kind === 'play') openPlay(ref.id)
-  if (ref.source === 'retention' && ref.kind === 'experience') openExperience(ref.id, null)
+  if (ref.source === 'retention' && ref.kind === 'play') openConfigure(ref.id, 1)
+  if (ref.source === 'retention' && ref.kind === 'experience') openExperience(ref.id, playsUsing(ref.id)[0]?.id ?? null)
   remember(ref)
   useV10.setState({ open: ref })
   const route = TAB_ROUTE[tabOf(ref)]

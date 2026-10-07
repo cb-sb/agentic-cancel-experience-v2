@@ -269,7 +269,7 @@ function AddExperience({ play }: { play: GrowthPlay }) {
   )
 }
 
-function PlayRow({ play, open, onToggle }: { play: GrowthPlay; open: boolean; onToggle: () => void }) {
+export function GrowthPlayRow({ play, open, onToggle }: { play: GrowthPlay; open: boolean; onToggle: () => void }) {
   const view = useGrowthView(play.objective)
   const renaming = useGrowthUi((s) => s.renaming === play.id)
   const step = useWorkspaceUi((s) => s.configureStep[play.id] ?? 1)
@@ -424,7 +424,7 @@ function PlayRow({ play, open, onToggle }: { play: GrowthPlay; open: boolean; on
   )
 }
 
-function LooseRow({ x, current }: { x: GrowthExperience; current: boolean }) {
+export function GrowthLooseRow({ x, current }: { x: GrowthExperience; current: boolean }) {
   const renaming = useGrowthUi((s) => s.renaming === x.id)
   const plays = useGrowthPlays((s) => s.plays)
   const live = growthExperienceLive(x.id, plays)
@@ -621,7 +621,7 @@ export function GrowthPane({ objective }: { objective: GrowthObjective }) {
             {recentPlays.length > 0 && (
               <Section title="Recent plays">
                 {recentPlays.map((p) => (
-                  <PlayRow key={p.id} play={p} open={open.has(p.id)} onToggle={() => toggle(p.id)} />
+                  <GrowthPlayRow key={p.id} play={p} open={open.has(p.id)} onToggle={() => toggle(p.id)} />
                 ))}
               </Section>
             )}
@@ -630,7 +630,7 @@ export function GrowthPane({ objective }: { objective: GrowthObjective }) {
                 {recentExperiences
                   .filter((x) => x.type === type)
                   .map((x) => (
-                    <LooseRow key={x.id} x={x} current={view.page === 'experience' && view.experienceId === x.id && !openedInPlay && !view.playId} />
+                    <GrowthLooseRow key={x.id} x={x} current={view.page === 'experience' && view.experienceId === x.id && !openedInPlay && !view.playId} />
                   ))}
               </Section>
             ))}

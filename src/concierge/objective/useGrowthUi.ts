@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { V10 } from '../../layout/layoutMode'
 import { useGrowthShell } from '../../shell/useGrowthShell'
-import { useV10 } from '../../v10/useV10'
+import { noteV10Open, useV10 } from '../../v10/useV10'
 import type { GrowthObjective, GrowthType } from '../model'
 import type { SoonPlace } from '../Soon'
 
@@ -74,10 +74,12 @@ export function goGrowth(objective: GrowthObjective, patch: Partial<GrowthView>)
 
 export function openGrowthExperience(objective: GrowthObjective, experienceId: string, playId: string | null = null) {
   goGrowth(objective, { page: 'experience', experienceId, playId })
+  noteV10Open({ kind: 'experience', source: 'growth', id: experienceId, objective })
 }
 
 export function openGrowthPlay(objective: GrowthObjective, playId: string, tab?: PlayTab) {
   goGrowth(objective, { page: 'play', playId, ...(tab ? { playTab: tab } : {}) })
+  noteV10Open({ kind: 'play', source: 'growth', id: playId, objective })
 }
 
 export function growthPlace(): GrowthPlace {

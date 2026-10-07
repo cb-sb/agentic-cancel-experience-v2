@@ -4,6 +4,8 @@ import { newThread, switchThread, useWorkspace } from '../workspace/useWorkspace
 import { useWorkspaceUi, type ConfigureStep, type LibraryKind, type PlayTab, type PlayTabRef } from '../workspace/useWorkspaceUi'
 import { useJourney } from '../store/useJourney'
 import type { ShellLayout } from '../types/experience'
+import { V10 } from '../layout/layoutMode'
+import { noteV10Open } from '../v10/useV10'
 import { addToPlay, usePlays } from './usePlays'
 
 function leaveOverlays() {
@@ -24,6 +26,7 @@ export function openPlay(playId: string) {
     ui.setPlayTabs(playId, { open, active: empty ? open[0].id : open[1].id })
   }
   useWorkspaceUi.setState({ page: 'play', playId })
+  if (V10) noteV10Open({ kind: 'play', source: 'retention', id: playId })
 }
 
 /** The play's Configure tab, on one step. */
@@ -37,6 +40,7 @@ export function openExperience(threadId: string, playId: string | null) {
   leaveOverlays()
   useWorkspaceUi.setState({ page: 'thread', readOnlyId: null, playId })
   switchThread(threadId)
+  if (V10) noteV10Open({ kind: 'experience', source: 'retention', id: threadId })
 }
 
 /** Focus the play's first tab of `kind`, adding one when none is open. */
@@ -91,6 +95,7 @@ export function createExperience(opts: { playId?: string | null; shell?: ShellLa
   if (opts.shell) useJourney.getState().patchFile({ shell: opts.shell })
   if (opts.playId) addToPlay(opts.playId, id)
   useWorkspaceUi.setState({ page: 'thread', readOnlyId: null, playId: opts.playId ?? null, renaming: id })
+  if (V10) noteV10Open({ kind: 'experience', source: 'retention', id })
   return id
 }
 

@@ -1,19 +1,20 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { SIcon } from '@chargebee/sting-react'
-import { setGrowthView } from '../concierge/objective/useGrowthUi'
+import { GrowthLooseRow, GrowthPlayRow } from '../concierge/objective/GrowthPane'
+import { useGrowthUi } from '../concierge/objective/useGrowthUi'
 import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
-import { useGrowthPlays } from '../concierge/useGrowthPlays'
+import { useGrowthPlays, type GrowthPlay } from '../concierge/useGrowthPlays'
+import { LooseRow, PlayRow } from '../layout/PlaysTree'
 import { navItem } from '../layout/navStyle'
-import { openConfigure } from '../plays/navigate'
-import { audienceText, fallbackVariant, pagesIn } from '../plays/resolve'
 import { RowMenu } from '../plays/ui'
-import { audienceUnset } from '../plays/playOps'
+import type { CancelPlay } from '../plays/types'
 import { usePlays } from '../plays/usePlays'
 import { childrenOf, type NavLeafId } from '../shell/nav'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { titleOf, useV10Rows } from './rows'
+import { useAudiences } from './useAudiences'
 import {
   createV10Audience,
   createV10CancelPage,
@@ -51,9 +52,7 @@ export function V10Nav() {
   const reportsShown = reportsOpen && reportsCurrent
   const pins = useV10((state) => state.pins)
   const recent = useV10((state) => state.recent)
-  const open = useV10((state) => state.open)
   const rows = useV10Rows()
-  const play = open?.kind === 'play' ? open : null
 
   useEffect(() => {
     if (reportsCurrent) openGroup('reports')
@@ -122,7 +121,7 @@ export function V10Nav() {
             </div>
           )}
         </nav>
-        {play && <PlayNest refItem={play} />}
+        <OpenTree />
         <div className="flex flex-col gap-[2px]">
           {pins.length === 0 && recent.length === 0 && (
             <p className="px-[10px] text-[12px] text-slate-400">Plays, experiences and audiences you open show up here.</p>
@@ -171,9 +170,86 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-function NavButton({ label, onClick, pinned, marker }: { label: string; onClick: () => void; pinned?: boolean; marker?: boolean }) {
+function contextPlay(open: V10Ref, growth: GrowthPlay[], retention: CancelPlay[], growthPlayId: string | null, retentionPlayId: string | null): V10Ref | null {
+  if (open.kind === 'play') return open
+  if (open.kind !== 'experience') return null
+  const holds = (play: { id: string; variants: { experienceId: string }[] }) => play.variants.some((variant) => variant.experienceId === open.id)
+  if (open.source === 'growth') {
+    const preferred = growth.find((play) => play.id === growthPlayId && holds(play)) ?? growth.find(holds)
+    return preferred ? { kind: 'play', source: 'growth', id: preferred.id, objective: preferred.objective } : null
+  }
+  const preferred = retention.find((play) => play.id === retentionPlayId && holds(play)) ?? retention.find(holds)
+  return preferred ? { kind: 'play', source: 'retention', id: preferred.id } : null
+}
+
+/** The open play's full tree, the play an experience sits in, or the audience's own rules. */
+function OpenTree() {
+  const open = useV10((state) => state.open)
+  const growth = useGrowthPlays((state) => state.plays)
+  const retention = usePlays((state) => state.plays)
+  const objective = open?.objective
+  const growthPlayId = useGrowthUi((state) => (objective ? state.views[objective].playId : null))
+  const retentionPlayId = useWorkspaceUi((state) => state.playId)
+  if (!open) return null
+  if (open.kind === 'audience') return <AudienceTree id={open.id} />
+  const play = contextPlay(open, growth, retention, growthPlayId, retentionPlayId)
+  if (play?.source === 'growth') return <GrowthBranch key={play.id} id={play.id} />
+  if (play) return <RetentionBranch key={play.id} id={play.id} />
+  if (open.kind === 'experience' && open.source === 'retention') return <LooseRetention id={open.id} />
+  if (open.kind === 'experience' && open.source === 'growth') return <LooseGrowth id={open.id} />
+  return null
+}
+
+function GrowthBranch({ id }: { id: string }) {
+  const play = useGrowthPlays((state) => state.plays.find((item) => item.id === id))
+  const [open, setOpen] = useState(true)
+  if (!play) return null
+  return <GrowthPlayRow play={play} open={open} onToggle={() => setOpen((value) => !value)} />
+}
+
+function RetentionBranch({ id }: { id: string }) {
+  const play = usePlays((state) => state.plays.find((item) => item.id === id))
+  const [open, setOpen] = useState(true)
+  if (!play) return null
+  return <PlayRow play={play} open={open} onToggle={() => setOpen((value) => !value)} />
+}
+
+function LooseGrowth({ id }: { id: string }) {
+  const experience = useGrowthExperiences((state) => state.items.find((item) => item.id === id))
+  if (!experience) return null
+  return <GrowthLooseRow x={experience} current />
+}
+
+function LooseRetention({ id }: { id: string }) {
+  const thread = useWorkspace((state) => state.threads.find((item) => item.id === id))
+  if (!thread) return null
+  return <LooseRow thread={thread} current />
+}
+
+function AudienceTree({ id }: { id: string }) {
+  const audience = useAudiences((state) => state.items.find((item) => item.id === id))
+  const growth = useGrowthPlays((state) => state.plays)
+  const retention = usePlays((state) => state.plays)
+  if (!audience) return null
+  const used = (item: { savedAudienceId?: string | null; name?: string } | undefined) => item?.savedAudienceId === id || item?.name === audience.name
+  const growthPlays = growth.filter((play) => used(play.audience) || play.subAudiences.some((sub) => used(sub.audience)))
+  const retentionPlays = retention.filter((play) => used(play.audience) || play.subAudiences.some((sub) => used(sub.audience)))
   return (
-    <button type="button" onClick={onClick} className={`${navItem()} flex h-8 w-full items-center gap-[8px] px-[10px] text-left text-[13px]`}>
+    <Section title={audience.name}>
+      <NavButton label="Rules" current onClick={() => undefined} />
+      {growthPlays.map((play) => (
+        <NavButton key={play.id} label={play.name} onClick={() => openRef({ kind: 'play', source: 'growth', id: play.id, objective: play.objective })} />
+      ))}
+      {retentionPlays.map((play) => (
+        <NavButton key={play.id} label={play.name} onClick={() => openRef({ kind: 'play', source: 'retention', id: play.id })} />
+      ))}
+    </Section>
+  )
+}
+
+function NavButton({ label, onClick, pinned, marker, current }: { label: string; onClick: () => void; pinned?: boolean; marker?: boolean; current?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={current ? 'page' : undefined} className={`${navItem(current)} flex h-8 w-full items-center gap-[8px] px-[10px] text-left text-[13px]`}>
       {marker && (
         <span className="flex w-[14px] flex-none items-center justify-center">
           {pinned && <SIcon name="pin" size={13} className="slg-nav-icon" />}
@@ -184,67 +260,3 @@ function NavButton({ label, onClick, pinned, marker }: { label: string; onClick:
   )
 }
 
-function PlayNest({ refItem }: { refItem: V10Ref }) {
-  const growth = useGrowthPlays((state) => state.plays.find((play) => play.id === refItem.id))
-  const retention = usePlays((state) => state.plays.find((play) => play.id === refItem.id))
-  const play = refItem.source === 'growth' ? growth : retention
-  if (!play) return null
-  const openExperienceRow = (id: string, source: V10Ref['source'], objective?: V10Ref['objective']) =>
-    openRef({ kind: 'experience', source, id, objective })
-  return (
-    <Section title={play.name}>
-      <NavButton label={play.audience.targetAll ? 'All subscribers' : audienceUnset(play.audience) ? 'No audience yet' : audienceText(play.audience)} onClick={() => focusPlay(refItem, 1)} />
-      {play.splitBy === 'segments' ? (
-        <>
-          {play.subAudiences.map((sub, index) => (
-            <div key={sub.id} className="ml-[12px]">
-              <NavButton label={audienceUnset(sub.audience) ? `Sub-audience ${index + 1}` : audienceText(sub.audience)} onClick={() => focusPlay(refItem, 2)} />
-              {pagesIn(play, sub.id).map((variant) => (
-                <ExperienceLine key={variant.id} experienceId={variant.experienceId} source={refItem.source} objective={refItem.objective} onOpen={openExperienceRow} />
-              ))}
-            </div>
-          ))}
-          <div className="ml-[12px]">
-            <NavButton label="Fallback" onClick={() => focusPlay(refItem, 2)} />
-            {fallbackVariant(play) && (
-              <ExperienceLine experienceId={fallbackVariant(play)!.experienceId} source={refItem.source} objective={refItem.objective} onOpen={openExperienceRow} />
-            )}
-          </div>
-        </>
-      ) : (
-        play.variants.map((variant) => (
-          <ExperienceLine key={variant.id} experienceId={variant.experienceId} source={refItem.source} objective={refItem.objective} onOpen={openExperienceRow} />
-        ))
-      )}
-    </Section>
-  )
-}
-
-function focusPlay(refItem: V10Ref, step: 1 | 2) {
-  useWorkspaceUi.getState().setConfigureStep(refItem.id, step)
-  if (refItem.source === 'growth' && refItem.objective) setGrowthView(refItem.objective, { page: 'play', playId: refItem.id, playTab: 'configure' })
-  else openConfigure(refItem.id, step)
-  openRef(refItem)
-}
-
-function ExperienceLine({
-  experienceId,
-  source,
-  objective,
-  onOpen,
-}: {
-  experienceId: string
-  source: V10Ref['source']
-  objective?: V10Ref['objective']
-  onOpen: (id: string, source: V10Ref['source'], objective?: V10Ref['objective']) => void
-}) {
-  const growthName = useGrowthExperiences((state) => state.items.find((item) => item.id === experienceId)?.name)
-  const threadName = useWorkspace((state) => state.threads.find((thread) => thread.id === experienceId)?.title)
-  const name = source === 'growth' ? growthName : threadName
-  if (!name) return null
-  return (
-    <button type="button" onClick={() => onOpen(experienceId, source, objective)} className={`${navItem()} ml-[16px] flex h-8 w-[calc(100%-16px)] items-center px-[10px] text-left text-[13px]`}>
-      <span className="truncate">{name}</span>
-    </button>
-  )
-}

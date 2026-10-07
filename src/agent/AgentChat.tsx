@@ -266,6 +266,7 @@ export function AgentChat({
   chips,
   centered = false,
   hero,
+  after,
 }: {
   chatId: string
   placeholder?: string
@@ -276,6 +277,8 @@ export function AgentChat({
   centered?: boolean
   /** Before the first message, the heading above a large composer in the middle of the page. */
   hero?: ReactNode
+  /** Below the empty composer, once. */
+  after?: ReactNode
 }) {
   const chat = chatFor(chatId)
   const { messages, status, error, sendMessage, stop, regenerate } = useChat({ chat })
@@ -330,7 +333,7 @@ export function AgentChat({
   const thinking = status === 'submitted' || (status === 'streaming' && !lastAssistant)
 
   const chipRow = chips && chips.length > 0 && messages.length === 0 && (
-    <div className={`flex flex-wrap gap-[6px] ${big ? '' : 'mb-[10px]'}`}>
+    <div className={`flex flex-wrap gap-[8px] ${big ? '' : 'mb-[10px]'}`}>
       {chips.map((c) => (
         <button
           key={c}
@@ -386,17 +389,12 @@ export function AgentChat({
   if (big) {
     return (
       <div className="h-full min-h-0 w-full min-w-0 overflow-y-auto bg-white">
-        <div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col justify-center px-[20px] py-[40px]">
+        <div className="mx-auto flex min-h-full w-full max-w-[900px] flex-col justify-center px-[24px] py-[48px]">
           {hero}
-          <div
-            onClick={(e) => {
-              if (e.target === e.currentTarget) inputRef.current?.focus()
-            }}
-            className="flex flex-col gap-[14px] rounded-[20px] border border-slate-200 bg-white px-[18px] pb-[14px] pt-[16px] shadow-[0_2px_10px_rgba(15,23,42,0.06)] focus-within:border-slate-300"
-          >
+          <div className="flex items-end gap-[8px] rounded-[14px] border border-slate-200 bg-white px-[14px] py-[10px] focus-within:border-slate-400">
             <textarea
               ref={inputRef}
-              rows={4}
+              rows={1}
               value={text}
               autoFocus
               onChange={(e) => setText(e.target.value)}
@@ -407,21 +405,20 @@ export function AgentChat({
                 }
               }}
               placeholder={placeholder}
-              className="min-h-[112px] w-full resize-none bg-transparent text-[15px] leading-[1.55] text-slate-900 outline-none placeholder:text-slate-400"
+              className="max-h-[160px] min-h-[28px] flex-1 resize-none bg-transparent py-[4px] text-[15px] leading-[1.5] text-slate-900 outline-none placeholder:text-slate-400"
             />
-            <div className="flex items-end gap-[12px]">
-              <div className="min-w-0 flex-1">{chipRow}</div>
-              <button
-                type="button"
-                onClick={() => send(text)}
-                disabled={!text.trim() || busy}
-                aria-label="Send"
-                className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-slate-900 text-white disabled:bg-slate-200 disabled:text-slate-400"
-              >
-                <SIcon name="arrow-up" size={16} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => send(text)}
+              disabled={!text.trim() || busy}
+              aria-label="Send"
+              className="mb-[2px] flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-900 text-white disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              <SIcon name="arrow-up" size={15} />
+            </button>
           </div>
+          {chipRow && <div className="mt-[14px]">{chipRow}</div>}
+          {after}
         </div>
       </div>
     )
