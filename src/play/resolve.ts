@@ -1,3 +1,4 @@
+import { V10 } from '../layout/layoutMode'
 import {
   AUDIENCE_LIBRARY,
   type Audience,
@@ -8,6 +9,7 @@ import {
   type RuleOperator,
   type SplitNode,
 } from '../types/orchestration'
+import { audienceById } from '../v10/useAudiences'
 
 export interface SampleSubscriber {
   id: string
@@ -104,8 +106,10 @@ function conditionMatches(c: AudienceCondition, props: Record<string, string>): 
 
 export function rulesOf(a: Audience): { conditions: AudienceCondition[]; match: MatchJoin } {
   if (a.conditions && a.conditions.length > 0) return { conditions: a.conditions, match: a.match ?? 'AND' }
-  const saved = a.savedAudienceId ? AUDIENCE_LIBRARY.find((s) => s.id === a.savedAudienceId) : undefined
-  return saved ? { conditions: saved.conditions, match: saved.match } : { conditions: [], match: 'AND' }
+  const saved = a.savedAudienceId
+    ? (V10 ? audienceById(a.savedAudienceId) : undefined) ?? AUDIENCE_LIBRARY.find((s) => s.id === a.savedAudienceId)
+    : undefined
+  return saved ? { conditions: saved.conditions ?? [], match: saved.match ?? 'AND' } : { conditions: [], match: 'AND' }
 }
 
 export function audienceMatches(a: Audience | undefined, props: Record<string, string>): boolean {

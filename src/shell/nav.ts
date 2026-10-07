@@ -1,5 +1,5 @@
 import type { SIconName } from '@chargebee/sting-react'
-import { CONCIERGE, V8 } from '../layout/layoutMode'
+import { CONCIERGE, V10, V8 } from '../layout/layoutMode'
 
 export type NavLeafId =
   | 'home'
@@ -18,6 +18,10 @@ export type NavLeafId =
   | 'experiences.cancel'
   | 'people.audiences'
   | 'people.engaged'
+  | 'work.plays'
+  | 'work.experiences'
+  | 'work.audiences'
+  | 'reports.engaged'
   | 'renewal'
   | 'reports.cancels'
   | 'reports.offer'
@@ -151,6 +155,27 @@ const CLASSIC_NAV: NavEntry[] = ALL_NAV.filter((e) => !(e.kind === 'leaf' && e.l
   e.kind === 'group' ? { ...e, group: { ...e.group, children: e.group.children.filter((c) => c.id !== 'experiences.cancel') } } : e,
 )
 
+const ENGAGED: NavLeaf = { id: 'reports.engaged', label: 'Engaged subscribers', icon: 'users-round' }
+
+function reportLeaves(): NavLeaf[] {
+  const reports = ALL_NAV.find((entry) => entry.kind === 'group' && entry.group.id === 'reports')
+  const leaves = reports?.kind === 'group' ? reports.group.children : []
+  return V10 ? [...leaves, ENGAGED] : leaves
+}
+
+/** v10: Home, then Plays, Experiences and Audiences as three tabs of one screen. People leaves the row. */
+const V10_NAV: NavEntry[] = [
+  { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
+  { kind: 'leaf', leaf: { id: 'work.plays', label: 'Plays', icon: 'list-ordered' } },
+  { kind: 'leaf', leaf: { id: 'work.experiences', label: 'Experiences', icon: 'layers' } },
+  { kind: 'leaf', leaf: { id: 'work.audiences', label: 'Audiences', icon: 'user-search' } },
+  { kind: 'leaf', leaf: { id: 'renewal', label: 'Renewal', icon: 'repeat' } },
+  {
+    kind: 'group',
+    group: { id: 'reports', label: 'Reports', icon: 'bar-chart', children: reportLeaves() },
+  },
+]
+
 /** Concierge: Home, then one place per objective. Retention is the whole v8 cancel experience. */
 const CONCIERGE_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
@@ -160,9 +185,9 @@ const CONCIERGE_NAV: NavEntry[] = [
   ...ALL_NAV.slice(3),
 ]
 
-export const NAV: NavEntry[] = CONCIERGE ? CONCIERGE_NAV : V8 ? CLASSIC_NAV : ALL_NAV
+export const NAV: NavEntry[] = V10 ? V10_NAV : CONCIERGE ? CONCIERGE_NAV : V8 ? CLASSIC_NAV : ALL_NAV
 
-export const DEFAULT_ROUTE: NavLeafId = CONCIERGE ? 'home' : V8 ? 'experiences.cancel' : 'plays.acquisition'
+export const DEFAULT_ROUTE: NavLeafId = V10 || CONCIERGE ? 'home' : V8 ? 'experiences.cancel' : 'plays.acquisition'
 export const CANCEL_ROUTE: NavLeafId = 'experiences.cancel'
 /** Where "Exit Retention beta" lands. */
 export const CLASSIC_HOME: NavLeafId = 'plays.acquisition'
@@ -181,6 +206,7 @@ export function betaFor(route: NavLeafId, current: boolean): boolean {
 }
 
 export function childrenOf(id: NavGroupId): NavLeaf[] {
+  if (id === 'reports') return reportLeaves()
   const entry = ALL_NAV.find((item) => item.kind === 'group' && item.group.id === id)
   return entry?.kind === 'group' ? entry.group.children : []
 }

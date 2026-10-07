@@ -2,7 +2,9 @@ import { useRef, useState, type ReactNode } from 'react'
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 import { RuleBuilder } from '../orchestration/NodeSetup'
 import { rulesOf } from '../play/resolve'
+import { V10 } from '../layout/layoutMode'
 import { AUDIENCE_LIBRARY, RULE_OPERATOR_LABELS, type Audience } from '../types/orchestration'
+import { useAudiences } from '../v10/useAudiences'
 import { useWorkspaceUi, type ConfigureStep } from '../workspace/useWorkspaceUi'
 import { usePlaysBackend } from './PlaysBackend'
 import { audienceText, fallbackVariant, pagesIn, splitProblem } from './resolve'
@@ -157,9 +159,11 @@ function AudienceSelect({
   const [q, setQ] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   useOutside(open, ref, () => setOpen(false))
+  const v10Audiences = useAudiences((state) => state.items)
   const custom = value && !value.targetAll && !value.savedAudienceId && !audienceUnset(value) ? value : null
+  const saved = V10 ? v10Audiences : AUDIENCE_LIBRARY
   const options = [
-    ...AUDIENCE_LIBRARY.map((a) => ({ key: a.id, label: a.name, pick: () => savedAudience(a.id) })),
+    ...saved.map((a) => ({ key: a.id, label: a.name, pick: () => savedAudience(a.id) })),
     ...(custom ? [{ key: custom.id, label: custom.name || 'Custom audience', pick: () => custom }] : []),
   ].filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase()))
   const shown = value && !value.targetAll && !audienceUnset(value) ? audienceText(value) : null

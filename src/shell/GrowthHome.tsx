@@ -6,7 +6,9 @@ import { V8 } from '../layout/layoutMode'
 import { labelOf, type NavLeafId } from './nav'
 import { TemplatePages } from '../upload/TemplatePages'
 import { UploadFlow } from '../upload/UploadFlow'
-import { CONCIERGE } from '../layout/layoutMode'
+import { CONCIERGE, V10 } from '../layout/layoutMode'
+import { EngagedPage } from '../v10/EngagedPage'
+import { V10Screen } from '../v10/V10Screen'
 import { ConciergeHome } from '../concierge/Home'
 import { GrowthStudio } from '../concierge/objective/GrowthStudio'
 import { AreaPane } from './AreaPane'
@@ -45,6 +47,21 @@ function WithArea({ group, route }: { group: 'people' | 'reports'; route: NavLea
 }
 
 function ConciergeRoute({ route }: { route: NavLeafId }) {
+  if (route === 'work.plays' || route === 'work.experiences' || route === 'work.audiences') {
+    const tab = route === 'work.plays' ? 'plays' : route === 'work.experiences' ? 'experiences' : 'audiences'
+    return <V10Screen tab={tab} />
+  }
+  if (V10 && route.startsWith('reports.')) {
+    return route === 'reports.engaged' ? <EngagedPage /> : <Placeholder route={route} />
+  }
+  if (route === 'reports.engaged') {
+    return (
+      <div className="grid h-full min-h-0 bg-white" style={{ gridTemplateColumns: `${SIDEBAR_W}px minmax(0,1fr)` }}>
+        <AreaPane group="reports" route={route} />
+        <EngagedPage />
+      </div>
+    )
+  }
   switch (route) {
     case 'home':
       return <ConciergeHome />

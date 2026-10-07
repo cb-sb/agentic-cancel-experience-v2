@@ -1,13 +1,15 @@
 import { useEffect } from 'react'
 import { EASE_ENTER } from '../lib/motion'
 import { NAV_FOLDED_W, NAV_W } from '../orchestration/paneTokens'
+import { SIDEBAR_W } from '../layout/ThreadSidebar'
 import { OrchestrationCanvas } from '../orchestration/OrchestrationCanvas'
 import { Composer } from '../composer/Composer'
-import { CONCIERGE, STUDIO, USES_THREADS } from '../layout/layoutMode'
+import { CONCIERGE, STUDIO, USES_THREADS, V10 } from '../layout/layoutMode'
 import { StudioWorkspace } from '../layout/StudioWorkspace'
 import { ThreadWorkspace } from '../layout/ThreadWorkspace'
 import { useOrchestration } from '../store/useOrchestration'
 import { ArcAppPlaceholder, ArcBar, GrowthTopNav } from './ArcChrome'
+import { V10Nav } from '../v10/V10Nav'
 import { GrowthHome } from './GrowthHome'
 import { GrowthNav } from './GrowthNav'
 import { isCancelExperience, useGrowthShell } from './useGrowthShell'
@@ -33,13 +35,23 @@ export function GrowthShell({ children }: { children: React.ReactNode }) {
 
   if (CONCIERGE) {
     const growth = arcApp === 'growth'
+    const page = growth ? (inExperience ? children : <GrowthHome route={route} />) : <ArcAppPlaceholder app={arcApp} />
+    if (V10 && growth) {
+      return (
+        <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+          <ArcBar />
+          <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `${SIDEBAR_W}px minmax(0,1fr)` }}>
+            <V10Nav />
+            <div className="min-h-0 min-w-0 overflow-hidden">{page}</div>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
         <ArcBar />
         {growth && <GrowthTopNav />}
-        <div className="min-h-0 flex-1">
-          {growth ? (inExperience ? children : <GrowthHome route={route} />) : <ArcAppPlaceholder app={arcApp} />}
-        </div>
+        <div className="min-h-0 flex-1">{page}</div>
       </div>
     )
   }

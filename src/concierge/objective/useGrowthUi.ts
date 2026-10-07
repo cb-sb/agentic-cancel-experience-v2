@@ -1,5 +1,7 @@
 import { create } from 'zustand'
+import { V10 } from '../../layout/layoutMode'
 import { useGrowthShell } from '../../shell/useGrowthShell'
+import { useV10 } from '../../v10/useV10'
 import type { GrowthObjective, GrowthType } from '../model'
 import type { SoonPlace } from '../Soon'
 
@@ -63,6 +65,10 @@ export function setRenaming(id: string | null) {
 /** Go to a page in Acquisition or Expansion, from anywhere in the app. */
 export function goGrowth(objective: GrowthObjective, patch: Partial<GrowthView>) {
   setGrowthView(objective, { withCopilot: false, ...patch })
+  if (V10) {
+    if (patch.page && patch.page !== 'play' && patch.page !== 'experience') useV10.getState().close()
+    return
+  }
   if (useGrowthShell.getState().route !== objective) useGrowthShell.getState().go(objective)
 }
 

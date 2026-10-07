@@ -31,7 +31,7 @@ import { PlayOrder } from '../plays/PlayOrder'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { ToastHost } from '../plays/ui'
 
-function ThreadView() {
+export function ThreadView() {
   const stage = useCopilotStage()
   const templatesOpen = useOrchestration((s) => s.templatesOpen)
   const paneShown = usePaneShown()

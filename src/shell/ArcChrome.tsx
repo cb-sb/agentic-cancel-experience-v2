@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react'
 import { SIcon } from '@chargebee/sting-react'
+import { V10 } from '../layout/layoutMode'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W } from '../layout/ThreadSidebar'
+import { useV10 } from '../v10/useV10'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import type { NavLeafId } from './nav'
 import { ARC_APPS, useArcApp, type ArcAppId } from './useArcApp'
@@ -10,12 +12,22 @@ import { useGrowthShell } from './useGrowthShell'
 const TAB_CLIP = 'polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%)'
 
 function paneInset(route: NavLeafId, sidebarOpen: boolean): number {
+  if (route === 'work.plays' || route === 'work.experiences' || route === 'work.audiences') return SIDEBAR_W
   if (route === 'acquisition' || route === 'expansion' || route === 'experiences.cancel') {
     return sidebarOpen ? SIDEBAR_W : SIDEBAR_FOLDED_W
   }
   if (route.startsWith('people') || route.startsWith('reports')) return SIDEBAR_W
   return 0
 }
+
+const V10_TABS: { id: string; label: string; route: NavLeafId; match: (route: NavLeafId) => boolean; keep: boolean }[] = [
+  { id: 'home', label: 'Home', route: 'home', match: (route) => route === 'home', keep: true },
+  { id: 'plays', label: 'Plays', route: 'work.plays', match: (route) => route === 'work.plays', keep: true },
+  { id: 'experiences', label: 'Experiences', route: 'work.experiences', match: (route) => route === 'work.experiences', keep: true },
+  { id: 'audiences', label: 'Audiences', route: 'work.audiences', match: (route) => route === 'work.audiences', keep: true },
+  { id: 'renewal', label: 'Renewal', route: 'renewal', match: (route) => route === 'renewal', keep: false },
+  { id: 'reports', label: 'Reports', route: 'reports.cancels', match: (route) => route.startsWith('reports'), keep: false },
+]
 
 const GROWTH_TABS: { id: string; label: string; route: NavLeafId; match: (route: NavLeafId) => boolean; keep: boolean }[] = [
   { id: 'home', label: 'Home', route: 'home', match: (route) => route === 'home', keep: true },
@@ -164,17 +176,18 @@ export function GrowthTopNav() {
   const route = useGrowthShell((s) => s.route)
   const go = useGrowthShell((s) => s.go)
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
+  const tabs = V10 ? V10_TABS : GROWTH_TABS
   const inset = paneInset(route, sidebarOpen)
-  const { row, hidden } = useOverflow(GROWTH_TABS.length)
+  const { row, hidden } = useOverflow(tabs.length)
   const [moreOpen, setMoreOpen] = useState(false)
-  const overflow = GROWTH_TABS.slice(GROWTH_TABS.length - hidden)
-  const visible = GROWTH_TABS.slice(0, GROWTH_TABS.length - hidden)
+  const overflow = tabs.slice(tabs.length - hidden)
+  const visible = tabs.slice(0, tabs.length - hidden)
   return (
     <div className="flex-none bg-slate-100 pt-6">
       <div className="grid items-end" style={{ gridTemplateColumns: `${inset}px minmax(0,1fr)` }}>
         <div />
         <div ref={row} data-growth-row className="flex min-w-0 items-end justify-center px-4">
-          {GROWTH_TABS.map((tab, index) => (
+          {tabs.map((tab, index) => (
             <GrowthTab
               key={tab.id}
               label={tab.label}
@@ -184,7 +197,10 @@ export function GrowthTopNav() {
               data-keep={tab.keep ? 'true' : undefined}
               hidden={!visible.includes(tab)}
               aria-current={tab.match(route) ? 'page' : undefined}
-              onClick={() => go(tab.route)}
+              onClick={() => {
+                if (V10 && (tab.route === 'work.plays' || tab.route === 'work.experiences' || tab.route === 'work.audiences')) useV10.getState().close()
+                go(tab.route)
+              }}
             />
           ))}
           <div className="relative" data-growth-more hidden={hidden === 0}>

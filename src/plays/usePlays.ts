@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
+import { V10 } from '../layout/layoutMode'
 import { AUDIENCE_LIBRARY, type Audience } from '../types/orchestration'
+import { audienceById } from '../v10/useAudiences'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { nameProblem, uniqueName } from './names'
 import { ALL_AUDIENCE, type CancelPlay, type PlayVariant } from './types'
@@ -53,6 +55,8 @@ function patch(id: string, change: (p: CancelPlay) => CancelPlay) {
 }
 
 export function savedAudience(id: string): Audience {
+  const fromV10 = V10 ? audienceById(id) : undefined
+  if (fromV10) return { id: `aud-${fromV10.id}`, name: fromV10.name, ruleType: 'TARGETING', savedAudienceId: fromV10.id }
   const saved = AUDIENCE_LIBRARY.find((a) => a.id === id)
   if (!saved) return ALL_AUDIENCE
   return { id: `aud-${saved.id}`, name: saved.name, ruleType: 'TARGETING', savedAudienceId: saved.id }
