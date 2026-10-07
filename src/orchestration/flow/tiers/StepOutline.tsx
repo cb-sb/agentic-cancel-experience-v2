@@ -104,7 +104,7 @@ export function StepOutline({
   // glyph is charged for here too — it is beside the name, so it is width the
   // name does not have.
   const lead = leadComponent(step)
-  const accent = lead ? ACCENTS[lead.kind] : '#94a3b8'
+  const accent = lead ? ACCENTS[lead.kind] : 'var(--sk-slate-400, #94a3b8)'
   const strip = density === 'strip'
   const tight = !strip && w < 132
   const icon = strip ? 14 : ICON

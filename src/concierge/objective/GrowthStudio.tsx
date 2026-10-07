@@ -5,6 +5,7 @@ import { ToastHost } from '../../plays/ui'
 import { useWorkspaceUi } from '../../workspace/useWorkspaceUi'
 import { OffersPage, PricingTablesPage } from '../LibraryPages'
 import type { GrowthObjective } from '../model'
+import { GrowthArchivePage } from './ArchivePage'
 import { ExperiencePage } from './ExperiencePage'
 import { ExperiencesPage } from './ExperiencesPage'
 import { GrowthPane } from './GrowthPane'
@@ -31,6 +32,8 @@ function Page({ objective }: { objective: GrowthObjective }) {
       return <PricingTablesPage objective={objective} />
     case 'brand':
       return <BrandingStudio />
+    case 'archive':
+      return <GrowthArchivePage objective={objective} />
     case 'soon':
       return view.soon ? <SoonPage place={view.soon} onBack={() => goGrowth(objective, { page: 'index' })} /> : <ExperiencesPage objective={objective} />
     default:

@@ -1,0 +1,239 @@
+/*
+ * SLG design tokens, copied unchanged from cb-react-dls
+ * packages/sting-slg/src/styles/globals.css (slg-dev). Refresh with
+ * scripts/gen-skin-slg.mjs rather than editing here.
+ */
+:root,
+[data-theme="light"] {
+	/* ---- Color: Neutral ---- */
+	--slg-neutral-900: oklch(23.306% 0.03631 285.619);
+	--slg-neutral-700: oklch(41.429% 0.04315 287.872);
+	--slg-neutral-500: oklch(56.439% 0.07382 283.782);
+	--slg-neutral-400: oklch(66.148% 0.03542 285.37);
+	--slg-neutral-200: oklch(93.331% 0.01083 286.05);
+	--slg-neutral-100: oklch(96.829% 0.00542 286.001);
+	--slg-neutral-50: oklch(98.511% 0.00011 271.152);
+	--slg-white: oklch(100% 0.00011 271.152);
+
+	/* ---- Color: Green ---- */
+	--slg-green-700: oklch(44.793% 0.10831 151.351);
+	--slg-green-500: oklch(54.636% 0.14419 147.341);
+	--slg-green-200: oklch(87.016% 0.05773 153.684);
+	--slg-green-50: oklch(95.796% 0.01813 156.126);
+
+	/* ---- Color: Amber ---- */
+	--slg-amber-700: oklch(47.318% 0.12468 46.188);
+	--slg-amber-500: oklch(66.583% 0.15738 58.309);
+	--slg-amber-200: oklch(87.896% 0.15335 91.611);
+	--slg-amber-50: oklch(98.688% 0.02129 95.306);
+
+	/* ---- Color: Red ---- */
+	--slg-red-700: oklch(44.367% 0.16132 26.886);
+	--slg-red-500: oklch(55.798% 0.21367 19.385);
+	--slg-red-200: oklch(80.768% 0.10347 19.523);
+	--slg-red-50: oklch(97.053% 0.01292 16.91);
+
+	/* ---- Color: Orange ---- */
+	--slg-orange-900: #741c06;
+	--slg-orange-700: #c52800;
+	--slg-orange-500: #ff3300;
+	--slg-orange-300: #ff7a5c;
+	--slg-orange-50: #fff5f2;
+
+	/* ---- Color: Blue ---- */
+	--slg-blue-700: #364dd1;
+	--slg-blue-500: #3b82f6;
+	--slg-blue-200: #93c5fd;
+	--slg-blue-50: #f1f6ff;
+
+	/* ---- Semantic Tokens ---- */
+	--slg-color-bg-page: var(--slg-white);
+	--slg-color-bg-surface: var(--slg-white);
+	--slg-color-bg-surface-hover: var(--slg-neutral-100);
+	--slg-color-bg-surface-muted: var(--slg-neutral-50);
+	--slg-color-bg-edit-surface: var(--slg-neutral-100);
+	--slg-color-bg-success-subtle: var(--slg-green-50);
+	--slg-color-bg-notice-subtle: var(--slg-amber-50);
+	--slg-color-bg-danger-subtle: var(--slg-red-50);
+	--slg-color-bg-info-subtle: var(--slg-blue-50);
+	--slg-color-bg-overlay: color-mix(in oklch, var(--slg-neutral-900) 48%, transparent);
+	--slg-color-bg-inverse: var(--slg-neutral-900);
+	--slg-color-text-primary: var(--slg-neutral-900);
+	--slg-color-text-secondary: var(--slg-neutral-700);
+	--slg-color-text-muted: var(--slg-neutral-500);
+	--slg-color-text-on-solid: var(--slg-white);
+	--slg-color-border-default: var(--slg-neutral-200);
+	--slg-color-border-strong: var(--slg-neutral-900);
+	--slg-color-focus-ring: var(--slg-blue-500);
+	--slg-color-action-primary: var(--slg-neutral-900);
+	--slg-color-action-primary-hover: var(--slg-neutral-700);
+	--slg-color-cta-primary: var(--slg-orange-500);
+	--slg-color-cta-primary-strong: var(--slg-orange-900);
+	--slg-color-danger: var(--slg-red-500);
+	--slg-color-danger-hover: var(--slg-red-700);
+	--slg-color-success: var(--slg-green-500);
+	--slg-color-warning: var(--slg-amber-500);
+	--slg-color-info: var(--slg-blue-500);
+
+	/* ---- Radius ---- */
+	--slg-radius-sm: 6px;
+	--slg-radius-md: 8px;
+	--slg-radius-lg: 12px;
+	--slg-radius-round: 999px;
+
+	/* ---- Shadow ---- */
+	--slg-shadow-md:
+		0 10px 15px -3px color-mix(in oklch, var(--slg-neutral-900) 10%, transparent),
+		0 4px 6px -4px color-mix(in oklch, var(--slg-neutral-900) 10%, transparent);
+	--slg-shadow-overlay:
+		2px 8px 32px rgb(0 0 0 / 0.12),
+		1px 2px 16px rgb(0 0 0 / 0.12);
+
+	/* ---- Icon Size ---- */
+	--slg-icon-size-xs: 12px;
+	--slg-icon-size-sm: 14px;
+	--slg-icon-size-md: 16px;
+	--slg-icon-size-lg: 20px;
+
+	/* ---- Spacing ---- */
+	--slg-space-0: 0;
+	--slg-space-1: 4px;
+	--slg-space-2: 8px;
+	--slg-space-3: 12px;
+	--slg-space-4: 16px;
+	--slg-space-5: 20px;
+	--slg-space-6: 24px;
+	--slg-space-7: 32px;
+	--slg-space-8: 40px;
+	--slg-space-9: 48px;
+	--slg-space-10: 64px;
+
+	/* ---- Typography ---- */
+	--slg-font-family-ui: "Inter", ui-sans-serif, system-ui, sans-serif;
+	--slg-font-family-emphasis: "Sora", ui-sans-serif, system-ui, sans-serif;
+	--slg-font-family-sans: var(--slg-font-family-ui);
+	--slg-font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	--slg-font-weight-regular: 400;
+	--slg-font-weight-medium: 500;
+	--slg-font-weight-semibold: 600;
+	--slg-font-weight-bold: 700;
+	--slg-font-size-10: 10px;
+	--slg-font-size-11: 11px;
+	--slg-font-size-12: 12px;
+	--slg-font-size-13: 13px;
+	--slg-font-size-14: 14px;
+	--slg-font-size-16: 16px;
+	--slg-font-size-20: 20px;
+	--slg-font-size-24: 24px;
+	--slg-font-size-32: 32px;
+	--slg-font-size-36: 36px;
+	--slg-font-size-40: 40px;
+	--slg-line-height-12: 12px;
+	--slg-line-height-14: 14px;
+	--slg-line-height-15: 15px;
+	--slg-line-height-16: 16px;
+	--slg-line-height-18: 18px;
+	--slg-line-height-20: 20px;
+	--slg-line-height-24: 24px;
+	--slg-line-height-28: 28px;
+	--slg-line-height-32: 32px;
+	--slg-line-height-36: 36px;
+	--slg-line-height-40: 40px;
+	--slg-line-height-48: 48px;
+	--slg-letter-spacing-default: 0;
+	--slg-letter-spacing-tight: -0.5px;
+	--slg-text-display-font-size: var(--slg-font-size-40);
+	--slg-text-display-line-height: var(--slg-line-height-48);
+	--slg-text-display-font-weight: var(--slg-font-weight-semibold);
+	--slg-text-page-title-font-size: var(--slg-font-size-32);
+	--slg-text-page-title-line-height: var(--slg-line-height-40);
+	--slg-text-page-title-font-weight: var(--slg-font-weight-semibold);
+	--slg-text-section-title-font-size: var(--slg-font-size-20);
+	--slg-text-section-title-line-height: var(--slg-line-height-28);
+	--slg-text-section-title-font-weight: var(--slg-font-weight-semibold);
+	--slg-text-sub-section-title-font-size: var(--slg-font-size-16);
+	--slg-text-sub-section-title-line-height: var(--slg-line-height-24);
+	--slg-text-sub-section-title-font-weight: var(--slg-font-weight-semibold);
+	--slg-text-body-font-size: var(--slg-font-size-14);
+	--slg-text-body-line-height: var(--slg-line-height-20);
+	--slg-text-body-font-weight: var(--slg-font-weight-regular);
+	--slg-text-body-medium-font-size: var(--slg-font-size-14);
+	--slg-text-body-medium-line-height: var(--slg-line-height-20);
+	--slg-text-body-medium-font-weight: var(--slg-font-weight-medium);
+	--slg-text-compact-font-size: var(--slg-font-size-13);
+	--slg-text-compact-line-height: var(--slg-line-height-18);
+	--slg-text-compact-font-weight: var(--slg-font-weight-regular);
+	--slg-text-compact-medium-font-size: var(--slg-font-size-13);
+	--slg-text-compact-medium-line-height: var(--slg-line-height-18);
+	--slg-text-compact-medium-font-weight: var(--slg-font-weight-medium);
+	--slg-text-label-font-size: var(--slg-font-size-12);
+	--slg-text-label-line-height: var(--slg-line-height-16);
+	--slg-text-label-font-weight: var(--slg-font-weight-medium);
+	--slg-text-label-strong-font-size: var(--slg-font-size-12);
+	--slg-text-label-strong-line-height: var(--slg-line-height-16);
+	--slg-text-label-strong-font-weight: var(--slg-font-weight-semibold);
+	--slg-text-caption-font-size: var(--slg-font-size-12);
+	--slg-text-caption-line-height: var(--slg-line-height-16);
+	--slg-text-caption-font-weight: var(--slg-font-weight-regular);
+	--slg-text-tiny-font-size: var(--slg-font-size-11);
+	--slg-text-tiny-line-height: var(--slg-line-height-14);
+	--slg-text-tiny-font-weight: var(--slg-font-weight-medium);
+
+	/* ---- Motion ---- */
+	--slg-transition-fast: 150ms ease;
+
+	/* ---- AI Effects ---- */
+	--slg-ai-gradient-start: oklch(64.629% 0.24091 32.604);
+	--slg-ai-gradient-end: oklch(49.067% 0.24133 292.584);
+	--slg-ai-shine-text: var(--slg-neutral-900);
+	--slg-ai-shine-accent-start: oklch(64.629% 0.24091 32.604);
+	--slg-ai-shine-accent-end: oklch(60.563% 0.21902 292.718);
+}
+
+[data-theme="dark"] {
+	--slg-color-bg-page: var(--slg-neutral-900);
+	--slg-color-bg-surface: oklch(19.023% 0.02617 287.151);
+	--slg-color-bg-surface-hover: var(--slg-neutral-700);
+	--slg-color-bg-surface-muted: oklch(26.035% 0.03903 287.724);
+	--slg-color-bg-edit-surface: var(--slg-neutral-700);
+	--slg-color-bg-success-subtle: color-mix(
+		in oklch,
+		var(--slg-green-700) 28%,
+		var(--slg-color-bg-surface)
+	);
+	--slg-color-bg-notice-subtle: color-mix(in oklch, var(--slg-amber-500) 18%, transparent);
+	--slg-color-bg-danger-subtle: color-mix(
+		in oklch,
+		var(--slg-red-700) 28%,
+		var(--slg-color-bg-surface)
+	);
+	--slg-color-bg-info-subtle: color-mix(
+		in oklch,
+		var(--slg-blue-700) 28%,
+		var(--slg-color-bg-surface)
+	);
+	--slg-color-bg-overlay: color-mix(in oklch, var(--slg-neutral-900) 72%, transparent);
+	--slg-color-bg-inverse: var(--slg-neutral-50);
+	--slg-color-text-primary: var(--slg-white);
+	--slg-color-text-secondary: var(--slg-neutral-200);
+	--slg-color-text-muted: var(--slg-neutral-400);
+	--slg-color-text-on-solid: var(--slg-white);
+	--slg-color-border-default: var(--slg-neutral-700);
+	--slg-color-border-strong: var(--slg-white);
+	--slg-color-action-primary: var(--slg-blue-500);
+	--slg-color-action-primary-hover: var(--slg-blue-200);
+	--slg-color-cta-primary: var(--slg-orange-500);
+	--slg-color-cta-primary-strong: var(--slg-orange-900);
+	--slg-color-danger: var(--slg-red-200);
+	--slg-color-danger-hover: var(--slg-red-500);
+	--slg-color-warning: var(--slg-amber-200);
+	--slg-color-info: var(--slg-blue-200);
+	--slg-shadow-overlay:
+		0 18px 36px -18px color-mix(in oklch, var(--slg-neutral-900) 62%, transparent),
+		0 12px 20px -16px color-mix(in oklch, var(--slg-neutral-900) 52%, transparent);
+	--slg-ai-gradient-start: oklch(72.942% 0.16869 34.033);
+	--slg-ai-gradient-end: oklch(70.897% 0.15927 293.536);
+	--slg-ai-shine-text: var(--slg-white);
+	--slg-ai-shine-accent-start: oklch(72.942% 0.16869 34.033);
+	--slg-ai-shine-accent-end: oklch(70.897% 0.15927 293.536);
+}

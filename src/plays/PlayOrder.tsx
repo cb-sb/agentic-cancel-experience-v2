@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from '../orchestration/paneTokens'
 import { Background, BackgroundVariant, ReactFlow, ReactFlowProvider, type Edge, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
@@ -10,14 +11,21 @@ import { useCancelSettings } from '../workspace/useCancelSettings'
 import { openTab } from '../workspace/paneTabs'
 import { fileOfThread, orderedThreads, useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
-import { openExperience, openPlay } from './navigate'
+import { openArchive, openExperience, openPlay } from './navigate'
+import { archivePlayItem, archivePlaysNow } from './archive'
+import { toast, type MenuItem } from './ui'
 import { nodeTypes, type CardData, type Tone } from './PlayCanvas'
 import { fmt, population, POPULATION_SIZE } from './population'
 import { audienceText, overlaps, resolveWorkspace, variantShare, type WorkspaceEntry, type WorkspaceRun } from './resolve'
+import { RefitOn, SlideDrawer, testButtonClass } from './drawerMotion'
 import { SubscriberPicker } from './TestDrawer'
 import { variantLetter, type CancelPlay } from './types'
-import { useRankedPlays } from './usePlays'
+import { createPlay, duplicatePlay, usePlays, useRankedPlays } from './usePlays'
+import { V9 } from '../layout/layoutMode'
+import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch, ToolSelect } from '../layout/SlgChrome'
+import { Ago, BulkAction, Check, initials, RowActions, RowMark, SelectHead, TABLE_ROW, TABLE_ROW_OPEN, TableEmpty, TableHead, TableRow, useSelection } from '../layout/SlgTable'
 import { logSession, markWalked, useTestSessions } from './useTestSessions'
+import { FRAME_WIDE } from '../layout/frames'
 
 const DRAG = 'application/x-cancel-play'
 type View = 'order' | 'canvas'
@@ -93,7 +101,7 @@ function PinnedRow({ icon, title, detail, children }: { icon: SIconName; title: 
   )
 }
 
-function OrderList({ ranked }: { ranked: CancelPlay[] }) {
+function OrderList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
   const ids = ranked.map((p) => p.id)
   const warn = useMemo(() => new Map(overlaps(ranked).map((o) => [o.playId, o.coveredBy])), [ranked])
   const shells = useShells(ranked)
@@ -117,7 +125,8 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
         <span className="w-[32px] flex-none text-right text-[12.5px] font-medium tabular-nums text-slate-700">{globalControl === 0 ? 'Off' : `${globalControl}%`}</span>
       </PinnedRow>
 
-      {ranked.map((p, i) => {
+      {shown.map((p) => {
+        const i = ranked.indexOf(p)
         const cover = warn.get(p.id)
         const coverPlay = cover ? ranked.find((x) => x.id === cover) : undefined
         return (
@@ -168,7 +177,9 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
                     </Tag>
                   ))}
                   <Tag icon="split">
-                    {p.variants.length} variant{p.variants.length === 1 ? '' : 's'}
+                    {p.splitBy === 'segments'
+                      ? `${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
+                      : `${p.variants.length} variant${p.variants.length === 1 ? '' : 's'}`}
                   </Tag>
                 </div>
                 <div className="flex flex-none items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
@@ -197,7 +208,11 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
           </li>
         )
       })}
-      {ranked.length === 0 && <li className="rounded-xl border border-dashed border-slate-200 px-[16px] py-[14px] text-[13px] text-slate-500">No plays yet.</li>}
+      {shown.length === 0 && (
+        <li className="rounded-xl border border-dashed border-slate-200 px-[16px] py-[14px] text-[13px] text-slate-500">
+          {ranked.length === 0 ? 'No plays yet.' : 'No plays match.'}
+        </li>
+      )}
 
       <PinnedRow icon="corner-down-right" title="If no play matches" detail="What people get when they qualify for none of the plays above.">
         <select
@@ -214,6 +229,188 @@ function OrderList({ ranked }: { ranked: CancelPlay[] }) {
           ))}
         </select>
       </PinnedRow>
+    </ol>
+  )
+}
+
+/** v9: a fixed step before or after the plays, laid out like the priority page in the app. */
+function PriorityPinned({ icon, title, lines, children }: { icon: SIconName; title: string; lines: string[]; children: ReactNode }) {
+  return (
+    <li className={`${TABLE_ROW} flex items-center gap-[16px] bg-[var(--slg-neutral-50)] py-[8px]`}>
+      <span className="flex w-[44px] flex-none">
+        <RowMark icon={icon} />
+      </span>
+      <div className="flex min-w-0 flex-1 items-baseline gap-[10px]">
+        <span className="flex-none">{title}</span>
+        <span className="truncate text-[12px] font-normal text-slate-500">{lines.join('. ')}</span>
+      </div>
+      {children}
+    </li>
+  )
+}
+
+const PRIORITY_COLS = 'grid grid-cols-[44px_minmax(0,1.8fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_60px_56px] items-center gap-[16px]'
+
+/** v9: the priority list. Filtered plays keep their real place in the order. */
+function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
+  const ids = ranked.map((p) => p.id)
+  const warn = useMemo(() => new Map(overlaps(ranked).map((o) => [o.playId, o.coveredBy])), [ranked])
+  const shells = useShells(ranked)
+  const globalControl = useCancelSettings((s) => s.globalControl)
+  const fallbackId = useCancelSettings((s) => s.globalFallbackId)
+  const threads = useWorkspace((s) => s.threads)
+  const [drag, setDrag] = useState<number | null>(null)
+  const [over, setOver] = useState<number | null>(null)
+  return (
+    <ol>
+      <li>
+        <TableHead cols={PRIORITY_COLS}>
+          <span className="text-right">#</span>
+          <span>Play</span>
+          <span>Audience</span>
+          <span>Page type</span>
+          <span>Split</span>
+          <span>Status</span>
+          <span />
+        </TableHead>
+      </li>
+      <PriorityPinned
+        icon="shield"
+        title="Global control"
+        lines={['They cancel with no cancel page', `Traffic: ${globalControl}%`]}
+      >
+        <input
+          type="range"
+          min={0}
+          max={30}
+          value={globalControl}
+          onChange={(e) => useCancelSettings.getState().setGlobalControl(Number(e.target.value))}
+          aria-label="Global control"
+          className="w-[140px] flex-none accent-slate-800"
+        />
+        <span className="w-[32px] flex-none text-right text-[12.5px] font-medium tabular-nums text-slate-700">{globalControl === 0 ? 'Off' : `${globalControl}%`}</span>
+      </PriorityPinned>
+
+      <li className="flex items-center gap-[6px] border-b border-[var(--slg-color-border-default)] px-[16px] py-[8px] text-[12px] text-slate-500">
+        <SIcon name="arrow-down" size={12} className="flex-none text-slate-400" />
+        Send the remaining {100 - globalControl}% of traffic to these plays, in order. Drag a row to change it.
+      </li>
+
+      {shown.map((p) => {
+        const i = ranked.indexOf(p)
+        const cover = warn.get(p.id)
+        const coverPlay = cover ? ranked.find((x) => x.id === cover) : undefined
+        return (
+          <li
+            key={p.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData(DRAG, p.id)
+              e.dataTransfer.effectAllowed = 'move'
+              setDrag(i)
+            }}
+            onDragEnd={() => {
+              setDrag(null)
+              setOver(null)
+            }}
+            onDragOver={(e) => {
+              if (!e.dataTransfer.types.includes(DRAG)) return
+              e.preventDefault()
+              setOver(i)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (drag !== null && drag !== i) commitOrder(move(ids, drag, i))
+              setDrag(null)
+              setOver(null)
+            }}
+            className={drag === i ? 'opacity-50' : ''}
+          >
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => openPlay(p.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.target === e.currentTarget) openPlay(p.id)
+              }}
+              className={`${PRIORITY_COLS} ${TABLE_ROW_OPEN} group active:cursor-grabbing ${
+                over === i && drag !== i ? 'shadow-[inset_0_2px_0_var(--slg-color-focus-ring)]' : ''
+              }`}
+            >
+              <span className="flex items-center justify-end gap-[6px]">
+                <SIcon name="grip-vertical" size={12} className="flex-none cursor-grab text-slate-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                <span className="tabular-nums">{i + 1}</span>
+              </span>
+              <div className="flex min-w-0 items-center gap-[10px]">
+                <RowMark>{initials(p.name)}</RowMark>
+                <span className="truncate">{p.name}</span>
+              </div>
+              <span className="flex min-w-0 items-center gap-[6px]">
+                <SIcon name="users" size={12} className="flex-none text-slate-500" />
+                <span className="truncate">{audienceText(p.audience)}</span>
+              </span>
+              <span className="truncate">{(shells.get(p.id) ?? []).map((s) => SHELL[s]?.label ?? s).join(', ') || <span className="text-slate-500">None yet</span>}</span>
+              <span className="truncate">
+                {p.splitBy === 'segments'
+                  ? `${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
+                  : `${p.variants.length} variant${p.variants.length === 1 ? '' : 's'}`}
+              </span>
+              <span>
+                <StatusChip live={p.status === 'live'} />
+              </span>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center justify-end opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+              >
+                <button type="button" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => commitOrder(move(ids, i, i - 1))} className="p-[3px] disabled:opacity-30">
+                  <SIcon name="chevron-up" size={13} />
+                </button>
+                <button type="button" aria-label={`Move ${p.name} down`} disabled={i === ranked.length - 1} onClick={() => commitOrder(move(ids, i, i + 1))} className="p-[3px] disabled:opacity-30">
+                  <SIcon name="chevron-down" size={13} />
+                </button>
+              </div>
+            </div>
+            {coverPlay && (
+              <div className="flex items-center gap-[8px] border-b border-[var(--slg-color-border-default)] bg-amber-50 px-[16px] py-[7px] pl-[76px] text-[12px] text-amber-800">
+                <SIcon name="triangle-alert" size={13} className="flex-none" />
+                <span className="min-w-0 flex-1">Nobody reaches this play. {coverPlay.name} is above it and already covers everyone it would.</span>
+                <button
+                  type="button"
+                  onClick={() => commitOrder(move(ids, i, ranked.indexOf(coverPlay)))}
+                  className="flex-none bg-white px-[8px] py-[3px] font-semibold text-amber-800 shadow-sm hover:bg-amber-100"
+                >
+                  Move up
+                </button>
+              </div>
+            )}
+          </li>
+        )
+      })}
+      {shown.length === 0 && (
+        <li>
+          <TableEmpty>{ranked.length === 0 ? 'No plays yet.' : 'No plays match.'}</TableEmpty>
+        </li>
+      )}
+
+      <PriorityPinned
+        icon="corner-down-right"
+        title="Global fallback"
+        lines={['What people get when no play above matches them']}
+      >
+        <select
+          value={fallbackId ?? ''}
+          onChange={(e) => useCancelSettings.getState().setGlobalFallback(e.target.value || null)}
+          aria-label="Fallback"
+          className="h-[28px] w-[220px] flex-none border border-slate-200 bg-white px-[8px] text-[13px] outline-none focus:border-slate-400"
+        >
+          <option value="">No cancel page</option>
+          {orderedThreads(threads).map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+      </PriorityPinned>
     </ol>
   )
 }
@@ -262,9 +459,9 @@ function buildGraph(
       target,
       type: 'smoothstep',
       animated: lit,
-      style: { stroke: lit ? '#6366f1' : '#cbd5e1', strokeWidth: lit ? 2.5 : 1.5 },
-      labelStyle: { fontSize: 11, fill: '#64748b', fontWeight: 500 },
-      labelBgStyle: { fill: '#f8fafc' },
+      style: { stroke: lit ? 'var(--sk-indigo-500, #6366f1)' : 'var(--sk-slate-300, #cbd5e1)', strokeWidth: lit ? 2.5 : 1.5 },
+      labelStyle: { fontSize: 11, fill: 'var(--sk-slate-500, #64748b)', fontWeight: 500 },
+      labelBgStyle: { fill: 'var(--sk-slate-50, #f8fafc)' },
       labelBgPadding: [4, 2] as [number, number],
       ...extra,
     })
@@ -559,14 +756,35 @@ function OrderTestDrawer({ ranked, onRun, onClose }: { ranked: CancelPlay[]; onR
   )
 }
 
-function OrderCanvas({ ranked }: { ranked: CancelPlay[] }) {
+/** v9 passes status, counts and testing in from the page header; the classic page keeps its own floating controls. */
+function OrderCanvas({
+  ranked,
+  status,
+  showCounts: shownFromHeader,
+  testing: testingFromHeader,
+  onTesting,
+}: {
+  ranked: CancelPlay[]
+  status?: StatusFilter
+  showCounts?: boolean
+  testing?: boolean
+  onTesting?: (v: boolean) => void
+}) {
   const globalControl = useCancelSettings((s) => s.globalControl)
   const fallbackId = useCancelSettings((s) => s.globalFallbackId)
   const titleOf = useTitleOf()
-  const [mode, setMode] = useState<Mode>('draft')
-  const [showCounts, setShowCounts] = useState(true)
-  const [testing, setTesting] = useState(false)
+  const [ownMode, setMode] = useState<Mode>('draft')
+  const mode: Mode = status ? (status === 'live' ? 'live' : 'draft') : ownMode
+  const bar = status !== undefined
+  const [ownCounts, setShowCounts] = useState(true)
+  const [ownTesting, setOwnTesting] = useState(false)
+  const showCounts = bar ? shownFromHeader !== false : ownCounts
+  const testing = bar ? Boolean(testingFromHeader) : ownTesting
+  const setTesting = (v: boolean) => (bar ? onTesting?.(v) : setOwnTesting(v))
   const [run, setRun] = useState<WorkspaceRun | null>(null)
+  useEffect(() => {
+    if (!testing) setRun(null)
+  }, [testing])
   const counts = useMemo(() => (showCounts ? orderCounts(ranked, globalControl, mode) : null), [showCounts, ranked, globalControl, mode])
   const graph = useMemo(
     () =>
@@ -583,11 +801,12 @@ function OrderCanvas({ ranked }: { ranked: CancelPlay[] }) {
     [ranked, globalControl, fallbackId, counts, mode, testing, run],
   )
   return (
+    <div className="flex min-h-0 flex-1 flex-col">
     <div className="relative flex min-h-0 flex-1">
       <div className="relative min-w-0 flex-1 bg-slate-50">
         <ReactFlowProvider>
           <ReactFlow
-            key={`${ranked.map((p) => p.id).join('|')}-${testing}`}
+            key={ranked.map((p) => p.id).join('|')}
             nodes={graph.nodes}
             edges={graph.edges}
             nodeTypes={nodeTypes}
@@ -600,9 +819,16 @@ function OrderCanvas({ ranked }: { ranked: CancelPlay[] }) {
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#d5dae1" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={CANVAS_DOT_SIZE} color={CANVAS_DOT_COLOR} />
+            <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>
+        {bar && showCounts && (
+          <span className="pointer-events-none absolute left-[12px] top-[12px] bg-white/80 px-[8px] py-[4px] text-[11.5px] text-slate-500">
+            Out of {fmt(POPULATION_SIZE)} recent cancel clicks{mode === 'draft' ? ', as if every draft went live' : ', live plays only'}
+          </span>
+        )}
+        {!bar && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-[8px] p-[12px]">
           <div className="pointer-events-auto flex items-center gap-[8px]">
             <div role="radiogroup" aria-label="Counts for" className="flex rounded-xl border border-slate-200 bg-white p-[2px] shadow-sm">
@@ -633,16 +859,15 @@ function OrderCanvas({ ranked }: { ranked: CancelPlay[] }) {
               </span>
             )}
           </div>
-          {!testing && (
-            <SButton size="small" variant="primary" className="pointer-events-auto w-auto" onClick={() => setTesting(true)}>
-              <span className="inline-flex items-center gap-[5px]">
-                <SIcon name="flask-conical" size={13} /> Test
-              </span>
-            </SButton>
-          )}
+          <SButton size="small" variant="primary" className={testButtonClass(testing)} onClick={() => setTesting(true)}>
+            <span className="inline-flex items-center gap-[5px]">
+              <SIcon name="flask-conical" size={13} /> Test
+            </span>
+          </SButton>
         </div>
+        )}
       </div>
-      {testing && (
+      <SlideDrawer open={testing}>
         <OrderTestDrawer
           ranked={ranked}
           onRun={setRun}
@@ -651,7 +876,8 @@ function OrderCanvas({ ranked }: { ranked: CancelPlay[] }) {
             setRun(null)
           }}
         />
-      )}
+      </SlideDrawer>
+    </div>
     </div>
   )
 }
@@ -682,8 +908,208 @@ function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => voi
   )
 }
 
+type StatusFilter = 'all' | 'live' | 'draft'
+
+const STATUS_LABEL: Record<StatusFilter, string> = { all: 'All', live: 'Live', draft: 'Drafts' }
+
+function newPlay() {
+  const id = createPlay()
+  openPlay(id)
+  useWorkspaceUi.getState().setRenaming(id)
+}
+
+const PLAYS_FRAME = `${FRAME_WIDE} px-[28px]`
+
+type PlaysView = 'mine' | 'order' | 'canvas'
+
+const VIEW_TABS: { id: PlaysView; label: string; hint: string }[] = [
+  { id: 'mine', label: 'My plays', hint: 'Every play, newest edits first' },
+  { id: 'order', label: 'Priority list', hint: 'Plays in the order they are checked' },
+  { id: 'canvas', label: 'Canvas', hint: 'Where every cancel click goes, and a test run' },
+]
+
+const VIEW_LINE: Record<PlaysView, string> = {
+  mine: 'Each play picks an audience and the cancel experiences they see.',
+  order: 'When someone clicks Cancel, plays are checked from the top and the first one they qualify for wins.',
+  canvas: 'When someone clicks Cancel, plays are checked from the top and the first one they qualify for wins.',
+}
+
+/** What the play does with its audience, in a few words. */
+function setupLine(p: CancelPlay): string {
+  if (p.splitBy === 'segments') return `Split into ${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
+  if (p.variants.length === 0) return 'No experience yet'
+  if (p.variants.length === 1) return 'One experience'
+  return `A/B test of ${p.variants.length}`
+}
+
+const MINE_COLS = 'grid grid-cols-[16px_minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,1.3fr)_60px_64px_88px_28px] items-center gap-[16px]'
+
+function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
+  const titleOf = useTitleOf()
+  const archived = usePlays((s) => s.archived.length)
+  const rows = [...shown].sort((a, b) => b.updatedAt - a.updatedAt)
+  const sel = useSelection(rows.map((p) => p.id))
+  const pickedPlays = rows.filter((p) => sel.has(p.id))
+  const liveCount = pickedPlays.filter((p) => p.status === 'live').length
+  return (
+    <div>
+      <div>
+        <SelectHead
+          cols={MINE_COLS}
+          total={rows.length}
+          picked={sel.picked.length}
+          onAll={sel.setAll}
+          onClear={sel.clear}
+          actions={
+            <BulkAction
+              icon="archive"
+              label="Archive"
+              confirm={liveCount > 0 ? `${liveCount} live ${liveCount === 1 ? 'play stops' : 'plays stop'} showing. Archive?` : undefined}
+              onClick={() => {
+                archivePlaysNow(pickedPlays)
+                sel.clear()
+              }}
+            />
+          }
+        >
+          <span>Play</span>
+          <span>Audience</span>
+          <span>Experiences</span>
+          <span>Setup</span>
+          <span>Status</span>
+          <span className="text-right">Priority</span>
+          <span>Edited</span>
+          <span />
+        </SelectHead>
+        {rows.map((p) => {
+          const pages = [...new Set(p.variants.map((v) => v.experienceId))]
+          const items: MenuItem[] = [
+            { label: 'Open', icon: 'arrow-up-right', onClick: () => openPlay(p.id) },
+            {
+              label: 'Duplicate',
+              icon: 'copy',
+              hint: 'Same audience and experiences, as a draft',
+              onClick: () => {
+                const id = duplicatePlay(p.id)
+                if (id) toast('Duplicated as a draft.')
+              },
+            },
+            archivePlayItem(p),
+          ]
+          return (
+            <TableRow key={p.id} cols={MINE_COLS} onOpen={() => openPlay(p.id)} className={sel.has(p.id) ? 'is-picked' : ''}>
+              <Check on={sel.has(p.id)} onChange={() => sel.toggle(p.id)} label={`Select ${p.name}`} />
+              <div className="flex min-w-0 items-center gap-[10px]">
+                <RowMark>{initials(p.name)}</RowMark>
+                <span className="truncate">{p.name}</span>
+              </div>
+              <span className="flex min-w-0 items-center gap-[6px]">
+                <SIcon name="users" size={12} className="flex-none text-slate-500" />
+                <span className="truncate">{audienceText(p.audience)}</span>
+              </span>
+              <span className="min-w-0 truncate">
+                {pages.length === 0 ? (
+                  <span className="text-slate-500">None yet</span>
+                ) : (
+                  <>
+                    {titleOf(pages[0])}
+                    {pages.length > 1 && <span className="text-slate-500"> +{pages.length - 1}</span>}
+                  </>
+                )}
+              </span>
+              <span className="truncate text-slate-600">{setupLine(p)}</span>
+              <span>
+                <StatusChip live={p.status === 'live'} />
+              </span>
+              <span className="text-right tabular-nums">{ranked.indexOf(p) + 1}</span>
+              <Ago at={p.updatedAt} />
+              <RowActions label={`Actions for ${p.name}`} items={items} />
+            </TableRow>
+          )
+        })}
+        {rows.length === 0 && <TableEmpty>{ranked.length === 0 ? 'No plays yet. Use New play to make one.' : 'No plays match.'}</TableEmpty>}
+      </div>
+      {archived > 0 && (
+        <button type="button" onClick={openArchive} className="mt-[12px] flex items-center gap-[6px] text-[12.5px] font-medium text-slate-500 hover:text-slate-900">
+          <SIcon name="archive" size={13} /> {archived} archived play{archived === 1 ? '' : 's'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** v9: every play in one place. The tabs share search and status, so switching keeps what you picked. */
+function PlaysPage() {
+  const ranked = useRankedPlays()
+  const [view, setView] = useState<PlaysView>('mine')
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('all')
+  const [showCounts, setShowCounts] = useState(true)
+  const [testing, setTesting] = useState(false)
+  const q = query.trim().toLowerCase()
+  const shown = ranked.filter(
+    (p) =>
+      (status === 'all' || (status === 'live') === (p.status === 'live')) &&
+      (!q || p.name.toLowerCase().includes(q) || audienceText(p.audience).toLowerCase().includes(q)),
+  )
+  const live = ranked.filter((p) => p.status === 'live').length
+  const counts: Record<StatusFilter, number> = { all: ranked.length, live, draft: ranked.length - live }
+  const statusOptions = (view === 'canvas' ? (['all', 'live'] as const) : (['all', 'live', 'draft'] as const)).map((o) => ({
+    id: o,
+    label: STATUS_LABEL[o],
+    count: counts[o],
+  }))
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-white">
+      <header className="flex-none bg-white">
+        <div className={`${PLAYS_FRAME} pt-[20px]`}>
+          <PageHeader
+            title="Plays"
+            meta={[
+              `${ranked.length} play${ranked.length === 1 ? '' : 's'}`,
+              <span className={live > 0 ? 'text-[var(--slg-green-700)]' : ''}>{live} live</span>,
+            ]}
+            tabs={<AngledTabs label="View" items={VIEW_TABS.map((t) => ({ id: t.id, label: t.label, hint: t.hint }))} value={view} onChange={setView} />}
+            actions={
+              <>
+                {view === 'canvas' ? (
+                  <>
+                    <ToolButton icon="users" label="Who sees this?" pressed={showCounts} onClick={() => setShowCounts((v) => !v)}>
+                      Who sees this?
+                    </ToolButton>
+                    <ToolButton icon="flask-conical" label="Test with a subscriber" pressed={testing} onClick={() => setTesting((v) => !v)}>
+                      Test
+                    </ToolButton>
+                  </>
+                ) : (
+                  <ToolSearch value={query} onChange={setQuery} placeholder="Search plays…" label="Search plays" />
+                )}
+                <ToolSelect label="Status" value={view === 'canvas' && status === 'draft' ? 'all' : status} options={statusOptions} onChange={setStatus} />
+                <ToolDivider />
+                <SButton size="small" variant="primary" className="w-auto flex-none" onClick={newPlay}>
+                  New play
+                </SButton>
+              </>
+            }
+          />
+        </div>
+      </header>
+      {view === 'canvas' ? (
+        <OrderCanvas ranked={ranked} status={status} showCounts={showCounts} testing={testing} onTesting={setTesting} />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className={`${PLAYS_FRAME} pb-[32px] pt-[16px]`}>
+            <p className="mb-[12px] text-[13px] text-slate-500">{VIEW_LINE[view]}</p>
+            {view === 'mine' ? <MyPlays ranked={ranked} shown={shown} /> : <PriorityList ranked={ranked} shown={shown} />}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** The order plays are checked in, with the steps before and after them, and a canvas to test it. */
-export function PlayOrder() {
+function ClassicPlayOrder() {
   const ranked = useRankedPlays()
   const [view, setView] = useState<View>('order')
   return (
@@ -702,7 +1128,7 @@ export function PlayOrder() {
       {view === 'order' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[900px] px-[28px] pb-[32px] pt-[16px]">
-            <OrderList ranked={ranked} />
+            <OrderList ranked={ranked} shown={ranked} />
           </div>
         </div>
       ) : (
@@ -710,4 +1136,8 @@ export function PlayOrder() {
       )}
     </div>
   )
+}
+
+export function PlayOrder() {
+  return V9 ? <PlaysPage /> : <ClassicPlayOrder />
 }

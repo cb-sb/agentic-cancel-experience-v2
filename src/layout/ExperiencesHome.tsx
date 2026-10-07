@@ -2,22 +2,43 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { useCancelLibrary, type LibCard, type LibOffer, type LibReason, type ReasonKind } from '../library/useCancelLibrary'
-import { openLibrary } from '../plays/navigate'
-import { DropdownButton } from '../plays/ui'
+import { archiveExperienceItem, archiveExperiencesNow } from '../plays/archive'
+import { openArchive, openLibrary, openPlay } from '../plays/navigate'
+import { variantLetter, type CancelPlay, type PlayVariant } from '../plays/types'
+import { DropdownButton, type MenuItem } from '../plays/ui'
 import { usePlays } from '../plays/usePlays'
 import { BackButton, backToHome } from '../shell/BackButton'
 import { useOrchestration } from '../store/useOrchestration'
-import { orderedThreads, switchThread, threadIsLive, useWorkspace } from '../workspace/useWorkspace'
+import { orderedThreads, switchThread, threadIsLive, useWorkspace, type ExperienceThread } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { createMenuItems } from './createMenu'
+import { SHELL_KIND, shellOf, stepCount } from './experienceKind'
+import { V9 } from './layoutMode'
+import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch } from './SlgChrome'
+import { Ago, BulkAction, Check, initials, RowActions, RowMark, SelectHead, TableRow, useSelection } from './SlgTable'
 import { StatusChip } from './StatusChip'
 import { ago } from './ThreadSidebar'
+import { FRAME_WIDE } from './frames'
 
 type View = 'list' | 'grid'
 type Kind = 'offers' | 'cards' | 'reasons'
 type Filter = 'all' | Kind
+type PlayFilter = 'all' | 'in' | 'out'
+
+const PLAY_FILTERS: { id: PlayFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'in', label: 'In a play' },
+  { id: 'out', label: 'Not in a play' },
+]
+
+const FILTER_LINE: Record<PlayFilter, string> = {
+  all: 'The pages a subscriber sees after clicking Cancel. Put one in a play to choose who sees it.',
+  in: 'Experiences at least one play shows to its audience.',
+  out: 'Experiences no play uses yet. Nobody sees these until you add them to a play.',
+}
 
 const VIEW_KEY = 'cancel-experience:components-view:v8'
+const EXP_VIEW_KEY = 'cancel-experience:experiences-view:v9'
 const LIST_CAP = 5
 const GRID_CAP = 4
 
@@ -41,6 +62,14 @@ interface Item {
   preview: ReactNode
 }
 
+function readExpView(): View {
+  try {
+    return localStorage.getItem(EXP_VIEW_KEY) === 'grid' ? 'grid' : 'list'
+  } catch {
+    return 'list'
+  }
+}
+
 function readView(): View {
   try {
     return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'
@@ -60,6 +89,17 @@ export function ExperiencesHome() {
   const [query, setQuery] = useState('')
   const [view, setViewState] = useState<View>(readView)
   const [filter, setFilter] = useState<Filter>('all')
+  const [playFilter, setPlayFilter] = useState<PlayFilter>('all')
+  const [expView, setExpViewState] = useState<View>(readExpView)
+  const archivedCount = useWorkspace((s) => s.archived.length)
+  const setExpView = (v: View) => {
+    setExpViewState(v)
+    try {
+      localStorage.setItem(EXP_VIEW_KEY, v)
+    } catch {
+      /* private mode */
+    }
+  }
 
   const setView = (v: View) => {
     setViewState(v)
@@ -74,7 +114,11 @@ export function ExperiencesHome() {
   const matches = (...s: string[]) => !q || s.some((x) => x.toLowerCase().includes(q))
 
   const cancelThreads = threads.filter((t) => t.title !== 'New experience' || t.snapshot?.chat.lines.length)
-  const experiences = orderedThreads(cancelThreads).filter((t) => matches(t.title))
+  const inAPlay = new Set(plays.flatMap((p) => p.variants.map((v) => v.experienceId)))
+  const liveCount = cancelThreads.filter((t) => threadIsLive(t, activeId, activeLive)).length
+  const experiences = orderedThreads(cancelThreads).filter(
+    (t) => matches(t.title) && (playFilter === 'all' || (playFilter === 'in') === inAPlay.has(t.id)),
+  )
 
   const playLine = useMemo(() => {
     const names = new Map<string, string[]>()
@@ -85,6 +129,7 @@ export function ExperiencesHome() {
       return n.length === 1 ? n[0] : `${n[0]} and ${n.length - 1} more`
     }
   }, [plays])
+  const uses = useMemo(() => usesByExperience(plays), [plays])
 
   const open = (id: string) => {
     setPage('thread')
@@ -119,7 +164,31 @@ export function ExperiencesHome() {
 
   return (
     <div className="h-full overflow-y-auto bg-white">
-      <div className="mx-auto max-w-[960px] px-[32px] pb-[48px] pt-[24px]">
+      <div className={`mx-auto px-[32px] pb-[48px] ${V9 ? `${FRAME_WIDE} pt-[20px]` : 'max-w-[960px] pt-[24px]'}`}>
+        {V9 ? (
+          <PageHeader
+            title={
+              <div className="flex min-w-0 items-center gap-[6px]">
+                <BackButton fallback={backToHome} className="-ml-[8px]" />
+                <h1 className="truncate">Experiences</h1>
+              </div>
+            }
+            meta={[
+              `${cancelThreads.length} experience${cancelThreads.length === 1 ? '' : 's'}`,
+              <span className={liveCount > 0 ? 'text-[var(--slg-green-700)]' : ''}>{liveCount} live</span>,
+            ]}
+            tabs={<AngledTabs label="Play" items={PLAY_FILTERS} value={playFilter} onChange={setPlayFilter} />}
+            actions={
+              <>
+                <ToolSearch value={query} onChange={setQuery} placeholder="Search experiences…" label="Search experiences" />
+                <ToolButton icon="list" label="List view" pressed={expView === 'list'} onClick={() => setExpView('list')} />
+                <ToolButton icon="layout-grid" label="Grid view" pressed={expView === 'grid'} onClick={() => setExpView('grid')} />
+                <ToolDivider />
+                <DropdownButton label="New" items={createMenuItems()} />
+              </>
+            }
+          />
+        ) : (
         <div className="flex items-center gap-[12px]">
           <div className="flex min-w-0 flex-1 items-center gap-[6px]">
             <BackButton fallback={backToHome} className="-ml-[8px]" />
@@ -130,8 +199,8 @@ export function ExperiencesHome() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search experiences and components"
-              aria-label="Search experiences and components"
+              placeholder={V9 ? 'Search experiences' : 'Search experiences and components'}
+              aria-label={V9 ? 'Search experiences' : 'Search experiences and components'}
               className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 outline-none placeholder:text-slate-400"
             />
             {query && (
@@ -142,10 +211,29 @@ export function ExperiencesHome() {
           </div>
           <DropdownButton label="New" items={createMenuItems()} />
         </div>
+        )}
 
-        <section className="mt-[32px]">
-          <SectionHead title="Cancel experiences" />
-          {experiences.length > 0 ? (
+        {V9 && <p className="mb-[12px] mt-[16px] text-[13px] text-slate-500">{FILTER_LINE[playFilter]}</p>}
+        <section className={V9 ? '' : 'mt-[32px]'}>
+          {!V9 && <SectionHead title="Cancel experiences" />}
+          {experiences.length > 0 && V9 && expView === 'list' ? (
+            <ExperienceList
+              rows={experiences.map((t) => ({ thread: t, live: threadIsLive(t, activeId, activeLive), uses: uses.get(t.id) ?? [] }))}
+              onOpen={open}
+            />
+          ) : experiences.length > 0 && V9 ? (
+            <div className="grid grid-cols-3 gap-[16px]">
+              {experiences.map((t) => (
+                <ExperienceTile
+                  key={t.id}
+                  thread={t}
+                  live={threadIsLive(t, activeId, activeLive)}
+                  uses={uses.get(t.id) ?? []}
+                  onClick={() => open(t.id)}
+                />
+              ))}
+            </div>
+          ) : experiences.length > 0 ? (
             <div className="grid grid-cols-2 gap-[12px]">
               {experiences.map((t) => (
                 <ExperienceCard
@@ -159,10 +247,18 @@ export function ExperiencesHome() {
               ))}
             </div>
           ) : (
-            <Empty>{q ? 'No cancel experiences match your search.' : 'No cancel experiences yet. Use New to make one.'}</Empty>
+            <Empty>
+              {q || playFilter !== 'all' ? 'No cancel experiences match.' : 'No cancel experiences yet. Use New to make one.'}
+            </Empty>
+          )}
+          {V9 && archivedCount > 0 && (
+            <button type="button" onClick={openArchive} className="mt-[12px] flex items-center gap-[6px] text-[12.5px] font-medium text-slate-500 hover:text-slate-900">
+              <SIcon name="archive" size={13} /> {archivedCount} archived experience{archivedCount === 1 ? '' : 's'}
+            </button>
           )}
         </section>
 
+        {!V9 && (
         <section className="mt-[40px]">
           <SectionHead title="Components" action={<ViewToggle view={view} onChange={setView} />} />
 
@@ -211,6 +307,7 @@ export function ExperiencesHome() {
             {shown.length === 0 && <Empty>No components match your search.</Empty>}
           </div>
         </section>
+        )}
       </div>
     </div>
   )
@@ -244,6 +341,217 @@ function ExperienceCard({ title, play, live, edited, onClick }: { title: string;
         {play} · {edited}
       </span>
     </button>
+  )
+}
+
+interface PlayUse {
+  play: CancelPlay
+  /** Where this experience sits in the play: a variant and its share, or a sub-audience. */
+  roles: string[]
+}
+
+function roleOf(p: CancelPlay, v: PlayVariant): string {
+  if (p.splitBy === 'segments') {
+    if (!v.subAudienceId) return 'Fallback'
+    return p.subAudiences.find((s) => s.id === v.subAudienceId)?.audience.name ?? 'Sub-audience'
+  }
+  if (p.variants.length === 1) return 'Only page'
+  return `Variant ${variantLetter(p.variants.indexOf(v))} · ${v.weight}%`
+}
+
+function usesByExperience(plays: CancelPlay[]): Map<string, PlayUse[]> {
+  const out = new Map<string, PlayUse[]>()
+  for (const p of plays) {
+    for (const v of p.variants) {
+      const list = out.get(v.experienceId) ?? []
+      const hit = list.find((u) => u.play.id === p.id)
+      if (hit) hit.roles.push(roleOf(p, v))
+      else list.push({ play: p, roles: [roleOf(p, v)] })
+      out.set(v.experienceId, list)
+    }
+  }
+  return out
+}
+
+const USES_SHOWN = 3
+
+/** v9: a vertical card that says which plays use the experience, how, and whether each is live. */
+function ExperienceTile({ thread: t, live, uses, onClick }: { thread: ExperienceThread; live: boolean; uses: PlayUse[]; onClick: () => void }) {
+  const kind = SHELL_KIND[shellOf(t)]
+  const steps = stepCount(t)
+  const liveCount = uses.filter((u) => u.play.status === 'live').length
+  const hidden = uses.length - USES_SHOWN
+  const items: MenuItem[] = [{ label: 'Open', icon: 'arrow-up-right', onClick }, archiveExperienceItem(t.id)]
+  return (
+    <article className="flex min-w-0 flex-col rounded-xl border border-[var(--slg-color-border-default)] bg-[var(--slg-color-bg-surface)] transition-[border-color,box-shadow] hover:border-[var(--slg-color-border-strong)] hover:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)]">
+      <div className="flex items-start gap-[8px] px-[16px] pb-[14px] pt-[16px]">
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex min-w-0 flex-1 items-start gap-[12px] text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--slg-color-focus-ring)]"
+        >
+          <span className="slg-avatar flex h-[36px] w-[36px] flex-none items-center justify-center border border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] text-[var(--slg-neutral-700)]">
+            <SIcon name={kind.icon} size={16} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-[8px]">
+              <span className="min-w-0 truncate font-[family-name:var(--slg-font-family-emphasis)] text-[15px] font-semibold leading-[22px] text-[var(--slg-neutral-900)]">{t.title}</span>
+              {live && <StatusChip live />}
+            </span>
+            <span className="mt-[2px] block truncate text-[12px] leading-[16px] text-[var(--slg-color-text-secondary)]">
+              {kind.label} · {steps} {steps === 1 ? 'step' : 'steps'} · Edited {ago(t.updatedAt).toLowerCase()}
+            </span>
+          </span>
+        </button>
+        <RowActions label={`Actions for ${t.title}`} items={items} />
+      </div>
+      <div className="mx-[16px] flex flex-1 flex-col border-t border-[var(--slg-color-border-default)] pb-[10px] pt-[12px]">
+        {uses.length === 0 ? (
+          <div className="flex flex-col gap-[2px] pb-[4px]">
+            <span className="text-[13px] font-medium text-[var(--slg-color-text-primary)]">Not in a play yet</span>
+            <span className="text-[12px] leading-[18px] text-[var(--slg-color-text-muted)]">No one sees this until a play uses it.</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-[8px] pb-[4px] text-[12px] leading-[16px]">
+              <span className="font-medium text-[var(--slg-color-text-secondary)]">
+                Used in {uses.length} {uses.length === 1 ? 'play' : 'plays'}
+              </span>
+              <span className={liveCount > 0 ? 'font-medium text-[var(--slg-green-700)]' : 'text-[var(--slg-color-text-muted)]'}>
+                {liveCount > 0 ? `${liveCount} live` : 'None live'}
+              </span>
+            </div>
+            <ul className="-mx-[8px] flex flex-col">
+              {uses.slice(0, USES_SHOWN).map((u) => {
+                const on = u.play.status === 'live'
+                return (
+                  <li key={u.play.id}>
+                    <button
+                      type="button"
+                      onClick={() => openPlay(u.play.id)}
+                      title={`Open ${u.play.name}`}
+                      className="group/use flex w-full items-center gap-[10px] px-[8px] py-[7px] text-left transition-colors hover:bg-[var(--slg-neutral-50)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--slg-color-focus-ring)]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium leading-[18px] text-[var(--slg-color-text-primary)]">{u.play.name}</span>
+                        <span className="block truncate text-[12px] leading-[16px] text-[var(--slg-color-text-muted)]">{u.roles.join(', ')}</span>
+                      </span>
+                      <span className={`flex flex-none items-center gap-[5px] text-[12px] ${on ? 'font-medium text-[var(--slg-green-700)]' : 'text-[var(--slg-color-text-muted)]'}`}>
+                        <span className={`h-[6px] w-[6px] rounded-full ${on ? 'bg-[var(--slg-green-500)]' : 'bg-[var(--slg-neutral-400)]'}`} />
+                        {on ? 'Live' : 'Draft'}
+                      </span>
+                      <SIcon name="chevron-right" size={14} className="flex-none text-[var(--slg-color-text-muted)] opacity-0 transition-opacity group-hover/use:opacity-100" />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            {hidden > 0 && (
+              <button
+                type="button"
+                onClick={onClick}
+                className="mt-[2px] self-start text-[12px] font-medium text-[var(--slg-color-text-secondary)] hover:text-[var(--slg-color-text-primary)]"
+              >
+                {hidden} more {hidden === 1 ? 'play' : 'plays'}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </article>
+  )
+}
+
+const EXP_COLS = 'grid grid-cols-[16px_minmax(0,1.6fr)_88px_52px_minmax(0,2.4fr)_60px_88px_28px] items-center gap-[16px]'
+
+/** v9: the default Experiences view. One row each, with the plays it's in and whether each is live. */
+function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; live: boolean; uses: PlayUse[] }[]; onOpen: (id: string) => void }) {
+  const sel = useSelection(rows.map((r) => r.thread.id))
+  const inPlays = rows.filter((r) => sel.has(r.thread.id) && r.uses.length > 0).length
+  return (
+    <div>
+      <SelectHead
+        cols={EXP_COLS}
+        total={rows.length}
+        picked={sel.picked.length}
+        onAll={sel.setAll}
+        onClear={sel.clear}
+        actions={
+          <BulkAction
+            icon="archive"
+            label="Archive"
+            confirm={inPlays > 0 ? `Takes ${inPlays === 1 ? 'one' : inPlays} out of plays. Archive?` : undefined}
+            onClick={() => {
+              archiveExperiencesNow(sel.picked)
+              sel.clear()
+            }}
+          />
+        }
+      >
+        <span>Experience</span>
+        <span>Type</span>
+        <span className="text-right">Steps</span>
+        <span>Used in</span>
+        <span>Status</span>
+        <span>Edited</span>
+        <span />
+      </SelectHead>
+      {rows.map(({ thread: t, live, uses }) => {
+        const kind = SHELL_KIND[shellOf(t)]
+        const steps = stepCount(t)
+        const items: MenuItem[] = [
+          { label: 'Open', icon: 'arrow-up-right', onClick: () => onOpen(t.id) },
+          archiveExperienceItem(t.id),
+        ]
+        return (
+          <TableRow key={t.id} cols={EXP_COLS} onOpen={() => onOpen(t.id)} className={sel.has(t.id) ? 'is-picked' : ''}>
+            <Check on={sel.has(t.id)} onChange={() => sel.toggle(t.id)} label={`Select ${t.title}`} />
+            <div className="flex min-w-0 items-center gap-[10px]">
+              <RowMark>{initials(t.title)}</RowMark>
+              <span className="truncate">{t.title}</span>
+            </div>
+            <span className="flex min-w-0 items-center gap-[6px]">
+              <SIcon name={kind.icon} size={12} className="flex-none text-slate-500" />
+              <span className="truncate">{kind.label}</span>
+            </span>
+            <span className="text-right tabular-nums">{steps}</span>
+            <div className="flex min-w-0 items-center gap-[6px]">
+              {uses.length === 0 ? (
+                <span className="text-slate-500">Not in a play</span>
+              ) : (
+                <>
+                  {uses.slice(0, 2).map((u) => (
+                    <button
+                      key={u.play.id}
+                      type="button"
+                      title={`${u.play.name}: ${u.roles.join(', ')}. Opens the play.`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openPlay(u.play.id)
+                      }}
+                      className="slg-tag inline-flex min-w-0 max-w-[170px] shrink items-center gap-[5px] bg-[var(--slg-neutral-100)] px-[6px] py-[1px] text-[12px] hover:bg-[var(--slg-neutral-200)]"
+                    >
+                      <span className={`h-[6px] w-[6px] flex-none rounded-full ${u.play.status === 'live' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      <span className="truncate">{u.play.name}</span>
+                    </button>
+                  ))}
+                  {uses.length > 2 && (
+                    <span className="flex-none text-[12px] text-slate-500" title={uses.slice(2).map((u) => u.play.name).join(', ')}>
+                      +{uses.length - 2}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            <span>
+              <StatusChip live={live} />
+            </span>
+            <Ago at={t.updatedAt} />
+            <RowActions label={`Actions for ${t.title}`} items={items} />
+          </TableRow>
+        )
+      })}
+    </div>
   )
 }
 

@@ -74,16 +74,18 @@ const SEEDS: GrowthExperience[] = [
 
 interface ExperiencesState {
   items: GrowthExperience[]
+  /** Put away, newest first. No play uses them. */
+  archived: GrowthExperience[]
 }
 
 function load(): ExperiencesState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { items: SEEDS }
-    const parsed = JSON.parse(raw) as { items?: GrowthExperience[] }
-    return { items: Array.isArray(parsed.items) ? parsed.items : SEEDS }
+    if (!raw) return { items: SEEDS, archived: [] }
+    const parsed = JSON.parse(raw) as { items?: GrowthExperience[]; archived?: GrowthExperience[] }
+    return { items: Array.isArray(parsed.items) ? parsed.items : SEEDS, archived: Array.isArray(parsed.archived) ? parsed.archived : [] }
   } catch {
-    return { items: SEEDS }
+    return { items: SEEDS, archived: [] }
   }
 }
 
@@ -91,7 +93,7 @@ export const useGrowthExperiences = create<ExperiencesState>(load)
 
 useGrowthExperiences.subscribe((s) => {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ items: s.items }))
+    localStorage.setItem(KEY, JSON.stringify({ items: s.items, archived: s.archived }))
   } catch {
     /* storage full or blocked */
   }
@@ -171,4 +173,24 @@ export function setGrowthHome(id: string, objective: GrowthObjective) {
 
 export function removeGrowthExperience(id: string) {
   useGrowthExperiences.setState((s) => ({ items: s.items.filter((i) => i.id !== id) }))
+}
+
+/** Out of the list. Take it out of its plays first. */
+export function archiveGrowthExperience(id: string) {
+  const x = growthExperience(id)
+  if (!x) return
+  useGrowthExperiences.setState((s) => ({ items: s.items.filter((i) => i.id !== id), archived: [{ ...x, archivedAt: Date.now() }, ...s.archived] }))
+}
+
+/** Back in its home tab, in no play. */
+export function unarchiveGrowthExperience(id: string) {
+  const s = useGrowthExperiences.getState()
+  const x = s.archived.find((i) => i.id === id)
+  if (!x) return
+  const back = { ...x, name: uniqueName(x.name, namesIn()), archivedAt: undefined }
+  useGrowthExperiences.setState({ items: [back, ...s.items], archived: s.archived.filter((i) => i.id !== id) })
+}
+
+export function deleteArchivedGrowthExperience(id: string) {
+  useGrowthExperiences.setState((s) => ({ archived: s.archived.filter((i) => i.id !== id) }))
 }

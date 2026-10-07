@@ -5,8 +5,10 @@ import { setStepOffer } from '../journey/templates'
 import type { AfterAccept, AnswerPassing, CancelProcessing, CancelTiming, OfferFulfilment, OfferKey } from '../journey/types'
 import { OFFER_VARIANTS, offerVariantLabel } from '../lib/offerVariants'
 import { SHELLS } from '../orchestration/JourneyPlan'
-import { savedAudience, addToPlay, evenWeights, rankedPlays, renamePlay, setPlayLive, setSplitBy, setVariant, updatePlay, usePlays } from '../plays/usePlays'
+import { audienceUnset, savedAudience, addToPlay, evenWeights, rankedPlays, renamePlay, setPlayLive, setSplitBy, setVariant, updatePlay, usePlays } from '../plays/usePlays'
 import { ALL_AUDIENCE, LANGUAGES, variantLetter, type CancelPlay } from '../plays/types'
+import { audienceText, fallbackVariant, pagesIn, splitProblem } from '../plays/resolve'
+import { openConfigure } from '../plays/navigate'
 import { useJourney } from '../store/useJourney'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
@@ -427,18 +429,27 @@ function PlayFields({ id, play }: { id: string; play: CancelPlay }) {
             </div>
           ) : (
             <div className="space-y-[8px]">
-              {play.variants.map((v, i) => (
-                <div key={v.id}>
-                  <div className="mb-[4px] flex items-center gap-[6px] text-[12.5px] text-slate-600">
-                    <span className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-md bg-slate-100 text-[10.5px] font-bold text-slate-600">{variantLetter(i)}</span>
-                    <span className="truncate">{title(v.experienceId)}</span>
+              {play.subAudiences.map((x, n) => (
+                <div key={x.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]">
+                  <div className="flex items-center gap-[6px] font-medium text-slate-800">
+                    <SIcon name="users" size={13} className="text-slate-400" />
+                    <span className="truncate">{audienceUnset(x.audience) ? `Sub-audience ${n + 1}` : audienceText(x.audience)}</span>
                   </div>
-                  <AudiencePicker value={v.audience} allowEveryoneElse onChange={(a) => setVariant(play.id, v.id, { audience: a })} />
+                  {pagesIn(play, x.id).map((v) => (
+                    <div key={v.id} className="mt-[2px] flex items-center gap-[6px] pl-[19px] text-[12.5px] text-slate-600">
+                      <span className="min-w-0 flex-1 truncate">{title(v.experienceId)}</span>
+                      {pagesIn(play, x.id).length > 1 && <span className="tabular-nums text-slate-400">{v.weight}%</span>}
+                    </div>
+                  ))}
                 </div>
               ))}
-              {!play.variants.some((v) => !v.audience) && (
-                <p className="text-[12px] text-amber-700">Pick one variant for Everyone else, so nobody falls through.</p>
-              )}
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-600">
+                <span className="font-medium text-slate-800">Fallback: </span>
+                {fallbackVariant(play) ? title(fallbackVariant(play)!.experienceId) : 'Not picked yet'}
+              </div>
+              <button type="button" onClick={() => openConfigure(play.id, 2)} className="text-[12px] font-semibold text-indigo-600 hover:underline">
+                Edit in Configure
+              </button>
             </div>
           )}
         </div>
@@ -627,9 +638,7 @@ function missing(id: string, targetId: string, file: ReturnType<typeof useJourne
     case 'answerPassing':
       return ch.answerPassing ? null : 'Pick one'
     case 'split':
-      if (!play) return null
-      if (play.splitBy === 'percent') return play.variants.reduce((a, v) => a + v.weight, 0) === 100 ? null : 'Make it add up to 100%'
-      return play.variants.some((v) => !v.audience) ? null : 'Pick one for Everyone else'
+      return play ? splitProblem(play) : null
     default:
       return null
   }

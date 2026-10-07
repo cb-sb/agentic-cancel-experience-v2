@@ -153,12 +153,12 @@ function ProgressDonut({
   percent: number
   complete: boolean
 }) {
-  const fill = complete ? '#10b981' : '#4f46e5'
+  const fill = complete ? 'var(--sk-emerald-500, #10b981)' : 'var(--sk-indigo-600, #4f46e5)'
   return (
     <span
       aria-hidden
       className="relative flex size-9 shrink-0 items-center justify-center rounded-full"
-      style={{ background: `conic-gradient(${fill} ${percent}%, #e2e8f0 0)` }}
+      style={{ background: `conic-gradient(${fill} ${percent}%, var(--sk-slate-200, #e2e8f0) 0)` }}
     >
       <span className="flex size-7 items-center justify-center rounded-full bg-white text-[9px] font-bold tabular-nums leading-none text-slate-800">
         {percent}%

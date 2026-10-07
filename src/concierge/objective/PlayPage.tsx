@@ -1,173 +1,69 @@
 import { SButton, SIcon } from '@chargebee/sting-react'
+import type { ReactNode } from 'react'
+import { FRAME_FORM } from '../../layout/frames'
+import { AngledTabs, PageHeader, ToolButton, ToolDivider } from '../../layout/SlgChrome'
+import { PlayConfigure, RoutingTree, RulesList } from '../../plays/PlayConfigure'
+import { PlaysBackendProvider } from '../../plays/PlaysBackend'
 import { audienceText } from '../../plays/resolve'
-import { ALL_AUDIENCE, variantLetter, type PlayVariant } from '../../plays/types'
-import { Chip, InlineName, RowMenu, toast, type MenuItem } from '../../plays/ui'
-import { savedAudience } from '../../plays/usePlays'
-import { BackButton } from '../../shell/BackButton'
-import { AUDIENCE_LIBRARY, type Audience } from '../../types/orchestration'
-import { TYPE_LABEL, type GrowthObjective } from '../model'
+import { Chip, InlineName, toast } from '../../plays/ui'
+import { useWorkspaceUi } from '../../workspace/useWorkspaceUi'
+import type { GrowthObjective } from '../model'
 import { useGrowthExperiences } from '../useGrowthExperiences'
-import {
-  removeFromGrowthPlay,
-  renameGrowthPlay,
-  setGrowthPlayLive,
-  setGrowthSplitBy,
-  setGrowthVariant,
-  updateGrowthPlay,
-  useGrowthPlays,
-  type GrowthPlay,
-} from '../useGrowthPlays'
-import { existingExperienceItems, growthPlayChecks, newExperienceItems, refName } from './actions'
-import { CopilotColumn, Field, inputCls, Section, TabStrip } from './ui'
-import { goGrowth, openGrowthExperience, openGrowthPlay, setGrowthView, setRenaming, useGrowthUi, useGrowthView } from './useGrowthUi'
+import { renameGrowthPlay, setGrowthPlayLive, useGrowthPlays, type GrowthPlay } from '../useGrowthPlays'
+import { growthPlayChecks } from './actions'
+import { growthBackend } from './growthBackend'
+import { CopilotColumn } from './ui'
+import { goGrowth, openGrowthExperience, openGrowthPlay, setRenaming, useGrowthUi, useGrowthView, type PlayTab } from './useGrowthUi'
 
-function audienceValue(a: Audience | undefined): string {
-  if (!a || a.targetAll) return 'all'
-  return a.savedAudienceId ?? 'all'
-}
+const PLAY_TABS: { id: PlayTab; label: string; hint: string }[] = [
+  { id: 'configure', label: 'Configure', hint: 'Set up who sees this play and which experiences they get' },
+  { id: 'summary', label: 'Summary', hint: 'Every setting for this play' },
+  { id: 'tasks', label: 'Task list', hint: 'What has to pass before it can go live' },
+]
 
-function audienceFor(id: string): Audience {
-  return id === 'all' ? ALL_AUDIENCE : savedAudience(id)
-}
-
-function AudienceSelect({ value, onChange, allLabel }: { value: string; onChange: (id: string) => void; allLabel: string }) {
+function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="all">{allLabel}</option>
-      {AUDIENCE_LIBRARY.map((a) => (
-        <option key={a.id} value={a.id}>
-          {a.name}
-        </option>
-      ))}
-    </select>
-  )
-}
-
-function VariantLine({ play, v, index }: { play: GrowthPlay; v: PlayVariant; index: number }) {
-  const x = useGrowthExperiences((s) => s.items.find((i) => i.id === v.experienceId))
-  if (!x) return null
-  const shows = refName(x)
-  return (
-    <li className="flex items-center gap-[12px] border-t border-slate-100 py-[10px] first:border-t-0">
-      <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-slate-100 text-[11.5px] font-bold text-slate-600">{variantLetter(index)}</span>
-      <button type="button" onClick={() => openGrowthExperience(play.objective, x.id, play.id)} className="min-w-0 flex-1 text-left">
-        <span className="block truncate text-[13px] font-medium text-slate-900 hover:underline">{x.name}</span>
-        <span className="block truncate text-[12px] text-slate-500">
-          {TYPE_LABEL[x.type]} · {shows ?? 'Nothing picked yet'}
-        </span>
-      </button>
-      {play.variants.length > 1 &&
-        (play.splitBy === 'percent' ? (
-          <label className="flex flex-none items-center gap-[4px] text-[12.5px] text-slate-500">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={v.weight}
-              onChange={(e) => setGrowthVariant(play.id, v.id, { weight: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
-              aria-label={`Share for variant ${variantLetter(index)}`}
-              className="w-[64px] rounded-[8px] border border-slate-200 px-[8px] py-[5px] text-right text-[13px] text-slate-900 outline-none focus:border-slate-400"
-            />
-            %
-          </label>
-        ) : (
-          <div className="w-[200px] flex-none">
-            <AudienceSelect
-              value={audienceValue(v.audience)}
-              allLabel="Everyone else"
-              onChange={(id) => setGrowthVariant(play.id, v.id, { audience: id === 'all' ? undefined : savedAudience(id) })}
-            />
-          </div>
-        ))}
-      <button
-        type="button"
-        aria-label={`Remove ${x.name} from this play`}
-        title="Remove from this play"
-        onClick={() => {
-          removeFromGrowthPlay(play.id, v.id)
-          toast(`Removed ${x.name} from ${play.name}`)
-        }}
-        className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-      >
-        <SIcon name="x" size={14} />
-      </button>
-    </li>
+    <section className="rounded-xl border border-slate-200 bg-white p-[16px]">
+      <h3 className="mb-[10px] text-[13px] font-semibold text-slate-900">{title}</h3>
+      {children}
+    </section>
   )
 }
 
 function Summary({ play }: { play: GrowthPlay }) {
-  const items = useGrowthExperiences((s) => s.items)
-  const plays = useGrowthPlays((s) => s.plays)
-  const existing: MenuItem[] = existingExperienceItems(play, items, plays)
-  const total = play.variants.reduce((s, v) => s + v.weight, 0)
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-[16px] px-[28px] py-[24px]">
-        <Section title="Who sees it" hint="The audience, and how many of them are held back to measure lift">
-          <Field label="Audience">
-            <AudienceSelect value={audienceValue(play.audience)} allLabel="All subscribers" onChange={(id) => updateGrowthPlay(play.id, { audience: audienceFor(id) })} />
-          </Field>
-          <Field label="Control group" hint="They see nothing from this play">
-            <label className="flex items-center gap-[6px] text-[13px] text-slate-500">
-              <input
-                type="number"
-                min={0}
-                max={50}
-                value={play.control}
-                onChange={(e) => updateGrowthPlay(play.id, { control: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
-                aria-label="Control group percent"
-                className="w-[72px] rounded-[8px] border border-slate-200 px-[8px] py-[6px] text-right text-[13px] text-slate-900 outline-none focus:border-slate-400"
-              />
-              % of the audience
-            </label>
-          </Field>
-        </Section>
-        <Section title="Variants" hint="The experiences this play shows, and how the audience is split across them">
-          {play.variants.length > 1 && (
-            <Field label="Split by">
-              <div className="inline-flex rounded-lg bg-slate-100 p-[2px] text-[12.5px] font-medium">
-                {(['percent', 'segments'] as const).map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setGrowthSplitBy(play.id, id)}
-                    className={`rounded-md px-[10px] py-[4px] ${play.splitBy === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  >
-                    {id === 'percent' ? 'Percent' : 'Sub-audience'}
-                  </button>
-                ))}
-              </div>
-              {play.splitBy === 'percent' && total !== 100 && <p className="mt-[6px] text-[12px] text-amber-700">The split adds up to {total}%. Make it 100%.</p>}
-            </Field>
-          )}
-          <ul>
-            {play.variants.map((v, i) => (
-              <VariantLine key={v.id} play={play} v={v} index={i} />
-            ))}
-            {play.variants.length === 0 && <li className="py-[12px] text-[13px] text-slate-500">No variants yet. Add an experience below.</li>}
-          </ul>
-          <div className="flex items-center border-t border-slate-100 py-[10px]">
-            <RowMenu
-              label="Add a variant"
-              icon="plus"
-              align="left"
-              width={260}
-              items={[...newExperienceItems(play.objective, play.id).map((i) => ({ ...i, label: `New ${i.label.toLowerCase()}` })), { label: 'Use an existing one…', icon: 'corner-down-right', items: existing }]}
-            />
-            <span className="pl-[6px] text-[12.5px] text-slate-500">Add a variant</span>
-          </div>
-        </Section>
+      <div className={`space-y-[16px] px-[28px] py-[24px] ${FRAME_FORM}`}>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
+          <h2 className="mt-[4px] text-[18px] font-semibold text-slate-900">{play.name}</h2>
+          <p className="mt-[4px] text-[13px] text-slate-500">Every setting for this play. Change them in Configure.</p>
+        </div>
+        <Block title={`Audience: ${audienceText(play.audience)}`}>
+          <RulesList audience={play.audience} />
+        </Block>
+        <Block title="Routing">
+          <RoutingTree play={play} />
+        </Block>
+        <Block title="Control group">
+          <p className="text-[12.5px] text-slate-600">{growthBackend(play.objective).controlLine(play.control)}</p>
+        </Block>
       </div>
     </div>
   )
 }
 
 function TaskList({ play }: { play: GrowthPlay }) {
+  useGrowthExperiences((s) => s.items)
   const checks = growthPlayChecks(play)
   const open = checks.filter((c) => !c.passed).length
+  const fix = (item: string) => {
+    useWorkspaceUi.getState().setConfigureStep(play.id, item === 'control' ? 3 : 2)
+    openGrowthPlay(play.objective, play.id, 'configure')
+  }
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] px-[28px] py-[24px]">
+      <div className={`px-[28px] py-[24px] ${FRAME_FORM}`}>
         <p className="text-[13px] text-slate-500">
           {open === 0 ? (play.status === 'live' ? 'Everything passes and the play is live.' : 'Everything passes. You can go live.') : `${open} of ${checks.length} still to pass before it can go live.`}
         </p>
@@ -181,11 +77,16 @@ function TaskList({ play }: { play: GrowthPlay }) {
                 <span className="block text-[13px] font-medium text-slate-800">{c.label}</span>
                 {!c.passed && <span className="block text-[12.5px] text-slate-500">{c.fix}</span>}
               </span>
-              {!c.passed && (
-                <button type="button" onClick={() => setGrowthView(play.objective, { playTab: 'summary' })} className="flex-none text-[12.5px] font-medium text-slate-600 hover:text-slate-900">
-                  Open Summary
-                </button>
-              )}
+              {!c.passed &&
+                (c.openExperienceId ? (
+                  <button type="button" onClick={() => openGrowthExperience(play.objective, c.openExperienceId!, play.id)} className="flex-none text-[12.5px] font-medium text-[#1a56db] hover:underline">
+                    Open
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => fix(c.item)} className="flex-none text-[12.5px] font-medium text-[#1a56db] hover:underline">
+                    Fix
+                  </button>
+                ))}
             </li>
           ))}
         </ul>
@@ -195,6 +96,7 @@ function TaskList({ play }: { play: GrowthPlay }) {
 }
 
 function GoLive({ play }: { play: GrowthPlay }) {
+  useGrowthExperiences((s) => s.items)
   const open = growthPlayChecks(play).filter((c) => !c.passed)
   const live = play.status === 'live'
   const blocked = !live && open.length > 0
@@ -216,54 +118,57 @@ function GoLive({ play }: { play: GrowthPlay }) {
   )
 }
 
-/** A play's own workspace: Summary and Task list on the left, Copilot on the right. */
+/** A play's own workspace, the same as a Retention play: Configure, Summary and Task list, with Copilot on the right. */
 export function PlayPage({ objective }: { objective: GrowthObjective }) {
   const view = useGrowthView(objective)
   const play = useGrowthPlays((s) => s.plays.find((p) => p.id === view.playId))
   const renaming = useGrowthUi((s) => s.renaming === play?.id)
 
   if (!play) {
-    return <div className="flex h-full flex-1 items-center justify-center text-[13px] text-slate-500">This play was deleted. Pick another from the left.</div>
+    return <div className="flex h-full flex-1 items-center justify-center text-[13px] text-slate-500">This play was archived or deleted. Pick another from the left.</div>
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-[52px] flex-none items-center gap-[10px] border-b border-slate-200 px-[16px]">
-          <BackButton fallback={() => goGrowth(objective, { page: 'index' })} className="-ml-[6px]" />
-          <SIcon name="workflow" size={15} className="flex-none text-slate-500" />
-          <InlineName
-            value={play.name}
-            editing={renaming}
-            onStart={() => setRenaming(play.id)}
-            onDone={() => setRenaming(null)}
-            onCommit={(name) => renameGrowthPlay(play.id, name)}
-            className="text-[15px] font-semibold text-slate-900"
-            inputClassName="text-[15px] font-semibold"
-          />
-          <Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>
-          <span className="truncate text-[12.5px] text-slate-500">{audienceText(play.audience)}</span>
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={() => goGrowth(objective, { page: 'order' })}
-            className="inline-flex items-center gap-[5px] rounded-lg px-[8px] py-[5px] text-[12px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-          >
-            <SIcon name="list-ordered" size={13} /> Play order
-          </button>
-          <GoLive play={play} />
-        </header>
-        <TabStrip
-          tabs={[
-            { id: 'summary', label: 'Summary', icon: 'file-text' },
-            { id: 'tasks', label: 'Task list', icon: 'list-checks' },
-          ]}
-          active={view.playTab}
-          onPick={(playTab) => openGrowthPlay(objective, play.id, playTab)}
-        />
-        <div className="min-h-0 flex-1">{view.playTab === 'summary' ? <Summary play={play} /> : <TaskList play={play} />}</div>
+    <PlaysBackendProvider value={growthBackend(objective)}>
+      <div className="flex h-full min-h-0 min-w-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="flex-none bg-white px-[16px] pt-[12px]">
+            <PageHeader
+              tabsAlign="start"
+              title={
+                <span className="min-w-0 max-w-[260px]">
+                  <InlineName
+                    value={play.name}
+                    editing={renaming}
+                    onStart={() => setRenaming(play.id)}
+                    onDone={() => setRenaming(null)}
+                    onCommit={(name) => renameGrowthPlay(play.id, name)}
+                    className="font-[family-name:var(--slg-font-family-emphasis)] text-[16px] font-semibold leading-[24px] text-slate-900"
+                    inputClassName="text-[15px] font-semibold"
+                  />
+                </span>
+              }
+              meta={[<Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>]}
+              tabs={<AngledTabs label="Play tabs" value={view.playTab} onChange={(tab) => openGrowthPlay(objective, play.id, tab)} items={PLAY_TABS} />}
+              actions={
+                <>
+                  <ToolButton icon="list-ordered" label="All plays" onClick={() => goGrowth(objective, { page: 'order' })}>
+                    All plays
+                  </ToolButton>
+                  <ToolDivider />
+                  <GoLive play={play} />
+                </>
+              }
+            />
+          </header>
+          <div className="min-h-0 flex-1">
+            {view.playTab === 'configure' && <PlayConfigure key={play.id} play={play} />}
+            {view.playTab === 'summary' && <Summary play={play} />}
+            {view.playTab === 'tasks' && <TaskList play={play} />}
+          </div>
+        </div>
+        <CopilotColumn subtitle={play.name} />
       </div>
-      <CopilotColumn subtitle={play.name} />
-    </div>
+    </PlaysBackendProvider>
   )
 }

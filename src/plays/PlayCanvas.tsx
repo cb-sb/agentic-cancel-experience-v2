@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from '../orchestration/paneTokens'
 import {
   Background,
   BackgroundVariant,
@@ -13,6 +14,8 @@ import {
 import '@xyflow/react/dist/style.css'
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
 import type { JourneyStepKind } from '../journey/types'
+import { V9 } from '../layout/layoutMode'
+import { ToolButton, ToolSelect } from '../layout/SlgChrome'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
@@ -22,6 +25,7 @@ import { fmt, playCounts, POPULATION_SIZE, type PlayCounts } from './population'
 import { audienceText, variantShare, type PlayRun, type TraceStep } from './resolve'
 import { variantLetter, type CancelPlay } from './types'
 import { useRankedPlays } from './usePlays'
+import { RefitOn, SlideDrawer, testButtonClass } from './drawerMotion'
 import { TestDrawer } from './TestDrawer'
 import { openExperience } from './navigate'
 
@@ -147,7 +151,7 @@ function build(play: CancelPlay, variants: VariantInfo[], globalControl: number,
       target,
       type: 'smoothstep',
       animated: lit,
-      style: { stroke: lit ? '#6366f1' : '#cbd5e1', strokeWidth: lit ? 2.5 : 1.5 },
+      style: { stroke: lit ? 'var(--sk-indigo-500, #6366f1)' : 'var(--sk-slate-300, #cbd5e1)', strokeWidth: lit ? 2.5 : 1.5 },
       ...opts,
     })
 
@@ -316,12 +320,44 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
   const graph = useMemo(() => build(play, variants, globalControl, counts, testing ? run : null), [play, variants, globalControl, counts, testing, run])
   const notLive = mode === 'live' && play.status !== 'live'
 
+  const reach = notLive ? 'This play isn’t live, so nobody reaches it yet.' : `Out of ${fmt(POPULATION_SIZE)} recent cancel clicks${mode === 'draft' ? ', if this draft went live' : ''}`
+
   return (
     <div className="relative flex h-full min-h-0 w-full">
-      <div className="relative min-w-0 flex-1 bg-slate-50">
+      <div className="relative flex min-w-0 flex-1 flex-col bg-slate-50">
+        {V9 && (
+          <div role="toolbar" aria-label="Canvas" className="flex h-[44px] flex-none items-center gap-[4px] border-b border-slate-200 bg-white px-[12px]">
+            <ToolSelect
+              align="left"
+              label="Counts for"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { id: 'draft', label: 'Draft', hint: 'As if this play went live' },
+                { id: 'live', label: 'Live', hint: 'What subscribers get today' },
+              ]}
+            />
+            <ToolButton icon="users" label="Who sees this?" pressed={showCounts} onClick={() => setShowCounts((v) => !v)}>
+              Who sees this?
+            </ToolButton>
+            <span className="min-w-0 flex-1 truncate px-[8px] text-[12px] text-slate-500">{showCounts ? reach : ''}</span>
+            <ToolButton
+              icon="flask-conical"
+              label="Test with a subscriber"
+              pressed={testing}
+              onClick={() => {
+                if (testing) setRun(null)
+                setTesting(!testing)
+              }}
+            >
+              Test
+            </ToolButton>
+          </div>
+        )}
+        <div className="relative min-h-0 flex-1">
         <ReactFlowProvider>
           <ReactFlow
-            key={`${play.id}-${variants.length}-${testing}`}
+            key={`${play.id}-${variants.length}`}
             nodes={graph.nodes}
             edges={graph.edges}
             nodeTypes={nodeTypes}
@@ -334,9 +370,12 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             elementsSelectable={false}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#d5dae1" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={CANVAS_DOT_SIZE} color={CANVAS_DOT_COLOR} />
+            <RefitOn value={testing} />
           </ReactFlow>
         </ReactFlowProvider>
+        </div>
+        {!V9 && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-[8px] p-[12px]">
           <div className="pointer-events-auto flex items-center gap-[8px]">
             <div role="radiogroup" aria-label="Counts for" className="flex rounded-xl border border-slate-200 bg-white p-[2px] shadow-sm">
@@ -361,22 +400,17 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             >
               <SIcon name="users" size={12} /> Who sees this?
             </button>
-            {showCounts && (
-              <span className="rounded-lg bg-white/80 px-[8px] py-[4px] text-[11.5px] text-slate-500">
-                {notLive ? 'This play isn’t live, so nobody reaches it yet.' : `Out of ${fmt(POPULATION_SIZE)} recent cancel clicks${mode === 'draft' ? ', if this draft went live' : ''}`}
-              </span>
-            )}
+            {showCounts && <span className="rounded-lg bg-white/80 px-[8px] py-[4px] text-[11.5px] text-slate-500">{reach}</span>}
           </div>
-          {!testing && (
-            <SButton size="small" variant="primary" className="pointer-events-auto w-auto" onClick={() => setTesting(true)}>
-              <span className="inline-flex items-center gap-[5px]">
-                <SIcon name="flask-conical" size={13} /> Test
-              </span>
-            </SButton>
-          )}
+          <SButton size="small" variant="primary" className={testButtonClass(testing)} onClick={() => setTesting(true)}>
+            <span className="inline-flex items-center gap-[5px]">
+              <SIcon name="flask-conical" size={13} /> Test
+            </span>
+          </SButton>
         </div>
+        )}
       </div>
-      {testing && (
+      <SlideDrawer open={testing}>
         <TestDrawer
           play={play}
           onRun={setRun}
@@ -385,7 +419,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             setRun(null)
           }}
         />
-      )}
+      </SlideDrawer>
     </div>
   )
 }

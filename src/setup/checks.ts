@@ -1,5 +1,6 @@
 import type { JourneyFile } from '../journey/types'
 import type { CancelPlay } from '../plays/types'
+import { hasSplit, splitProblem } from '../plays/resolve'
 import { experienceCtx, type SetupInputs } from './progress'
 import { WORKSPACE_TARGET, type ExperienceCtx } from './registry'
 
@@ -93,16 +94,10 @@ const PLAY_CHECKS: Check<PlayCheckCtx>[] = [
   {
     id: 'splitAddsUp',
     label: 'Traffic split adds up',
-    fix: (c) =>
-      c.play.splitBy === 'percent'
-        ? `The shares add up to ${c.play.variants.reduce((a, v) => a + v.weight, 0)}%, not 100%`
-        : 'One variant needs to be for everyone else',
+    fix: (c) => splitProblem(c.play) ?? 'Done',
     item: 'split',
-    applies: (c) => c.play.variants.length > 1,
-    isMet: (c) =>
-      c.play.splitBy === 'percent'
-        ? c.play.variants.reduce((a, v) => a + v.weight, 0) === 100
-        : c.play.variants.some((v) => v.audience) && c.play.variants.some((v) => !v.audience),
+    applies: (c) => hasSplit(c.play),
+    isMet: (c) => splitProblem(c.play) === null,
   },
   {
     id: 'installed',

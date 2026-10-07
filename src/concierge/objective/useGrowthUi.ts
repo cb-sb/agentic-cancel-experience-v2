@@ -3,8 +3,8 @@ import { useGrowthShell } from '../../shell/useGrowthShell'
 import type { GrowthObjective, GrowthType } from '../model'
 import type { SoonPlace } from '../Soon'
 
-export type GrowthPage = 'index' | 'experience' | 'play' | 'order' | 'templates' | 'offers' | 'pricing_tables' | 'brand' | 'soon'
-export type PlayTab = 'summary' | 'tasks'
+export type GrowthPage = 'index' | 'experience' | 'play' | 'order' | 'templates' | 'offers' | 'pricing_tables' | 'brand' | 'soon' | 'archive'
+export type PlayTab = 'configure' | 'summary' | 'tasks'
 export type ExperienceTab = 'preview' | 'summary'
 
 export interface GrowthView {
@@ -29,7 +29,7 @@ const START: GrowthView = {
   page: 'index',
   experienceId: null,
   playId: null,
-  playTab: 'summary',
+  playTab: 'configure',
   experienceTab: 'preview',
   withCopilot: false,
   fillId: null,

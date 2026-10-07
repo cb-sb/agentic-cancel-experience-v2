@@ -1,6 +1,7 @@
 import { isBrandMatched } from '../brand/matchSite'
 import type { JourneyFile } from '../journey/types'
 import type { CancelPlay } from '../plays/types'
+import { hasSplit, splitProblem } from '../plays/resolve'
 import type { Mark, WorkspaceSetup } from './useSetupState'
 
 /**
@@ -273,11 +274,8 @@ export const PLAY_ITEMS: PlayItem[] = [
     why: 'How people are divided between variants',
     chat: true,
     dependsOn: ['variants'],
-    applies: (c) => c.play.variants.length > 1,
-    isDone: (c, m) => {
-      if (c.play.splitBy === 'percent') return confirmed(m) && c.play.variants.reduce((a, v) => a + v.weight, 0) === 100
-      return c.play.variants.filter((v) => v.audience).length >= 1 && c.play.variants.some((v) => !v.audience)
-    },
+    applies: (c) => hasSplit(c.play),
+    isDone: (c, m) => splitProblem(c.play) === null && (c.play.splitBy === 'segments' || confirmed(m)),
   },
   {
     id: 'control',

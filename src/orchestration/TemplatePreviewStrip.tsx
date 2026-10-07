@@ -215,13 +215,13 @@ export function TemplateStepThumb({
         </div>
       ) : (
         <div
-          className="rounded-[20px] bg-slate-800 p-[5px]"
+          className="device-frame rounded-[20px] bg-slate-800 p-[5px]"
           style={{
             width: screenW + 10,
             boxShadow: '0 18px 40px -16px rgba(15,23,42,0.5), 0 0 0 1px rgba(15,23,42,0.16)',
           }}
         >
-          <div className="overflow-hidden rounded-[15px] bg-white">{screen}</div>
+          <div className="device-frame overflow-hidden rounded-[15px] bg-white">{screen}</div>
         </div>
       )}
     </div>
@@ -306,8 +306,8 @@ export function TemplateOutlineStrip({
       }}
       className={`group/strip flex cursor-pointer items-start overflow-x-auto px-[18px] pb-[20px] pt-[18px] outline-none transition-[background-color] duration-200 hover:!bg-[#e6ebf2] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400 ${className ?? ''}`}
       style={{
-        backgroundColor: '#eef2f6',
-        backgroundImage: 'radial-gradient(#d5dde8 1px, transparent 1px)',
+        backgroundColor: 'var(--sk-slate-100, #eef2f6)',
+        backgroundImage: 'radial-gradient(var(--sk-slate-300, #d5dde8) 1px, transparent 1px)',
         backgroundSize: '12px 12px',
       }}
     >
@@ -380,8 +380,8 @@ export function TemplateScreens({
       ref={scrollerRef}
       className="overflow-x-auto"
       style={{
-        backgroundColor: '#f8fafc',
-        backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)',
+        backgroundColor: 'var(--sk-slate-50, #f8fafc)',
+        backgroundImage: 'radial-gradient(var(--sk-slate-200, #e2e8f0) 1px, transparent 1px)',
         backgroundSize: '12px 12px',
       }}
     >
@@ -456,8 +456,8 @@ export function TemplatePreviewStrip({
       aria-hidden
       className="relative overflow-x-auto"
       style={{
-        backgroundColor: '#f5f7fa',
-        backgroundImage: `linear-gradient(180deg, #ffffff 0%, ${tint} 46%, #f2f4f8 100%), radial-gradient(rgba(148,163,184,0.35) 1.05px, transparent 1.05px)`,
+        backgroundColor: 'var(--sk-slate-50, #f5f7fa)',
+        backgroundImage: `linear-gradient(180deg, #ffffff 0%, ${tint} 46%, var(--sk-slate-100, #f2f4f8) 100%), radial-gradient(rgba(148,163,184,0.35) 1.05px, transparent 1.05px)`,
         backgroundSize: 'auto, 18px 18px',
       }}
     >

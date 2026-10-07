@@ -17,7 +17,8 @@ import { activeKind, useWorkspaceUi, type PaneTab, type ThreadTabs } from '../wo
 import { PlanTab } from '../orchestration/PlanTab'
 import { ExperienceTaskList } from '../setup/TaskList'
 import { TargetingTab } from '../orchestration/TargetingTab'
-import { LAYOUT, STUDIO, TABBED, V8 } from './layoutMode'
+import { LAYOUT, STUDIO, TABBED, V8, V9 } from './layoutMode'
+import { AddTab, AngledTabs, TabRail } from './SlgChrome'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 
@@ -189,8 +190,37 @@ export function tabLabel(tabs: ThreadTabs, id: string): string {
 export function TabbedPane() {
   const tabs = useWorkspaceUi((s) => s.tabs)
   const kind = activeKind(tabs)
+  const openKinds = tabs.open.map((t) => t.kind)
+  const addable = STUDIO ? TAB_ORDER : TAB_ORDER.filter((id) => !openKinds.includes(id))
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-slate-100">
+      {V9 ? (
+        <TabRail className="h-[56px] flex-none gap-[8px] bg-white pl-[8px] pr-[16px]">
+          <BackButton fallback={backToExperiences} className="mr-[4px] self-center" />
+          <div className="flex min-w-0 items-end">
+            <AngledTabs
+              label="Open views"
+              value={tabs.active ?? ''}
+              onChange={focusTab}
+              items={tabs.open.map((ref) => ({ id: ref.id, label: tabLabel(tabs, ref.id), hint: TAB_HINT[ref.kind], onClose: () => closeTab(ref.id) }))}
+            />
+            <AddTab
+              width={280}
+              items={addable.map((id) => {
+                const count = openKinds.filter((k) => k === id).length
+                return {
+                  label: TAB_LABEL[id],
+                  hint: count > 0 ? `${count} open, this adds another` : TAB_HINT[id],
+                  onClick: () => openAnotherTab(id),
+                }
+              })}
+            />
+          </div>
+          <div className="ml-auto flex min-w-0 items-center gap-[12px] self-center">
+            <PlayActions />
+          </div>
+        </TabRail>
+      ) : (
       <div className="flex h-[60px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
         {V8 && <BackButton fallback={backToExperiences} className="mr-[4px] self-center" />}
         <div role="tablist" aria-label="Open views" className="no-scrollbar -mb-px flex min-w-0 items-end gap-1 overflow-x-auto overflow-y-hidden">
@@ -236,6 +266,7 @@ export function TabbedPane() {
           <PlayActions />
         </div>
       </div>
+      )}
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
         {kind === 'canvas' && <CanvasPane />}
         {kind === 'targeting' && !V8 && <TargetingTab />}

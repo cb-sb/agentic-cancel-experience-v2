@@ -33,6 +33,19 @@ export function singleTab(kind: PaneTab): ThreadTabs {
   return { open: [{ id, kind }], active: id }
 }
 
+/** v9: every view an experience has, in tab-bar order. */
+export const EVERY_TAB: PaneTab[] = ['editor', 'preview', 'plan', 'tasks', 'canvas']
+
+/** v9: adds the views that aren't open yet. Open tabs keep their id and state, so a second Preview stays. */
+export function withEveryTab(tabs: ThreadTabs): ThreadTabs {
+  const open = EVERY_TAB.flatMap((kind) => {
+    const mine = tabs.open.filter((t) => t.kind === kind)
+    return mine.length ? mine : [{ id: newTabId(kind), kind }]
+  })
+  const active = tabs.active && open.some((t) => t.id === tabs.active) ? tabs.active : open[0].id
+  return { open, active }
+}
+
 /** Threads saved before multi-tab kept `open` as a list of kinds. */
 export function normalizeTabs(raw: unknown): ThreadTabs {
   if (!raw || typeof raw !== 'object') return NO_TABS
@@ -62,12 +75,14 @@ export type Objective = 'acquisition' | 'expansion' | 'retention'
  * v8 adds a play's own workspace, play order and testing, and the retention library.
  * The concierge adds 'soon', a placeholder for places not built yet.
  */
-export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library' | 'soon'
+export type StudioPage = 'thread' | 'index' | 'play' | 'order' | 'library' | 'archive' | 'soon'
 
 export type LibraryKind = 'offers' | 'reasons' | 'cards' | 'confirmations' | 'redirects'
 
-/** v8 play tabs: the canvas of every variant, the play summary, and its task list. */
-export type PlayTab = 'canvas' | 'summary' | 'tasks'
+/** v8 play tabs: the setup wizard, the canvas of every variant, the play summary, and its task list. */
+export type PlayTab = 'configure' | 'canvas' | 'summary' | 'tasks'
+
+export type ConfigureStep = 1 | 2 | 3
 
 export interface PlayTabRef {
   id: string
@@ -99,6 +114,8 @@ interface WorkspaceUi {
   /** v8: the play the merchant came in through. An experience opened from a play keeps it. */
   playId: string | null
   playTabs: Record<string, PlayTabs>
+  /** The step each play's Configure tab is on. */
+  configureStep: Record<string, ConfigureStep>
   libraryKind: LibraryKind
   /** Bumped by the Create menu to open the library's new-item form. */
   libraryNew: number
@@ -108,6 +125,8 @@ interface WorkspaceUi {
   renaming: string | null
   /** v8: Copilot folded to a thin strip beside the tabs. */
   copilotCollapsed: boolean
+  /** v9: Copilot widened from its header. */
+  copilotWide: boolean
   setSidebarOpen: (open: boolean) => void
   setSearch: (search: string) => void
   setPaneHidden: (hidden: boolean) => void
@@ -121,6 +140,7 @@ interface WorkspaceUi {
   setSearchOpen: (open: boolean) => void
   setPreviewAs: (id: string) => void
   setPlayTabs: (playId: string, tabs: PlayTabs) => void
+  setConfigureStep: (playId: string, step: ConfigureStep) => void
   setRenaming: (id: string | null) => void
   setCopilotCollapsed: (collapsed: boolean) => void
 }
@@ -149,11 +169,13 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   previewAs: '',
   playId: null,
   playTabs: {},
+  configureStep: {},
   libraryKind: 'offers',
   libraryNew: 0,
   libraryFocus: null,
   renaming: null,
   copilotCollapsed: readCollapsed(),
+  copilotWide: false,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSearch: (search) => set({ search }),
   setPaneHidden: (paneHidden) => set({ paneHidden }),
@@ -168,6 +190,7 @@ export const useWorkspaceUi = create<WorkspaceUi>((set) => ({
   setSearchOpen: (searchOpen) => set({ searchOpen }),
   setPreviewAs: (previewAs) => set({ previewAs }),
   setPlayTabs: (playId, tabs) => set((s) => ({ playTabs: { ...s.playTabs, [playId]: tabs } })),
+  setConfigureStep: (playId, step) => set((s) => ({ configureStep: { ...s.configureStep, [playId]: step } })),
   setRenaming: (renaming) => set({ renaming }),
   setCopilotCollapsed: (copilotCollapsed) => set({ copilotCollapsed }),
 }))

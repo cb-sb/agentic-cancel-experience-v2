@@ -191,6 +191,8 @@ export interface GrowthExperience {
   refId: string | null
   trigger: Trigger
   updatedAt: number
+  /** When it was put in the archive. */
+  archivedAt?: number
 }
 
 export const TRIGGER_LABEL: Record<TriggerKind, string> = {

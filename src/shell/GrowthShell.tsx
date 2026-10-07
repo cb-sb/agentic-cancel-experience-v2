@@ -3,14 +3,16 @@ import { EASE_ENTER } from '../lib/motion'
 import { NAV_FOLDED_W, NAV_W } from '../orchestration/paneTokens'
 import { OrchestrationCanvas } from '../orchestration/OrchestrationCanvas'
 import { Composer } from '../composer/Composer'
-import { STUDIO, USES_THREADS } from '../layout/layoutMode'
+import { CONCIERGE, STUDIO, USES_THREADS } from '../layout/layoutMode'
 import { StudioWorkspace } from '../layout/StudioWorkspace'
 import { ThreadWorkspace } from '../layout/ThreadWorkspace'
 import { useOrchestration } from '../store/useOrchestration'
+import { ArcAppPlaceholder, ArcBar, GrowthTopNav } from './ArcChrome'
 import { GrowthHome } from './GrowthHome'
 import { GrowthNav } from './GrowthNav'
 import { isCancelExperience, useGrowthShell } from './useGrowthShell'
 import { labelOf } from './nav'
+import { ARC_APPS, useArcApp } from './useArcApp'
 
 const PANEL_MS = 200
 
@@ -18,10 +20,29 @@ export function GrowthShell({ children }: { children: React.ReactNode }) {
   const route = useGrowthShell((s) => s.route)
   const navOpen = useGrowthShell((s) => s.navOpen)
   const inExperience = isCancelExperience(route)
+  const arcApp = useArcApp((s) => s.app)
 
   useEffect(() => {
-    document.title = inExperience ? 'Cancel Experience Composer' : `${labelOf(route)} · Chargebee Growth`
-  }, [inExperience, route])
+    if (CONCIERGE && arcApp !== 'growth') {
+      const name = ARC_APPS.find((item) => item.id === arcApp)?.label ?? 'Arc'
+      document.title = `${name} · Arc`
+      return
+    }
+    document.title = inExperience ? 'Cancel Experience Composer' : `${labelOf(route)} · ${CONCIERGE ? 'Arc' : 'Chargebee Growth'}`
+  }, [arcApp, inExperience, route])
+
+  if (CONCIERGE) {
+    const growth = arcApp === 'growth'
+    return (
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+        <ArcBar />
+        {growth && <GrowthTopNav />}
+        <div className="min-h-0 flex-1">
+          {growth ? (inExperience ? children : <GrowthHome route={route} />) : <ArcAppPlaceholder app={arcApp} />}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div

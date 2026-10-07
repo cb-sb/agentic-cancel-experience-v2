@@ -11,6 +11,8 @@ import {
   type ExperienceThread,
 } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
+import { V9 } from './layoutMode'
+import { navItem } from './navStyle'
 
 type IconName = Parameters<typeof SIcon>[0]['name']
 
@@ -42,6 +44,22 @@ export function SettingRow({
   trailing?: ReactNode
   onClick: () => void
 }) {
+  if (V9) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={label}
+        aria-label={label}
+        aria-current={active ? 'page' : undefined}
+        className={`${navItem(active)} flex h-10 w-full items-center gap-[12px] text-left ${folded ? 'justify-center px-0' : 'px-[10px]'}`}
+      >
+        <SIcon name={icon} size={18} className="slg-nav-icon flex-none" />
+        {!folded && <span className="slg-nav-label min-w-0 flex-1 truncate">{label}</span>}
+        {!folded && trailing}
+      </button>
+    )
+  }
   return (
     <button
       type="button"

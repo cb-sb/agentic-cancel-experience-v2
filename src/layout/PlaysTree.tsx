@@ -1,9 +1,11 @@
 import { useEffect, useState, type DragEvent } from 'react'
 import { SIcon } from '@chargebee/sting-react'
 import { useOrchestration } from '../store/useOrchestration'
-import { createExperience, openExperience, openPlay } from '../plays/navigate'
+import { createExperience, openConfigure, openExperience, openPlay } from '../plays/navigate'
 import {
+  addSubAudience,
   addToPlay,
+  audienceUnset,
   createPlay,
   deletePlay,
   duplicatePlay,
@@ -15,7 +17,7 @@ import {
   useRankedPlays,
 } from '../plays/usePlays'
 import { variantLetter, type CancelPlay, type PlayVariant } from '../plays/types'
-import { variantShare } from '../plays/resolve'
+import { audienceText, fallbackVariant, pagesIn, variantShare } from '../plays/resolve'
 import { Chip, InlineName, RowMenu, toast, type MenuItem } from '../plays/ui'
 import {
   deleteThread,
@@ -30,6 +32,9 @@ import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { StatusChip } from './StatusChip'
 import { copyMarks } from '../setup/useSetupState'
 import { separateCopy } from '../plays/ExperienceContext'
+import { archiveExperienceItem, archivePlayItem } from '../plays/archive'
+import { V9 } from './layoutMode'
+import { navItem } from './navStyle'
 
 const DRAG_TYPE = 'application/x-cancel-experience'
 
@@ -133,6 +138,13 @@ function deleteExperienceItem(experienceId: string): MenuItem {
   }
 }
 
+/** In an A/B split, the variant's letter and share. Empty when it's the only page. */
+export function splitTag(play: CancelPlay, v: PlayVariant): { letter: string; share: string } | null {
+  const group = play.splitBy === 'segments' ? play.variants.filter((x) => x.subAudienceId === v.subAudienceId) : play.variants
+  if (group.length < 2) return null
+  return { letter: variantLetter(group.indexOf(v)), share: `${v.weight}%` }
+}
+
 function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVariant; index: number; current: boolean }) {
   const thread = useWorkspace((s) => s.threads.find((t) => t.id === v.experienceId))
   const renaming = useWorkspaceUi((s) => s.renaming === v.experienceId)
@@ -157,8 +169,11 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
         toast(`Removed ${thread.title} from ${play.name}`)
       },
     },
+    ...(V9 ? [archiveExperienceItem(v.experienceId)] : []),
     deleteExperienceItem(v.experienceId),
   ]
+  const split = V9 ? splitTag(play, v) : null
+  const live = threadIsLive(thread, activeId, activeLive)
   return (
     <div
       draggable={!renaming}
@@ -166,17 +181,26 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
       onClick={() => openExperience(v.experienceId, play.id)}
       aria-current={current ? 'true' : undefined}
       title={`Variant ${variantLetter(index)}, ${variantShare(play, v)}`}
-      className={`group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] transition-colors ${
-        current ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
-      }`}
+      className={
+        V9
+          ? `group flex h-8 cursor-pointer items-center gap-[8px] pl-[8px] pr-[4px] ${navItem(current)}`
+          : `group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] transition-colors ${
+              current ? 'bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200' : 'hover:bg-slate-200/50'
+            }`
+      }
     >
+      {split && (
+        <span className="slg-avatar flex h-[16px] w-[16px] flex-none items-center justify-center bg-slate-200/80 text-[10px] font-semibold text-slate-500">
+          {split.letter}
+        </span>
+      )}
       <InlineName
         value={thread.title}
         editing={renaming}
         onStart={() => useWorkspaceUi.getState().setRenaming(v.experienceId)}
         onDone={() => useWorkspaceUi.getState().setRenaming(null)}
         onCommit={(name) => renameThread(v.experienceId, name)}
-        className={`flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
+        className={V9 ? 'flex-1 text-[13px] font-normal' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
       />
       {!renaming && (
         <>
@@ -189,9 +213,14 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
           )}
           {current && dirty ? (
             <span className="flex-none text-[11px] text-slate-400 group-hover:hidden">Unsaved</span>
+          ) : V9 ? (
+            <span className="flex flex-none items-center gap-[6px] group-hover:hidden">
+              {split && <span className="text-[11px] tabular-nums text-slate-400">{split.share}</span>}
+              {live && <StatusChip live />}
+            </span>
           ) : (
             <span className="flex-none group-hover:hidden">
-              <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
+              <StatusChip live={live} />
             </span>
           )}
           <RowMenu label={`Actions for ${thread.title}`} items={items} className="hidden group-hover:block" />
@@ -201,7 +230,7 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
   )
 }
 
-function AddVariant({ play }: { play: CancelPlay }) {
+function AddVariant({ play, text }: { play: CancelPlay; text?: string }) {
   const threads = useWorkspace((s) => s.threads)
   const existing = orderedThreads(threads)
     .filter((t) => !play.variants.some((v) => v.experienceId === t.id))
@@ -219,6 +248,7 @@ function AddVariant({ play }: { play: CancelPlay }) {
       icon="plus"
       align="left"
       width={240}
+      text={text}
       className="ml-[2px]"
       items={[
         { label: 'New experience', icon: 'plus', hint: 'Start a fresh cancel experience', onClick: () => createExperience({ playId: play.id }) },
@@ -234,7 +264,30 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
   const activeId = useWorkspace((s) => s.activeId)
   const renaming = useWorkspaceUi((s) => s.renaming === play.id)
   const [over, setOver] = useState(false)
-  const current = page === 'play' && playId === play.id
+  const [picked, setPicked] = useState<string | null>(null)
+  const step = useWorkspaceUi((s) => {
+    if (s.page !== 'play' || s.playId !== play.id) return null
+    const tabs = s.playTabs[play.id]
+    return tabs?.open.find((t) => t.id === tabs.active)?.kind === 'configure' ? (s.configureStep[play.id] ?? 1) : null
+  })
+  const pickedNow = (id: string, onStep: number) => V9 && picked === id && step === onStep
+  const configure = (id: string, onStep: 1 | 2) => {
+    setPicked(id)
+    openConfigure(play.id, onStep)
+  }
+  const childPicked = pickedNow('audience', 1) || play.subAudiences.some((x) => pickedNow(x.id, 2)) || pickedNow('fallback', 2)
+  const current = page === 'play' && playId === play.id && !childPicked
+  const inside = (page === 'play' && playId === play.id && childPicked) || (page === 'thread' && playId === play.id && play.variants.some((v) => v.experienceId === activeId))
+  const audienceLine = play.audience.targetAll ? 'All subscribers' : audienceUnset(play.audience) ? 'No audience yet' : audienceText(play.audience)
+  const variantRow = (v: PlayVariant) => (
+    <VariantRow
+      key={v.id}
+      play={play}
+      v={v}
+      index={play.variants.indexOf(v)}
+      current={page === 'thread' && playId === play.id && activeId === v.experienceId}
+    />
+  )
   const items: MenuItem[] = [
     { label: 'Rename', icon: 'pencil', onClick: () => useWorkspaceUi.getState().setRenaming(play.id) },
     {
@@ -247,6 +300,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
       },
     },
     { label: 'New experience in this play', icon: 'plus', onClick: () => createExperience({ playId: play.id }) },
+    ...(V9 ? [archivePlayItem(play)] : []),
     {
       label: 'Delete play',
       icon: 'trash-2',
@@ -276,13 +330,18 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           if (!open) onToggle()
         }}
         onClick={() => {
+          setPicked(null)
           openPlay(play.id)
           if (!open) onToggle()
         }}
         aria-current={current ? 'true' : undefined}
-        className={`group relative flex h-8 cursor-pointer items-center gap-[2px] rounded-lg pr-[4px] transition-colors ${
-          over ? 'bg-indigo-50 ring-2 ring-indigo-300' : current ? 'bg-slate-200/70' : 'hover:bg-slate-200/50'
-        }`}
+        className={
+          V9
+            ? `group relative flex h-8 cursor-pointer items-center gap-[6px] pl-[6px] pr-[4px] ${over ? 'slg-nav-item is-drop' : navItem(current, inside)}`
+            : `group relative flex h-8 cursor-pointer items-center gap-[2px] rounded-lg pr-[4px] transition-colors ${
+                over ? 'bg-indigo-50 ring-2 ring-indigo-300' : current ? 'bg-slate-200/70' : 'hover:bg-slate-200/50'
+              }`
+        }
       >
         <button
           type="button"
@@ -302,42 +361,138 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           onStart={() => useWorkspaceUi.getState().setRenaming(play.id)}
           onDone={() => useWorkspaceUi.getState().setRenaming(null)}
           onCommit={(name) => renamePlay(play.id, name)}
-          className={`flex-1 text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}
+          className={V9 ? 'flex-1 text-[13px] font-normal' : `flex-1 text-[13px] ${current ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}
         />
         {over ? (
           <span className="flex-none pr-[4px] text-[11px] font-medium text-indigo-600">Drop to add · ⌥ to move</span>
         ) : (
           !renaming && (
             <>
-              <span className="flex-none group-hover:hidden">
-                <StatusChip live={play.status === 'live'} />
-              </span>
+              {(!V9 || play.status === 'live') && (
+                <span className="flex-none group-hover:hidden">
+                  <StatusChip live={play.status === 'live'} />
+                </span>
+              )}
               <RowMenu label={`Actions for ${play.name}`} items={items} className="hidden group-hover:block" />
             </>
           )
         )}
       </div>
+      {open && V9 && (
+        <button
+          type="button"
+          title="Audience. Opens Configure."
+          onClick={() => configure('audience', 1)}
+          aria-current={pickedNow('audience', 1) ? 'true' : undefined}
+          className={`${navItem(pickedNow('audience', 1))} slg-nav-quiet mb-[2px] ml-[30px] flex h-[24px] max-w-[calc(100%-34px)] items-center gap-[6px] px-[6px] text-left text-[12px] font-medium`}
+        >
+          <SIcon name="users" size={12} className="slg-nav-icon flex-none" />
+          <span className="min-w-0 truncate">{audienceLine}</span>
+        </button>
+      )}
       {open && (
-        <div className="ml-[15px] flex flex-col gap-[1px] border-l border-slate-200 py-[2px] pl-[6px]">
-          {play.variants.map((v, i) => (
-            <VariantRow
-              key={v.id}
-              play={play}
-              v={v}
-              index={i}
-              current={page === 'thread' && playId === play.id && activeId === v.experienceId}
-            />
-          ))}
+        <div className={`flex flex-col border-l ${V9 ? 'slg-nav-tree mb-[6px] ml-[18px] gap-[2px] pl-[12px]' : 'ml-[15px] gap-[1px] border-slate-200 py-[2px] pl-[6px]'}`}>
+          {!V9 && (
+            <TreeLabel icon="users" muted title="Audience. Opens Configure." onClick={() => openConfigure(play.id, 1)}>
+              {audienceLine}
+            </TreeLabel>
+          )}
+          {play.splitBy === 'segments' ? (
+            <>
+              {play.subAudiences.map((x, n) => (
+                <div key={x.id}>
+                  <TreeLabel icon="users-round" title="Sub-audience. Opens Configure." active={pickedNow(x.id, 2)} onClick={() => configure(x.id, 2)}>
+                    {audienceUnset(x.audience) ? `Sub-audience ${n + 1}` : audienceText(x.audience)}
+                  </TreeLabel>
+                  <Nested>
+                    {pagesIn(play, x.id).map((v) => variantRow(v))}
+                    {pagesIn(play, x.id).length === 0 && <EmptyLine />}
+                  </Nested>
+                </div>
+              ))}
+              <div>
+                <TreeLabel icon="shield" title="For people in no sub-audience. Opens Configure." active={pickedNow('fallback', 2)} onClick={() => configure('fallback', 2)}>
+                  Fallback
+                </TreeLabel>
+                <Nested>{fallbackVariant(play) ? variantRow(fallbackVariant(play)!) : <EmptyLine />}</Nested>
+              </div>
+            </>
+          ) : (
+            play.variants.map((v) => variantRow(v))
+          )}
           <div
-            className={`flex items-center ${play.variants.length === 0 ? '' : 'invisible group-hover/play:visible group-focus-within/play:visible'}`}
+            className={`flex items-center ${V9 || play.variants.length === 0 ? '' : 'invisible group-hover/play:visible group-focus-within/play:visible'}`}
           >
-            <AddVariant play={play} />
-            <span className="pl-[4px] text-[11.5px] text-slate-400">Add variant</span>
+            {play.splitBy === 'segments' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  addSubAudience(play.id)
+                  openConfigure(play.id, 2)
+                }}
+                className="ml-[2px] flex h-6 items-center gap-[4px] rounded-md pl-[5px] pr-[6px] text-[11.5px] text-slate-400 hover:bg-white hover:text-slate-800"
+              >
+                <SIcon name="plus" size={13} /> Add sub-audience
+              </button>
+            ) : V9 ? (
+              <AddVariant play={play} text="Add experience" />
+            ) : (
+              <>
+                <AddVariant play={play} />
+                <span className="pl-[4px] text-[11.5px] text-slate-400">Add variant</span>
+              </>
+            )}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+/** A non-page line in a play's tree: its audience, a sub-audience, or the fallback. */
+export function TreeLabel({
+  icon,
+  children,
+  title,
+  muted,
+  active,
+  onClick,
+}: {
+  icon: 'users' | 'users-round' | 'shield'
+  children: React.ReactNode
+  title: string
+  muted?: boolean
+  active?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      aria-current={active ? 'true' : undefined}
+      className={
+        V9
+          ? `${navItem(active)} slg-nav-quiet flex h-7 w-full min-w-0 items-center gap-[6px] pl-[8px] pr-[4px] text-left text-[12px] font-medium`
+          : `flex h-7 w-full min-w-0 items-center gap-[6px] rounded-lg pl-[8px] pr-[4px] text-left text-[12px] ${
+              active
+                ? 'bg-white font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] ring-1 ring-slate-200'
+                : `hover:bg-slate-200/50 ${muted ? 'text-slate-400' : 'font-medium text-slate-600'}`
+            }`
+      }
+    >
+      <SIcon name={icon} size={12} className={V9 ? 'slg-nav-icon flex-none' : 'flex-none opacity-80'} />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </button>
+  )
+}
+
+export function Nested({ children }: { children: React.ReactNode }) {
+  return <div className={`ml-[13px] flex flex-col border-l pl-[6px] ${V9 ? 'slg-nav-tree gap-[2px]' : 'gap-[1px] border-slate-200'}`}>{children}</div>
+}
+
+export function EmptyLine({ text = 'No page yet' }: { text?: string }) {
+  return <p className="flex h-7 items-center pl-[8px] text-[11.5px] text-slate-400">{text}</p>
 }
 
 export function LooseRow({ thread, current }: { thread: ExperienceThread; current: boolean }) {
@@ -349,6 +504,7 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
     { label: 'Rename', icon: 'pencil', onClick: () => useWorkspaceUi.getState().setRenaming(thread.id) },
     { label: 'Duplicate', icon: 'copy', onClick: () => duplicateInto(thread.id, null) },
     { label: 'Add to a play…', icon: 'folder-input', items: addToOtherPlays(thread.id, null) },
+    ...(V9 ? [archiveExperienceItem(thread.id)] : []),
     deleteExperienceItem(thread.id),
   ]
   return (
@@ -357,9 +513,11 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
       onDragStart={(e) => startDrag(e, { experienceId: thread.id, fromPlayId: null, variantId: null })}
       onClick={() => openExperience(thread.id, null)}
       aria-current={current ? 'true' : undefined}
-      className={`group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[10px] pr-[4px] transition-colors ${
-        current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'
-      }`}
+      className={
+        V9
+          ? `group flex h-8 cursor-pointer items-center gap-[6px] pl-[36px] pr-[4px] ${navItem(current)}`
+          : `group flex h-8 cursor-pointer items-center gap-[6px] rounded-lg pl-[10px] pr-[4px] transition-colors ${current ? 'bg-slate-200/60' : 'hover:bg-slate-200/50'}`
+      }
     >
       <InlineName
         value={thread.title}
@@ -367,16 +525,18 @@ export function LooseRow({ thread, current }: { thread: ExperienceThread; curren
         onStart={() => useWorkspaceUi.getState().setRenaming(thread.id)}
         onDone={() => useWorkspaceUi.getState().setRenaming(null)}
         onCommit={(name) => renameThread(thread.id, name)}
-        className={`flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
+        className={V9 ? 'flex-1 text-[13px] font-normal' : `flex-1 text-[12.5px] ${current ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
       />
       {!renaming && (
         <>
           {current && dirty ? (
             <span className="flex-none text-[11px] text-slate-400 group-hover:hidden">Unsaved</span>
           ) : (
-            <span className="flex-none group-hover:hidden">
-              <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
-            </span>
+            (!V9 || threadIsLive(thread, activeId, activeLive)) && (
+              <span className="flex-none group-hover:hidden">
+                <StatusChip live={threadIsLive(thread, activeId, activeLive)} />
+              </span>
+            )
           )}
           <RowMenu label={`Actions for ${thread.title}`} items={items} className="hidden group-hover:block" />
         </>

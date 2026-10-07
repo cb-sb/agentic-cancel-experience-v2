@@ -54,7 +54,7 @@ export function StepDetail({
   const lead = leadComponent(step)
   const accentOf = (c: ExperienceComponent) =>
     c.kind === 'offer' ? colorForOfferFactory(experience)(c.id) : ACCENTS[c.kind]
-  const accent = lead ? accentOf(lead) : '#94a3b8'
+  const accent = lead ? accentOf(lead) : 'var(--sk-slate-400, #94a3b8)'
   const headline = headlineOf(step)
   const subtext = subtextOf(step)
   const rows = portRows(step, experience)
@@ -218,7 +218,7 @@ function Row({
   const colorFor = colorForOfferFactory(experience)
   const nameFor = offerNameFactory(experience)
   const dests = destinations(row)
-  const color = dests.length ? colorFor(dests[0]) : '#cbd5e1'
+  const color = dests.length ? colorFor(dests[0]) : 'var(--sk-slate-300, #cbd5e1)'
   const port = row.kind === 'fact' ? null : row.id
 
   return (
@@ -233,7 +233,7 @@ function Row({
         style={{
           width: row.kind === 'overflow' ? 5 : 6,
           height: row.kind === 'overflow' ? 5 : 6,
-          background: row.kind === 'overflow' ? '#cbd5e1' : color,
+          background: row.kind === 'overflow' ? 'var(--sk-slate-300, #cbd5e1)' : color,
         }}
       />
       {labelled ? (

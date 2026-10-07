@@ -2,12 +2,15 @@ import { SIcon } from '@chargebee/sting-react'
 import { BrandingStudio } from '../composer/BrandingStudio'
 import { AcquisitionPlays } from './AcquisitionPlays'
 import { BackButton, backToHome } from './BackButton'
+import { V8 } from '../layout/layoutMode'
 import { labelOf, type NavLeafId } from './nav'
 import { TemplatePages } from '../upload/TemplatePages'
 import { UploadFlow } from '../upload/UploadFlow'
 import { CONCIERGE } from '../layout/layoutMode'
 import { ConciergeHome } from '../concierge/Home'
 import { GrowthStudio } from '../concierge/objective/GrowthStudio'
+import { AreaPane } from './AreaPane'
+import { SIDEBAR_W } from '../layout/ThreadSidebar'
 
 function Placeholder({ route }: { route: NavLeafId }) {
   const title = labelOf(route)
@@ -23,9 +26,20 @@ function Placeholder({ route }: { route: NavLeafId }) {
         <p className="max-w-sm text-[13px] text-slate-500">
           {CONCIERGE
             ? 'This page is not in the prototype. Ask Copilot on Home about it and it will answer with sample data.'
+            : V8
+            ? 'This surface is not in the prototype. Open Retention beta at the bottom left to build the cancel journey.'
             : 'This surface is not in the prototype. Open Experiences → Cancel experience to build the cancel journey.'}
         </p>
       </div>
+    </div>
+  )
+}
+
+function WithArea({ group, route }: { group: 'people' | 'reports'; route: NavLeafId }) {
+  return (
+    <div className="grid h-full min-h-0 bg-white" style={{ gridTemplateColumns: `${SIDEBAR_W}px minmax(0,1fr)` }}>
+      <AreaPane group={group} route={route} />
+      <Placeholder route={route} />
     </div>
   )
 }
@@ -38,6 +52,8 @@ function ConciergeRoute({ route }: { route: NavLeafId }) {
     case 'expansion':
       return <GrowthStudio objective={route} />
     default:
+      if (route.startsWith('people.')) return <WithArea group="people" route={route} />
+      if (route.startsWith('reports.')) return <WithArea group="reports" route={route} />
       return <Placeholder route={route} />
   }
 }

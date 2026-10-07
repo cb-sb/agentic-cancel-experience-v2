@@ -1,7 +1,7 @@
 import { SIcon, type SIconName } from '@chargebee/sting-react'
-import { CONCIERGE } from '../layout/layoutMode'
+import { V8, V9 } from '../layout/layoutMode'
 import { navItem } from '../layout/navStyle'
-import { NAV, type NavGroup, type NavLeaf, type NavLeafId } from './nav'
+import { BETA_NAV, CANCEL_ROUTE, CLASSIC_HOME, NAV, type NavGroup, type NavLeaf, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
 
 function NavIcon({ name, className }: { name: SIconName; className?: string }) {
@@ -21,7 +21,7 @@ function LeafButton({
 }) {
   const go = useGrowthShell((s) => s.go)
 
-  if (CONCIERGE) {
+  if (V9) {
     return (
       <button
         type="button"
@@ -64,7 +64,7 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
   const setNavOpen = useGrowthShell((s) => s.setNavOpen)
   const childActive = group.children.some((c) => c.id === route)
 
-  if (compact && CONCIERGE) {
+  if (compact && V9) {
     return (
       <button
         type="button"
@@ -81,7 +81,7 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
     )
   }
 
-  if (CONCIERGE) {
+  if (V9) {
     return (
       <div>
         <button
@@ -96,7 +96,9 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
         </button>
         {open && (
           <div className="slg-nav-tree mb-[2px] ml-[19px] mt-[2px] flex flex-col gap-[2px] border-l pl-[4px]">
-            {group.children.map((leaf) => <LeafButton key={leaf.id} leaf={leaf} active={leaf.id === route} nested />)}
+            {group.children.map((leaf) => (
+              <LeafButton key={leaf.id} leaf={leaf} active={leaf.id === route} nested />
+            ))}
           </div>
         )}
       </div>
@@ -147,6 +149,40 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
   )
 }
 
+function BetaButton({ compact }: { compact: boolean }) {
+  const beta = useGrowthShell((s) => s.beta)
+  const go = useGrowthShell((s) => s.go)
+  const label = beta ? 'Exit Retention beta' : 'Retention beta'
+
+  if (V9) {
+    return (
+      <button
+        type="button"
+        title={label}
+        onClick={() => go(beta ? CLASSIC_HOME : CANCEL_ROUTE)}
+        className={`${navItem()} flex h-10 w-full items-center ${compact ? 'justify-center' : 'gap-[10px] px-[10px]'}`}
+      >
+        <SIcon name={beta ? 'arrow-left' : 'flask-conical'} size={18} className="slg-nav-icon flex-none" />
+        {!compact && <span className="slg-nav-label min-w-0 flex-1 truncate text-left">{label}</span>}
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      title={label}
+      onClick={() => go(beta ? CLASSIC_HOME : CANCEL_ROUTE)}
+      className={`mb-0.5 flex w-full items-center rounded-md text-[13px] font-medium transition-colors ${
+        beta ? 'text-slate-600 hover:bg-slate-50' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+      } ${compact ? 'h-9 justify-center' : 'gap-2.5 px-2.5 py-1.5'}`}
+    >
+      <NavIcon name={beta ? 'arrow-left' : 'flask-conical'} className={beta ? 'text-slate-400' : 'text-violet-600'} />
+      {!compact && <span className="min-w-0 flex-1 truncate text-left">{label}</span>}
+    </button>
+  )
+}
+
 /**
  * Chargebee Growth left rail. Folded it is a 56px icon column — click the
  * Growth mark (or any section) to open labels. Open, it matches the live app.
@@ -155,8 +191,9 @@ export function GrowthNav() {
   const route = useGrowthShell((s) => s.route)
   const navOpen = useGrowthShell((s) => s.navOpen)
   const toggleNav = useGrowthShell((s) => s.toggleNav)
+  const beta = useGrowthShell((s) => s.beta)
 
-  if (CONCIERGE) {
+  if (V9) {
     return (
       <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
         <div className={`flex h-[60px] flex-none items-center gap-[8px] border-b border-slate-200 ${navOpen ? 'px-[10px]' : 'justify-center'}`}>
@@ -165,36 +202,44 @@ export function GrowthNav() {
             onClick={toggleNav}
             title={navOpen ? 'Collapse navigation' : 'Open Growth navigation'}
             aria-label={navOpen ? 'Collapse navigation' : 'Open Growth navigation'}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] bg-[var(--slg-orange-500,#f97316)] text-[13px] font-bold text-white hover:bg-[var(--slg-orange-700,#c2410c)]"
+            className="slg-nav-logo flex h-8 w-8 flex-none items-center justify-center bg-[var(--slg-orange-500)] text-[13px] font-bold text-white hover:bg-[var(--slg-orange-700)]"
           >
             G
           </button>
           {navOpen && (
             <button type="button" title="Switch site" className={`${navItem()} flex h-9 min-w-0 flex-1 items-center gap-[8px] px-[6px] text-left`}>
-              <span className="flex flex-none items-center gap-[4px] bg-emerald-50 px-[6px] py-[2px] text-[10px] font-semibold uppercase tracking-[0.04em] text-emerald-700">
-                <span className="h-[6px] w-[6px] rounded-full bg-emerald-500" /> Live
+              <span className="flex flex-none items-center gap-[4px] bg-[var(--slg-color-bg-success-subtle)] px-[6px] py-[2px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--slg-green-700)]">
+                <span className="h-[6px] w-[6px] rounded-full bg-[var(--slg-green-500)]" />
+                Live
               </span>
               <span className="min-w-0 flex-1 truncate text-[13px] font-medium">cbgrowthdemo.chargebee.com</span>
               <SIcon name="chevrons-up-down" size={16} className="slg-nav-icon flex-none" />
             </button>
           )}
         </div>
+
         <nav className="min-h-0 flex-1 overflow-y-auto px-[8px] py-[10px]">
           <div className="flex flex-col gap-[2px]">
-            {NAV.map((entry) =>
-              entry.kind === 'group'
-                ? <GroupBlock key={entry.group.id} group={entry.group} route={route} compact={!navOpen} />
-                : <LeafButton key={entry.leaf.id} leaf={entry.leaf} active={entry.leaf.id === route} compact={!navOpen} />,
+            {(beta ? BETA_NAV : NAV).map((entry) =>
+              entry.kind === 'group' ? (
+                <GroupBlock key={entry.group.id} group={entry.group} route={route} compact={!navOpen} />
+              ) : (
+                <LeafButton key={entry.leaf.id} leaf={entry.leaf} active={entry.leaf.id === route} compact={!navOpen} />
+              ),
             )}
           </div>
         </nav>
+
         <div className="flex flex-none flex-col gap-[2px] border-t border-slate-200 px-[8px] py-[10px]">
+          <BetaButton compact={!navOpen} />
           <button type="button" title="Need help?" className={`${navItem()} flex h-10 w-full items-center ${navOpen ? 'gap-[10px] px-[10px]' : 'justify-center'}`}>
             <SIcon name="circle-help" size={18} className="slg-nav-icon flex-none" />
             {navOpen && <span className="slg-nav-label min-w-0 flex-1 truncate text-left">Need help?</span>}
           </button>
           <button type="button" title="John" className={`${navItem()} flex h-10 w-full items-center ${navOpen ? 'gap-[10px] px-[10px]' : 'justify-center'}`}>
-            <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-slate-900 text-[10px] font-semibold text-white">J</span>
+            <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-[var(--slg-neutral-900)] text-[10px] font-semibold text-white">
+              J
+            </span>
             {navOpen && <span className="min-w-0 flex-1 truncate text-left text-[13px] font-medium">John</span>}
           </button>
         </div>
@@ -245,7 +290,7 @@ export function GrowthNav() {
 
       <nav className={`min-h-0 flex-1 overflow-y-auto ${navOpen ? 'px-2' : 'px-1.5'} py-1`}>
         <div className="space-y-0.5">
-          {NAV.map((entry) =>
+          {(beta ? BETA_NAV : NAV).map((entry) =>
             entry.kind === 'group' ? (
               <GroupBlock key={entry.group.id} group={entry.group} route={route} compact={!navOpen} />
             ) : (
@@ -261,6 +306,7 @@ export function GrowthNav() {
       </nav>
 
       <div className={`flex-none border-t border-slate-100 ${navOpen ? 'p-2' : 'p-1.5'}`}>
+        {V8 && <BetaButton compact={!navOpen} />}
         <button
           type="button"
           title="Need Help?"

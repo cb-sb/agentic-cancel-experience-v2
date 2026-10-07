@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { SButton, SIcon } from '@chargebee/sting-react'
+import { V9 } from '../layout/layoutMode'
+import { TABLE_HEAD, TABLE_ROW, TABLE_ROW_OPEN } from '../layout/SlgTable'
 import { StatusChip } from '../layout/StatusChip'
 import { openExperience, openPlayTab } from '../plays/navigate'
 import { variantLetter } from '../plays/types'
@@ -10,10 +12,22 @@ import { doInChat, openItem } from './actions'
 import { experienceChecks, failing, playChecks, type CheckResult } from './checks'
 import { experienceCtx, experienceRows, playRows, useSetupInputs, type SetupInputs } from './progress'
 import { experienceMap, playMap, tryItMap, workspaceMap, type MapRow } from './setupMap'
+import { FRAME_FORM } from '../layout/frames'
 
 type Gate = 'publish' | 'go live'
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  if (V9) {
+    return (
+      <section>
+        <header className={`flex items-center justify-between gap-[12px] ${TABLE_HEAD}`}>
+          <h3>{title}</h3>
+          {hint && <span className="truncate font-medium normal-case text-slate-500">{hint}</span>}
+        </header>
+        <ul>{children}</ul>
+      </section>
+    )
+  }
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <header className="flex items-baseline justify-between gap-[12px] border-b border-slate-100 px-[14px] py-[10px]">
@@ -27,6 +41,20 @@ function Card({ title, hint, children }: { title: string; hint?: string; childre
 
 function Row({ onClick, children }: { onClick?: () => void; children: ReactNode }) {
   const body = <>{children}</>
+  if (V9) {
+    return (
+      <li>
+        {onClick ? (
+          <button type="button" onClick={onClick} className={`${TABLE_ROW_OPEN} flex w-full items-center gap-[12px] py-[8px] text-left`}>
+            {body}
+            <SIcon name="arrow-right" size={13} className="flex-none text-slate-400" />
+          </button>
+        ) : (
+          <div className={`${TABLE_ROW} flex items-center gap-[12px] py-[8px]`}>{body}</div>
+        )}
+      </li>
+    )
+  }
   return (
     <li className="border-t border-slate-100 first:border-t-0">
       {onClick ? (
@@ -118,7 +146,7 @@ function Header({ title, live, checks, gate, onGate }: { title: string; live: bo
 function Page({ children }: { children: ReactNode }) {
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-[14px] px-[24px] py-[20px]">{children}</div>
+      <div className={`flex flex-col gap-[14px] px-[24px] py-[20px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>{children}</div>
     </div>
   )
 }

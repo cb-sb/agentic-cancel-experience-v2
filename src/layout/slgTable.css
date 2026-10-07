@@ -1,0 +1,69 @@
+/*
+ * v9 list rows, after the sting-slg Table: an open-able row goes solid on
+ * hover and everything in it turns white. Doubled class names keep these
+ * ahead of the skin's colour overrides.
+ */
+.slg-row {
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) {
+  background: var(--slg-color-action-primary);
+  color: var(--slg-color-text-on-solid);
+  border-color: color-mix(in oklch, var(--slg-white) 16%, transparent);
+  outline: none;
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) :not([role='menu'], [role='menu'] *) {
+  color: inherit;
+  border-color: color-mix(in oklch, var(--slg-white) 22%, transparent);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) [role='menu'] {
+  color: var(--slg-color-text-primary);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) :is(.text-slate-400, .text-slate-500, .text-slate-600, .slg-muted):not([role='menu'] *) {
+  color: color-mix(in oklch, var(--slg-white) 68%, transparent);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) :is(.slg-tag, .slg-avatar):not([role='menu'] *) {
+  background: color-mix(in oklch, var(--slg-white) 18%, transparent);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) :is(button, [role='button']):not([role='menu'] *):hover {
+  background: color-mix(in oklch, var(--slg-white) 14%, transparent);
+}
+
+.slg-row.slg-row--open:is(:hover, :focus-visible) button[aria-expanded='true']:not([role='menu'] *) {
+  background: color-mix(in oklch, var(--slg-white) 18%, transparent);
+}
+
+.slg-check {
+  background: var(--slg-white, #fff);
+  border-color: var(--slg-neutral-400, #9ca3af);
+  color: var(--slg-color-text-on-solid, #fff);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.slg-check:hover {
+  border-color: var(--slg-neutral-900);
+}
+.slg-check.is-on {
+  background: var(--slg-neutral-900);
+  border-color: var(--slg-neutral-900);
+}
+.slg-row.slg-row--open:is(:hover, :focus-visible) .slg-check {
+  background: transparent;
+  border-color: var(--slg-white, #fff);
+}
+.slg-row.slg-row--open:is(:hover, :focus-visible) .slg-check.is-on {
+  background: var(--slg-white, #fff);
+  color: var(--slg-neutral-900);
+}
+.slg-row.is-picked:not(:hover, :focus-visible) {
+  background: var(--slg-neutral-50);
+}

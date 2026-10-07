@@ -49,14 +49,14 @@ function InsertionLine({ active }: { active: boolean }) {
         className="absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-full transition-all"
         style={{
           width: active ? 3 : 0,
-          background: '#2563eb',
+          background: 'var(--sk-blue-600, #2563eb)',
           boxShadow: active ? '0 0 0 3px rgba(37,99,235,0.15)' : 'none',
         }}
       />
       {active && (
         <>
-          <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full" style={{ background: '#2563eb' }} />
-          <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full" style={{ background: '#2563eb' }} />
+          <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full" style={{ background: 'var(--sk-blue-600, #2563eb)' }} />
+          <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full" style={{ background: 'var(--sk-blue-600, #2563eb)' }} />
         </>
       )}
     </span>
@@ -138,8 +138,8 @@ export function StepTabs() {
         className="group flex-none rounded-xl border bg-white px-3 py-2 text-left shadow-sm transition-all"
         style={{
           cursor: locked ? 'pointer' : 'grab',
-          borderColor: active ? '#2563eb' : '#e2e8f0',
-          background: active ? '#eff6ff' : '#fff',
+          borderColor: active ? 'var(--sk-blue-600, #2563eb)' : 'var(--sk-slate-200, #e2e8f0)',
+          background: active ? 'var(--sk-blue-50, #eff6ff)' : '#fff',
           boxShadow: active
             ? '0 6px 16px -8px rgba(37,99,235,0.4)'
             : '0 1px 2px rgba(15,23,42,0.06)',

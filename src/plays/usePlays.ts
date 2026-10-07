@@ -3,35 +3,41 @@ import { create } from 'zustand'
 import { AUDIENCE_LIBRARY, type Audience } from '../types/orchestration'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { nameProblem, uniqueName } from './names'
-import { ALL_AUDIENCE, type CancelPlay, type PlayVariant, type SplitBy } from './types'
+import { ALL_AUDIENCE, type CancelPlay, type PlayVariant } from './types'
+import { copySubAudiences, evenIn, evenWeights as evenWeightsOf, groupOf, makePlayOps, newPlayId, normalizePlay, variantFor } from './playOps'
+
+export { audienceUnset, blankSubAudience, evenWeights, groupOf, type PlayAction } from './playOps'
 
 const KEY = 'cancel-experience:plays:v8'
 
 interface PlaysState {
   plays: CancelPlay[]
+  /** v9: put away. Out of the order and of every count, until brought back. */
+  archived: CancelPlay[]
   /** False until the workspace boots and either reads or migrates the plays. */
   ready: boolean
 }
 
-export const usePlays = create<PlaysState>(() => ({ plays: [], ready: false }))
+export const usePlays = create<PlaysState>(() => ({ plays: [], archived: [], ready: false }))
 
-let n = 0
-const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${n++}`
+const newId = newPlayId
 
 function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ v: 1, plays: usePlays.getState().plays }))
+    const { plays, archived } = usePlays.getState()
+    localStorage.setItem(KEY, JSON.stringify({ v: 1, plays, archived }))
   } catch {
     /* quota */
   }
 }
 
-function read(): CancelPlay[] | null {
+function read(): { plays: CancelPlay[]; archived: CancelPlay[] } | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as { v?: number; plays?: CancelPlay[] }
-    return parsed.v === 1 && Array.isArray(parsed.plays) ? parsed.plays : null
+    const parsed = JSON.parse(raw) as { v?: number; plays?: CancelPlay[]; archived?: CancelPlay[] }
+    if (parsed.v !== 1 || !Array.isArray(parsed.plays)) return null
+    return { plays: parsed.plays.map(normalizePlay), archived: Array.isArray(parsed.archived) ? parsed.archived.map(normalizePlay) : [] }
   } catch {
     return null
   }
@@ -61,24 +67,14 @@ function blankPlay(name: string, variants: PlayVariant[] = [], audience: Audienc
     control: 0,
     splitBy: 'percent',
     variants,
+    subAudiences: [],
+    emptyRows: [],
     status: 'draft',
     language: 'en',
     saveWindowDays: null,
     createdAt: now,
     updatedAt: now,
   }
-}
-
-function variantFor(experienceId: string, weight = 100): PlayVariant {
-  return { id: newId('var'), experienceId, weight }
-}
-
-/** Equal shares that add up to exactly 100. */
-export function evenWeights(variants: PlayVariant[]): PlayVariant[] {
-  if (variants.length === 0) return variants
-  const base = Math.floor(100 / variants.length)
-  const extra = 100 - base * variants.length
-  return variants.map((v, i) => ({ ...v, weight: base + (i < extra ? 1 : 0) }))
 }
 
 export interface ThreadLike {
@@ -116,7 +112,7 @@ function seed(threads: ThreadLike[]): CancelPlay[] {
   const quick = bySeed('cancel_1')
   const plays: CancelPlay[] = []
   if (fair && plan) {
-    const p = blankPlay('Save most cancels', evenWeights([variantFor(fair), variantFor(plan)]), savedAudience('all_paying'))
+    const p = blankPlay('Save most cancels', evenWeightsOf([variantFor(fair), variantFor(plan)]), savedAudience('all_paying'))
     plays.push(p)
   }
   if (fair) {
@@ -125,6 +121,18 @@ function seed(threads: ThreadLike[]): CancelPlay[] {
     plays.push(p)
   }
   if (quick) plays.push(blankPlay('Trial users', [variantFor(quick)], savedAudience('in_trial')))
+  if (fair && plan && quick) {
+    const annual = { id: newId('sub'), audience: savedAudience('annual') }
+    const risky = { id: newId('sub'), audience: savedAudience('high_risk') }
+    const p = blankPlay(
+      'Plan-based saves',
+      [variantFor(fair, 50, annual.id), variantFor(plan, 50, annual.id), variantFor(quick, 50, risky.id), variantFor(plan, 50, risky.id), variantFor(fair)],
+      savedAudience('all_paying'),
+    )
+    p.splitBy = 'segments'
+    p.subAudiences = [annual, risky]
+    plays.push(p)
+  }
   return plays
 }
 
@@ -135,7 +143,7 @@ function seed(threads: ThreadLike[]): CancelPlay[] {
 export function initPlays(threads: ThreadLike[], fresh: boolean) {
   const saved = read()
   if (saved) {
-    usePlays.setState({ plays: saved, ready: true })
+    usePlays.setState({ ...saved, ready: true })
     return
   }
   const plays = fresh ? seed(threads) : migrate(threads)
@@ -180,7 +188,7 @@ export function duplicatePlay(id: string): string | null {
     ...src,
     id: newId('play'),
     name: uniqueName(`${src.name} copy`, playNames()),
-    variants: src.variants.map((v) => ({ ...v, id: newId('var') })),
+    ...copySubAudiences(src),
     status: 'draft',
     publishedAt: undefined,
     createdAt: now,
@@ -201,65 +209,66 @@ export function deletePlay(id: string) {
   setPriority(priority.filter((p) => p !== id))
 }
 
-export function updatePlay(id: string, change: Partial<Omit<CancelPlay, 'id'>>) {
-  patch(id, (p) => ({ ...p, ...change }))
-}
-
-export function setSplitBy(id: string, splitBy: SplitBy) {
-  patch(id, (p) => ({ ...p, splitBy, variants: splitBy === 'percent' ? evenWeights(p.variants) : p.variants }))
-}
-
-export function setVariant(playId: string, variantId: string, change: Partial<Omit<PlayVariant, 'id'>>) {
-  patch(playId, (p) => ({ ...p, variants: p.variants.map((v) => (v.id === variantId ? { ...v, ...change } : v)) }))
-}
-
-/** False when the experience is already in that play. */
-export function addToPlay(playId: string, experienceId: string, at?: number): boolean {
-  const play = usePlays.getState().plays.find((p) => p.id === playId)
-  if (!play || play.variants.some((v) => v.experienceId === experienceId)) return false
-  patch(playId, (p) => {
-    const next = [...p.variants]
-    next.splice(at ?? next.length, 0, variantFor(experienceId))
-    return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next }
+/** v9: out of the order, back to draft. Its experiences stay where they are. */
+export function archivePlay(id: string) {
+  const { plays, archived } = usePlays.getState()
+  const play = plays.find((p) => p.id === id)
+  if (!play) return
+  usePlays.setState({
+    plays: plays.filter((p) => p.id !== id),
+    archived: [{ ...play, status: 'draft', archivedAt: Date.now() }, ...archived],
   })
-  return true
+  persist()
+  const { priority, setPriority } = useCancelSettings.getState()
+  setPriority(priority.filter((p) => p !== id))
 }
 
-export function removeFromPlay(playId: string, variantId: string) {
-  patch(playId, (p) => {
-    const next = p.variants.filter((v) => v.id !== variantId)
-    return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next }
-  })
+/** Comes back as a draft at the bottom of the order. Pages archived since then drop out of it. */
+export function unarchivePlay(id: string, experienceIds: string[]) {
+  const { plays, archived } = usePlays.getState()
+  const play = archived.find((p) => p.id === id)
+  if (!play) return
+  const keep = new Set(experienceIds)
+  const back: CancelPlay = { ...play, name: uniqueName(play.name, plays.map((p) => p.name)), variants: play.variants.filter((v) => keep.has(v.experienceId)), archivedAt: undefined, updatedAt: Date.now() }
+  usePlays.setState({ plays: [...plays, back], archived: archived.filter((p) => p.id !== id) })
+  persist()
+  const { priority, setPriority } = useCancelSettings.getState()
+  setPriority([...priority.filter((p) => p !== id), id])
 }
 
-/** Moves a variant to another play. False when the target already has that experience. */
-export function moveToPlay(fromPlayId: string, variantId: string, toPlayId: string): boolean {
-  if (fromPlayId === toPlayId) return false
-  const from = usePlays.getState().plays.find((p) => p.id === fromPlayId)
-  const v = from?.variants.find((x) => x.id === variantId)
-  if (!v || !addToPlay(toPlayId, v.experienceId)) return false
-  removeFromPlay(fromPlayId, variantId)
-  return true
+export function deleteArchivedPlay(id: string) {
+  usePlays.setState({ archived: usePlays.getState().archived.filter((p) => p.id !== id) })
+  persist()
 }
 
-export function reorderVariant(playId: string, variantId: string, toIndex: number) {
-  patch(playId, (p) => {
-    const next = [...p.variants]
-    const from = next.findIndex((v) => v.id === variantId)
-    if (from < 0) return p
-    const [moved] = next.splice(from, 1)
-    next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, moved)
-    return { ...p, variants: next }
-  })
-}
 
-/** Points one play's variant at a different experience (after "Make a separate copy"). */
-export function swapExperience(playId: string, oldExperienceId: string, newExperienceId: string) {
-  patch(playId, (p) => ({
-    ...p,
-    variants: p.variants.map((v) => (v.experienceId === oldExperienceId ? { ...v, experienceId: newExperienceId } : v)),
-  }))
-}
+const ops = makePlayOps({
+  get: (id) => usePlays.getState().plays.find((p) => p.id === id),
+  patch,
+})
+
+export const {
+  setAction,
+  setSplitBy,
+  addSubAudience,
+  setSubAudience,
+  removeSubAudience,
+  addRow,
+  setRowPage,
+  setRowWeight,
+  removeRow,
+  setVariant,
+  evenWeightsIn,
+  addToPlay,
+  removeFromPlay,
+  moveToPlay,
+  reorderVariant,
+  swapExperience,
+  updatePlay,
+  setPlayLive,
+} = ops
+
+export const retentionPlayOps = ops
 
 /** An experience was deleted: take it out of every play. */
 export function dropExperience(experienceId: string) {
@@ -268,14 +277,12 @@ export function dropExperience(experienceId: string) {
   set(
     plays.map((p) => {
       if (!p.variants.some((v) => v.experienceId === experienceId)) return p
-      const next = p.variants.filter((v) => v.experienceId !== experienceId)
-      return { ...p, variants: p.splitBy === 'percent' ? evenWeights(next) : next, updatedAt: Date.now() }
+      const groups = new Set(p.variants.filter((v) => v.experienceId === experienceId).map((v) => groupOf(p, v)))
+      let next: CancelPlay = { ...p, variants: p.variants.filter((v) => v.experienceId !== experienceId), updatedAt: Date.now() }
+      for (const g of groups) next = evenIn(next, g)
+      return next
     }),
   )
-}
-
-export function setPlayLive(id: string, live: boolean) {
-  patch(id, (p) => ({ ...p, status: live ? 'live' : 'draft', publishedAt: live ? Date.now() : p.publishedAt }))
 }
 
 /** Every play an experience sits in. */

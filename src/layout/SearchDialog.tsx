@@ -11,7 +11,7 @@ import {
   useWorkspace,
 } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
-import { CONCIERGE } from './layoutMode'
+import { V9 } from './layoutMode'
 import { openLibrary } from '../plays/navigate'
 import { useCancelLibrary } from '../library/useCancelLibrary'
 
@@ -110,7 +110,7 @@ export function SearchDialog() {
           run: inThread(() => useOrchestration.getState().openTemplates('yours')),
         })),
     ].slice(0, LIMIT)
-    const catalogRows: Result[] = !CONCIERGE ? [] : [
+    const catalogRows: Result[] = !V9 ? [] : [
       ...catalog.offers.filter((o) => hit(o.name, o.title)).map((o) => ({
         id: o.id,
         group: 'Offers' as const,

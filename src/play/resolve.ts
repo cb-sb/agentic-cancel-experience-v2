@@ -102,7 +102,7 @@ function conditionMatches(c: AudienceCondition, props: Record<string, string>): 
   return (c.join ?? 'AND') === 'AND' ? all.every(Boolean) : all.some(Boolean)
 }
 
-function rulesOf(a: Audience): { conditions: AudienceCondition[]; match: MatchJoin } {
+export function rulesOf(a: Audience): { conditions: AudienceCondition[]; match: MatchJoin } {
   if (a.conditions && a.conditions.length > 0) return { conditions: a.conditions, match: a.match ?? 'AND' }
   const saved = a.savedAudienceId ? AUDIENCE_LIBRARY.find((s) => s.id === a.savedAudienceId) : undefined
   return saved ? { conditions: saved.conditions, match: saved.match } : { conditions: [], match: 'AND' }

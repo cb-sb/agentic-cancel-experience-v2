@@ -130,8 +130,9 @@ export function TabStrip<T extends string>({
 /** The Copilot column on the right of an experience or play. It folds to a strip, like Retention's. */
 export function CopilotColumn({ subtitle }: { subtitle: string }) {
   const collapsed = useWorkspaceUi((s) => s.copilotCollapsed)
+  const wide = useWorkspaceUi((s) => s.copilotWide)
   return (
-    <div className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : 'w-[clamp(340px,30%,460px)]'}`}>
+    <div className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : wide ? 'w-[clamp(480px,50%,820px)]' : 'w-[clamp(340px,30%,460px)]'}`}>
       {collapsed && <CopilotRail />}
       <div className={collapsed ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>
         <AgentSlot subtitle={subtitle} />

@@ -1,3 +1,4 @@
+import { hasSplit, splitProblem } from '../../plays/resolve'
 import { toast, type MenuItem } from '../../plays/ui'
 import { TYPE_ICON, TYPE_LABEL, objectiveLabel, type GrowthExperience, type GrowthObjective, type GrowthType } from '../model'
 import { addGrowthExperience, experiencesFor, growthExperience, updateGrowthExperience, useGrowthExperiences, visibleIn } from '../useGrowthExperiences'
@@ -76,43 +77,45 @@ export interface PlayCheck {
   passed: boolean
   /** What to do when it hasn't passed. */
   fix: string
+  /** 'variants' and 'split' are fixed in Configure. */
+  item: string
+  openExperienceId?: string
 }
 
 /** What has to pass before a play goes live. */
 export function growthPlayChecks(play: GrowthPlay): PlayCheck[] {
   const items = useGrowthExperiences.getState().items
-  const experiences = play.variants.map((v) => items.find((i) => i.id === v.experienceId))
-  const total = play.variants.reduce((s, v) => s + v.weight, 0)
+  const empty = play.variants.map((v) => items.find((i) => i.id === v.experienceId)).filter((x) => !x || !x.refId || !refName(x))
   const checks: PlayCheck[] = [
     {
       id: 'variants',
-      label: 'It has at least one variant',
+      label: 'It has at least one experience',
       passed: play.variants.length > 0,
-      fix: 'Add an experience as a variant in the Summary.',
-    },
-    {
-      id: 'content',
-      label: 'Every variant shows an offer or pricing table',
-      passed: play.variants.length > 0 && experiences.every((x) => x && x.refId && refName(x)),
-      fix: 'Open the experience and pick one from your Library or a template.',
+      fix: 'Add the experience this play shows.',
+      item: 'variants',
     },
   ]
-  if (play.variants.length > 1 && play.splitBy === 'percent') {
-    checks.push({ id: 'split', label: 'The split adds up to 100%', passed: total === 100, fix: `It adds up to ${total}% now.` })
-  }
-  if (play.variants.length > 1 && play.splitBy === 'segments') {
+  if (play.variants.length > 0) {
+    const first = empty[0]
     checks.push({
-      id: 'segments',
-      label: 'One variant is for everyone else',
-      passed: play.variants.some((v) => !v.audience),
-      fix: 'Leave the sub-audience empty on one variant.',
+      id: 'content',
+      label: 'Every experience shows an offer or pricing table',
+      passed: empty.length === 0,
+      fix: empty.length === 1 && first ? `${first.name} has nothing to show yet.` : `${empty.length} experiences have nothing to show yet.`,
+      item: 'content',
+      openExperienceId: first?.id,
     })
+  }
+  if (hasSplit(play)) {
+    const problem = splitProblem(play)
+    checks.push({ id: 'split', label: 'Traffic split adds up', passed: problem === null, fix: problem ?? '', item: 'split' })
   }
   checks.push({
     id: 'control',
     label: 'The control group is 50% or less',
     passed: play.control >= 0 && play.control <= 50,
-    fix: 'Lower the control group in the Summary.',
+    fix: 'Lower the control group.',
+    item: 'control',
   })
   return checks
 }

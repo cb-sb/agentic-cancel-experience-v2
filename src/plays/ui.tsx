@@ -15,7 +15,7 @@ export interface MenuItem {
   hint?: string
 }
 
-function useOutside(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
+export function useOutside(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
@@ -33,7 +33,7 @@ function useOutside(open: boolean, ref: React.RefObject<HTMLElement | null>, clo
   }, [open, ref, close])
 }
 
-function MenuList({ items, close }: { items: MenuItem[]; close: () => void }) {
+export function MenuList({ items, close }: { items: MenuItem[]; close: () => void }) {
   const [confirming, setConfirming] = useState<string | null>(null)
   const [nested, setNested] = useState<MenuItem | null>(null)
   if (nested) {
@@ -100,11 +100,14 @@ export function RowMenu({
   icon = 'more-horizontal',
   align = 'right',
   width = 220,
+  text,
 }: {
   items: MenuItem[]
   label: string
   className?: string
   icon?: SIconName
+  /** Shown beside the icon, for a menu that reads as an action row. */
+  text?: string
   /** `beside` opens to the right of the button, outside a narrow pane. */
   align?: 'left' | 'right' | 'beside'
   width?: number
@@ -123,9 +126,12 @@ export function RowMenu({
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className={`flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-white hover:text-slate-900 ${open ? 'bg-white text-slate-900' : ''}`}
+        className={`flex h-6 items-center rounded-md hover:bg-white hover:text-slate-900 ${
+          text ? 'gap-[6px] pl-[5px] pr-[8px] text-[11.5px] text-slate-400' : 'w-6 justify-center text-slate-500'
+        } ${open ? 'bg-white text-slate-900' : ''}`}
       >
-        <SIcon name={icon} size={14} />
+        <SIcon name={icon} size={text ? 12 : 14} />
+        {text}
       </button>
       {open && (
         <div
@@ -306,7 +312,7 @@ export function Chip({ children, tone = 'slate', title }: { children: ReactNode;
     rose: 'bg-rose-50 text-rose-700',
   }
   return (
-    <span title={title} className={`inline-flex flex-none items-center rounded-full px-[6px] py-[1px] text-[10.5px] font-semibold ${tones[tone]}`}>
+    <span title={title} className={`slg-tag inline-flex flex-none items-center rounded-full px-[6px] py-[1px] text-[10.5px] font-semibold ${tones[tone]}`}>
       {children}
     </span>
   )

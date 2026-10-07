@@ -3,22 +3,25 @@ import { contextPlayId } from '../plays/navigate'
 import { useOrchestration } from '../store/useOrchestration'
 import { useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
-import { CONCIERGE } from './layoutMode'
+import { V9 } from './layoutMode'
 
+/** A play, or an experience that isn't being worked on through a play. */
 export interface RecentItem {
   kind: 'play' | 'experience'
   id: string
 }
 
-const KEY = 'cancel-experience:recent:concierge'
+const KEY = 'cancel-experience:recent:v9'
 const MAX = 8
 
 function read(): RecentItem[] {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]')
-    return Array.isArray(value)
-      ? value.filter((x): x is RecentItem => Boolean(x) && (x.kind === 'play' || x.kind === 'experience') && typeof x.id === 'string')
-      : []
+    const raw = localStorage.getItem(KEY)
+    const list: unknown = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(list)) return []
+    return list.filter(
+      (x): x is RecentItem => Boolean(x) && (x.kind === 'play' || x.kind === 'experience') && typeof x.id === 'string',
+    )
   } catch {
     return []
   }
@@ -27,9 +30,9 @@ function read(): RecentItem[] {
 export const useRecent = create<{ items: RecentItem[] }>(() => ({ items: read() }))
 
 function push(item: RecentItem) {
-  const items = useRecent.getState().items
+  const { items } = useRecent.getState()
   if (items[0]?.kind === item.kind && items[0]?.id === item.id) return
-  const next = [item, ...items.filter((x) => x.kind !== item.kind || x.id !== item.id)].slice(0, MAX)
+  const next = [item, ...items.filter((x) => !(x.kind === item.kind && x.id === item.id))].slice(0, MAX)
   useRecent.setState({ items: next })
   try {
     localStorage.setItem(KEY, JSON.stringify(next))
@@ -38,25 +41,26 @@ function push(item: RecentItem) {
   }
 }
 
+/** An experience opened from a play counts as that play. */
 function track() {
   const { page, playId } = useWorkspaceUi.getState()
   if (page === 'play' && playId) return push({ kind: 'play', id: playId })
   if (page !== 'thread' || useOrchestration.getState().templatesOpen) return
   const inPlay = contextPlayId()
   if (inPlay) return push({ kind: 'play', id: inPlay })
-  const activeId = useWorkspace.getState().activeId
+  const { activeId } = useWorkspace.getState()
   if (activeId) push({ kind: 'experience', id: activeId })
 }
 
-if (CONCIERGE) {
-  useWorkspaceUi.subscribe((s, before) => {
-    if (s.page !== before.page || s.playId !== before.playId) track()
+if (V9) {
+  useWorkspaceUi.subscribe((s, prev) => {
+    if (s.page !== prev.page || s.playId !== prev.playId) track()
   })
-  useWorkspace.subscribe((s, before) => {
-    if (s.activeId !== before.activeId) track()
+  useWorkspace.subscribe((s, prev) => {
+    if (s.activeId !== prev.activeId) track()
   })
-  useOrchestration.subscribe((s, before) => {
-    if (s.templatesOpen !== before.templatesOpen) track()
+  useOrchestration.subscribe((s, prev) => {
+    if (s.templatesOpen !== prev.templatesOpen) track()
   })
   track()
 }

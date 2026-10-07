@@ -74,7 +74,7 @@ function SlotGap({
             width: 2,
             height: THUMB_H,
             background: COPILOT_UI.send,
-            boxShadow: `0 0 0 3px ${COPILOT_UI.send}22`,
+            boxShadow: `0 0 0 3px color-mix(in oklch, ${COPILOT_UI.send} 13%, transparent)`,
           }}
         />
       ) : (
@@ -290,8 +290,8 @@ export function StepStrip({
         ref={listRef}
         className="no-scrollbar flex items-start overflow-x-auto px-[16px] py-[16px]"
         style={{
-          backgroundColor: '#f8fafc',
-          backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)',
+          backgroundColor: 'var(--sk-slate-50, #f8fafc)',
+          backgroundImage: 'radial-gradient(var(--sk-slate-200, #e2e8f0) 1px, transparent 1px)',
           backgroundSize: '12px 12px',
         }}
       >

@@ -1,4 +1,6 @@
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
+import { V9 } from '../layout/layoutMode'
+import { AddTab, AngledTabs, PageHeader, ToolButton, ToolDivider } from '../layout/SlgChrome'
 import { CopilotRail } from '../orchestration/CopilotRail'
 import { AgentSlot } from '../concierge/AgentSlot'
 import { CONCIERGE } from '../layout/layoutMode'
@@ -9,13 +11,16 @@ import { playRows, useSetupInputs, workspaceRows } from '../setup/progress'
 import { useWorkspaceUi, type PlayTab, type PlayTabRef } from '../workspace/useWorkspaceUi'
 import { closePlayTab, openAnotherPlayTab, openOrder } from './navigate'
 import { PlayCanvas } from './PlayCanvas'
+import { PlayConfigure } from './PlayConfigure'
 import { noteInPlayChat, PlayChat } from './PlayChat'
 import { renamePlay, setPlayLive, usePlays } from './usePlays'
 import { Chip, InlineName, RowMenu } from './ui'
 import type { CancelPlay } from './types'
 import { doInChat } from '../setup/actions'
+import { FRAME_FORM } from '../layout/frames'
 
 const PLAY_TAB: Record<PlayTab, { label: string; icon: SIconName; hint: string }> = {
+  configure: { label: 'Configure', icon: 'sliders-horizontal', hint: 'Set up who sees this play and which pages they get' },
   canvas: { label: 'Canvas', icon: 'workflow', hint: 'Every variant, and a test with a subscriber' },
   summary: { label: 'Summary', icon: 'file-text', hint: 'Every setting for this play' },
   tasks: { label: 'Task list', icon: 'list-checks', hint: 'What has to pass, and every setting' },
@@ -32,7 +37,7 @@ function PlaySummary({ play }: { play: CancelPlay }) {
   const rows = playRows(play.id, inputs)
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] space-y-[20px] px-[28px] py-[24px]">
+      <div className={`space-y-[20px] px-[28px] py-[24px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
           <h2 className="mt-[4px] text-[18px] font-semibold text-slate-900">{play.name}</h2>
@@ -79,6 +84,7 @@ export function PlayWorkspace() {
   const tabs = useWorkspaceUi((s) => (playId ? s.playTabs[playId] : undefined))
   const renaming = useWorkspaceUi((s) => s.renaming === playId)
   const collapsed = useWorkspaceUi((s) => s.copilotCollapsed)
+  const wide = useWorkspaceUi((s) => V9 && s.copilotWide)
 
   if (!play) {
     return (
@@ -91,9 +97,63 @@ export function PlayWorkspace() {
   const active = open.find((t) => t.id === tabs?.active) ?? open[0] ?? null
   const setActive = (id: string) => useWorkspaceUi.getState().setPlayTabs(play.id, { open, active: id })
 
+  const name = (
+    <InlineName
+      value={play.name}
+      editing={renaming}
+      onStart={() => useWorkspaceUi.getState().setRenaming(play.id)}
+      onDone={() => useWorkspaceUi.getState().setRenaming(null)}
+      onCommit={(name) => renamePlay(play.id, name)}
+      className="font-[family-name:var(--slg-font-family-emphasis)] text-[16px] font-semibold leading-[24px] text-slate-900"
+      inputClassName="text-[15px] font-semibold"
+    />
+  )
+  const header = V9 ? (
+    <header className="flex-none bg-white px-[16px] pt-[12px]">
+      <PageHeader
+        tabsAlign="start"
+        title={<span className="min-w-0 max-w-[260px]">{name}</span>}
+        meta={[<Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>]}
+        tabs={
+          <div className="flex min-w-0 items-end">
+            <AngledTabs
+              label="Play tabs"
+              value={active?.id ?? ''}
+              onChange={setActive}
+              items={open.map((ref) => {
+                const label = tabLabel(open, ref)
+                return { id: ref.id, label, hint: PLAY_TAB[ref.kind].hint, onClose: open.length > 1 ? () => closePlayTab(play.id, ref.id) : undefined }
+              })}
+            />
+            <AddTab
+              items={(Object.keys(PLAY_TAB) as PlayTab[]).map((kind) => ({
+                label: PLAY_TAB[kind].label,
+                icon: PLAY_TAB[kind].icon,
+                hint: PLAY_TAB[kind].hint,
+                onClick: () => openAnotherPlayTab(play.id, kind, active?.id),
+              }))}
+            />
+          </div>
+        }
+        actions={
+          <>
+            <ToolButton icon="list-ordered" label="All plays" onClick={openOrder}>
+              All plays
+            </ToolButton>
+            <ToolDivider />
+            <GoLive play={play} />
+          </>
+        }
+      />
+    </header>
+  ) : null
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {header}
+        {!V9 && (
+        <>
         <header className="flex h-[52px] flex-none items-center gap-[10px] border-b border-slate-200 px-[16px]">
           <SIcon name="workflow" size={15} className="flex-none text-slate-500" />
           <InlineName
@@ -108,16 +168,22 @@ export function PlayWorkspace() {
           <Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>
           <div className="flex-1" />
           <button type="button" onClick={openOrder} className="inline-flex items-center gap-[5px] rounded-lg px-[8px] py-[5px] text-[12px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800">
-            <SIcon name="list-ordered" size={13} /> Play order
+            <SIcon name="list-ordered" size={13} /> {V9 ? 'All plays' : 'Play order'}
           </button>
           <GoLive play={play} />
         </header>
-        <div role="tablist" aria-label="Play tabs" className="flex h-[40px] flex-none items-center gap-[2px] border-b border-slate-200 px-[10px]">
+        <div role="tablist" aria-label="Play tabs" className="flex h-[50px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
           {open.map((ref) => {
             const on = ref.id === active?.id
             const meta = PLAY_TAB[ref.kind]
+            const label = tabLabel(open, ref)
             return (
-              <div key={ref.id} className={`group flex h-[30px] items-center rounded-lg ${on ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
+              <div
+                key={ref.id}
+                className={`group -mb-px flex h-[42px] flex-none items-center gap-1 rounded-t-xl border px-3 text-[13px] font-semibold ${
+                  on ? 'border-slate-200 border-b-white bg-white text-slate-900' : 'border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                }`}
+              >
                 <button
                   type="button"
                   role="tab"
@@ -125,25 +191,25 @@ export function PlayWorkspace() {
                   title={meta.hint}
                   onClick={() => setActive(ref.id)}
                   onAuxClick={(e) => e.button === 1 && open.length > 1 && closePlayTab(play.id, ref.id)}
-                  className={`flex items-center gap-[6px] pl-[10px] pr-[4px] text-[12.5px] font-semibold ${on ? 'text-slate-900' : 'text-slate-500'}`}
+                  className="whitespace-nowrap px-1"
                 >
-                  <SIcon name={meta.icon} size={13} />
-                  {tabLabel(open, ref)}
+                  {label}
                 </button>
                 {open.length > 1 && (
                   <button
                     type="button"
-                    aria-label={`Close ${tabLabel(open, ref)}`}
+                    aria-label={`Close ${label}`}
+                    title={`Close ${label}`}
                     onClick={() => closePlayTab(play.id, ref.id)}
-                    className="mr-[4px] flex h-[18px] w-[18px] items-center justify-center rounded text-slate-400 opacity-0 hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100"
+                    className="flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-800"
                   >
-                    <SIcon name="x" size={11} />
+                    <SIcon name="x" size={12} />
                   </button>
                 )}
               </div>
             )
           })}
-          <div className="relative">
+          <div className="relative flex h-[42px] flex-none items-center">
             <RowMenu
               label="Open a tab"
               icon="plus"
@@ -157,7 +223,10 @@ export function PlayWorkspace() {
             />
           </div>
         </div>
+        </>
+        )}
         <div className="min-h-0 flex-1">
+          {active?.kind === 'configure' && <PlayConfigure key={active.id} play={play} />}
           {active?.kind === 'canvas' && <PlayCanvas key={active.id} play={play} />}
           {active?.kind === 'summary' && <PlaySummary key={active.id} play={play} />}
           {active?.kind === 'tasks' && <PlayTaskList key={active.id} playId={play.id} />}
@@ -167,7 +236,7 @@ export function PlayWorkspace() {
         </div>
       </div>
       <div
-        className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : 'w-[clamp(340px,30%,460px)]'}`}
+        className={`flex min-h-0 flex-none flex-col border-l border-slate-200 ${collapsed ? 'w-[48px]' : wide ? 'w-[clamp(480px,50%,820px)]' : 'w-[clamp(340px,30%,460px)]'}`}
       >
         {collapsed && <CopilotRail />}
         <div className={collapsed ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>

@@ -69,13 +69,13 @@ export function modeLabel(c: ExperienceComponent): string | null {
 }
 
 export const ACCENTS: Record<ExperienceComponent['kind'], string> = {
-  offer: '#6366f1',
-  survey: '#0f172a',
-  loss_aversion: '#8b5cf6',
-  pricing_table: '#0ea5e9',
-  checkout: '#0f172a',
-  confirmation: '#334155',
-  outcome: '#10b981',
+  offer: 'var(--sk-indigo-500, #6366f1)',
+  survey: 'var(--sk-slate-900, #0f172a)',
+  loss_aversion: 'var(--sk-violet-500, #8b5cf6)',
+  pricing_table: 'var(--sk-sky-500, #0ea5e9)',
+  checkout: 'var(--sk-slate-900, #0f172a)',
+  confirmation: 'var(--sk-slate-700, #334155)',
+  outcome: 'var(--sk-emerald-500, #10b981)',
 }
 
 /** The component a step is *about* — steps hold one, bar legacy compositions. */

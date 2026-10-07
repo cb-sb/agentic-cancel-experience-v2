@@ -133,7 +133,8 @@ const NOT_IN_V8 = new Set<string>([
 ])
 const V8_LABELS: Partial<Record<NavLeafId, string>> = { 'experiences.cancel': 'Retention' }
 
-const V8_NAV: NavEntry[] = ALL_NAV.filter((e) => !(e.kind === 'group' && NOT_IN_V8.has(e.group.id))).map((e) =>
+/** v8's Retention beta nav, opened from the button at the bottom of the rail. */
+export const BETA_NAV: NavEntry[] = ALL_NAV.filter((e) => !(e.kind === 'group' && NOT_IN_V8.has(e.group.id))).map((e) =>
   e.kind === 'group'
     ? {
         ...e,
@@ -145,6 +146,11 @@ const V8_NAV: NavEntry[] = ALL_NAV.filter((e) => !(e.kind === 'group' && NOT_IN_
     : e,
 )
 
+/** v8's main nav: the live app's, with the cancel experience reached only through the beta. */
+const CLASSIC_NAV: NavEntry[] = ALL_NAV.filter((e) => !(e.kind === 'leaf' && e.leaf.id === 'renewal')).map((e) =>
+  e.kind === 'group' ? { ...e, group: { ...e.group, children: e.group.children.filter((c) => c.id !== 'experiences.cancel') } } : e,
+)
+
 /** Concierge: Home, then one place per objective. Retention is the whole v8 cancel experience. */
 const CONCIERGE_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
@@ -154,10 +160,30 @@ const CONCIERGE_NAV: NavEntry[] = [
   ...ALL_NAV.slice(3),
 ]
 
-export const NAV: NavEntry[] = CONCIERGE ? CONCIERGE_NAV : V8 ? V8_NAV : ALL_NAV
+export const NAV: NavEntry[] = CONCIERGE ? CONCIERGE_NAV : V8 ? CLASSIC_NAV : ALL_NAV
 
 export const DEFAULT_ROUTE: NavLeafId = CONCIERGE ? 'home' : V8 ? 'experiences.cancel' : 'plays.acquisition'
 export const CANCEL_ROUTE: NavLeafId = 'experiences.cancel'
+/** Where "Exit Retention beta" lands. */
+export const CLASSIC_HOME: NavLeafId = 'plays.acquisition'
+
+function leafIds(nav: NavEntry[]): NavLeafId[] {
+  return nav.flatMap((entry) => (entry.kind === 'leaf' ? [entry.leaf.id] : entry.group.children.map((c) => c.id)))
+}
+
+const BETA_IDS = new Set(leafIds(BETA_NAV))
+
+/** v8: whether `route` shows the beta nav. Routes in both navs keep the current one. */
+export function betaFor(route: NavLeafId, current: boolean): boolean {
+  if (!V8 || CONCIERGE) return false
+  if (route === CANCEL_ROUTE) return true
+  return BETA_IDS.has(route) ? current : false
+}
+
+export function childrenOf(id: NavGroupId): NavLeaf[] {
+  const entry = ALL_NAV.find((item) => item.kind === 'group' && item.group.id === id)
+  return entry?.kind === 'group' ? entry.group.children : []
+}
 
 export function groupOf(id: NavLeafId): NavGroupId | null {
   const [head] = id.split('.')
@@ -168,7 +194,7 @@ export function groupOf(id: NavLeafId): NavGroupId | null {
 }
 
 export function labelOf(id: NavLeafId): string {
-  for (const entry of NAV) {
+  for (const entry of V8 ? [...BETA_NAV, ...NAV] : NAV) {
     if (entry.kind === 'leaf' && entry.leaf.id === id) return entry.leaf.label
     if (entry.kind === 'group') {
       const hit = entry.group.children.find((c) => c.id === id)
@@ -178,9 +204,7 @@ export function labelOf(id: NavLeafId): string {
   return id
 }
 
-const LEAF_IDS = new Set<NavLeafId>(
-  NAV.flatMap((entry) => (entry.kind === 'leaf' ? [entry.leaf.id] : entry.group.children.map((c) => c.id))),
-)
+const LEAF_IDS = new Set<NavLeafId>([...leafIds(NAV), ...(V8 ? BETA_IDS : [])])
 
 export function hashFor(id: NavLeafId): string {
   return `#/${id.replace(/\./g, '/')}`

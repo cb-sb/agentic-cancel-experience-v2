@@ -41,7 +41,8 @@ import { scanReviewCopy } from '../library/review'
 import { clearDraft } from '../store/draft'
 import { resetHistoryBaseline } from '../store/useHistory'
 import { CopilotLibrary } from './TemplatesModal'
-import { STUDIO, V8 } from '../layout/layoutMode'
+import { STUDIO, V8, V9 } from '../layout/layoutMode'
+import { CopilotComposer, CopilotDisclaimer, CopilotEmpty, CopilotHeader, CopilotHeaderButton } from './CopilotChrome'
 import { BackButton, backToExperiences } from '../shell/BackButton'
 import { newChat, newThread, startUploadPage, useWorkspace } from '../workspace/useWorkspace'
 import { openTab } from '../workspace/paneTabs'
@@ -279,6 +280,7 @@ export function PromptCodeDock({
   railRight?: boolean
 }) {
   const sidebarOpen = useWorkspaceUi((s) => s.sidebarOpen)
+  const copilotWide = useWorkspaceUi((s) => s.copilotWide)
   const setSidebarOpen = useWorkspaceUi((s) => s.setSidebarOpen)
   const beatAsk = useWorkspaceUi((s) => s.beatAsk)
   const dockMode = useJourney((s) => s.dockMode)
@@ -1088,6 +1090,29 @@ export function PromptCodeDock({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
+      {V9 ? (
+        <CopilotHeader>
+          <CopilotHeaderButton
+            label={annotateMode ? 'Exit design mode' : 'Annotate'}
+            icon={<DesignModeIcon />}
+            pressed={annotateMode}
+            onClick={() => {
+              const next = !annotateMode
+              setAnnotateMode(next)
+              if (next) {
+                setAssistantOpen(true)
+                setDockMode('prompt')
+              } else closeAnnotation()
+            }}
+          />
+          {railRight && (
+            <>
+              <CopilotHeaderButton label={copilotWide ? 'Make Copilot narrower' : 'Make Copilot wider'} icon={copilotWide ? 'minimize-2' : 'maximize-2'} onClick={() => useWorkspaceUi.setState({ copilotWide: !copilotWide })} />
+              <CopilotHeaderButton label="Close Copilot" icon="x" onClick={() => useWorkspaceUi.getState().setCopilotCollapsed(true)} />
+            </>
+          )}
+        </CopilotHeader>
+      ) : (
       <div
         className="flex h-[60px] flex-none items-center justify-between gap-[12px] px-[16px]"
         style={{ background: COPILOT_UI.header, borderBottom: `1px solid ${COPILOT_UI.hairline}` }}
@@ -1167,7 +1192,7 @@ export function PromptCodeDock({
               className="rounded-[8px] px-[8px] py-[6px] text-[12px] font-semibold"
               style={{
                 color: dockMode === id ? COPILOT_UI.title : COPILOT_UI.muted,
-                background: dockMode === id ? '#e7f1fe' : 'transparent',
+                background: dockMode === id ? 'var(--sk-blue-50, #e7f1fe)' : 'transparent',
               }}
             >
               {label}
@@ -1199,6 +1224,7 @@ export function PromptCodeDock({
           )}
         </div>
       </div>
+      )}
 
       {dockMode === 'code' && !V8 ? (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -1258,6 +1284,15 @@ export function PromptCodeDock({
           )}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[24px] pt-[12px]">
+              {V9 && lines.length === 0 ? (
+                <CopilotEmpty
+                  title="What do you want to work on?"
+                  text="I can set up this experience with you, change its offers and pages, or match your brand."
+                >
+                  {options && <div className="[&>div]:flex-col [&>div]:items-center">{options}</div>}
+                </CopilotEmpty>
+              ) : (
+              <>
               <div className="space-y-[16px]">
                 {lines.map((m) => (
                   <ChatLine key={m.id} line={m}>
@@ -1296,8 +1331,18 @@ export function PromptCodeDock({
                   {options}
                 </div>
               ) : null}
+              </>
+              )}
             </div>
             <div className="flex-none px-[16px] pb-[12px] pt-[4px]">
+              {V9 ? (
+                <CopilotComposer
+                  value={draft}
+                  onChange={setDraft}
+                  onSend={send}
+                  placeholder={(turn === 'plan' && beat === 'brand') || setupItem?.id === 'brand' ? 'https://account.example.com — or: dark navy, gold buttons, Inter' : 'Offers, who sees it, tests, page style, or brand'}
+                />
+              ) : (
               <PromptInput
                 value={draft}
                 onChange={setDraft}
@@ -1312,6 +1357,7 @@ export function PromptCodeDock({
                         : 'Ask Copilot...'
                 }
               />
+              )}
               {!V8 && !(turn === 'plan' && beat === 'brand') && (
                 <div className="mt-[8px] flex flex-col gap-[4px] px-[4px]">
                   {EXAMPLE_PROMPTS.map((prompt) => (
@@ -1326,9 +1372,13 @@ export function PromptCodeDock({
                   ))}
                 </div>
               )}
-              <p className="mt-[8px] px-[4px] text-center text-[11px] leading-snug text-[#9aa3b2]">
-                By using Growth Copilot, you accept our third-party AI terms.
-              </p>
+              {V9 ? (
+                <CopilotDisclaimer />
+              ) : (
+                <p className="mt-[8px] px-[4px] text-center text-[11px] leading-snug text-[#9aa3b2]">
+                  By using Growth Copilot, you accept our third-party AI terms.
+                </p>
+              )}
             </div>
           </div>
         </div>
