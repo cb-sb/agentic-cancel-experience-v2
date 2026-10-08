@@ -18,6 +18,7 @@ export type V10Tab = 'plays' | 'experiences' | 'audiences'
 export type V10Kind = 'play' | 'experience' | 'audience'
 export type V10Source = 'growth' | 'retention' | 'audience'
 export type V10Scope = 'portfolio' | 'acquisition' | 'expansion' | 'retention'
+export type PlayMode = 'list' | 'priority' | 'canvas'
 export type ExperienceSlice = 'all' | 'in_app_offer' | 'pricing_table' | 'cancel_page'
 
 export interface V10Ref {
@@ -61,6 +62,9 @@ interface V10State {
   close: () => void
   togglePin: (ref: V10Ref) => void
   setFilters: (tab: V10Tab, patch: Partial<Filters>) => void
+  /** List, priority, or canvas for one objective. Saved views stay on the table. */
+  playMode: PlayMode
+  setPlayMode: (mode: PlayMode) => void
   selectSystemView: (tab: V10Tab, scope: V10Scope, slice?: ExperienceSlice) => void
   selectView: (tab: V10Tab, id: string | null) => void
   addView: (tab: V10Tab, name?: string, from?: Filters) => string
@@ -96,6 +100,11 @@ export interface V10Location {
   active: string | null
   scope: V10Scope
   slice: ExperienceSlice
+  mode: PlayMode
+}
+
+function modeOf(value: string | null): PlayMode | undefined {
+  return value === 'list' || value === 'priority' || value === 'canvas' ? value : undefined
 }
 
 function locationFromHash(hash: string): Partial<V10Location> {
@@ -104,10 +113,12 @@ function locationFromHash(hash: string): Partial<V10Location> {
   const params = new URLSearchParams(query)
   const scope = params.get('scope')
   const slice = params.get('slice')
+  const mode = modeOf(params.get('mode'))
   return {
     active: params.get('view'),
     ...(scope === 'portfolio' || scope === 'acquisition' || scope === 'expansion' || scope === 'retention' ? { scope } : {}),
     ...(slice === 'all' || slice === 'in_app_offer' || slice === 'pricing_table' || slice === 'cancel_page' ? { slice } : {}),
+    ...(mode ? { mode } : {}),
   }
 }
 
@@ -198,8 +209,10 @@ function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'activ
 
 export const useV10 = create<V10State>((set, get) => ({
   open: null,
+  playMode: typeof window === 'undefined' ? 'list' : (locationFromHash(window.location.hash).mode ?? 'list'),
   ...load(),
   close: () => set({ open: null }),
+  setPlayMode: (playMode) => set({ playMode, active: playMode === 'list' ? get().active : null }),
   togglePin: (ref) =>
     set((state) => ({
       pins: state.pins.some((pin) => same(pin, ref)) ? state.pins.filter((pin) => !same(pin, ref)) : [ref, ...state.pins],
@@ -209,6 +222,7 @@ export const useV10 = create<V10State>((set, get) => ({
     set((state) => ({
       open: null,
       active: null,
+      playMode: 'list',
       filters: {
         ...state.filters,
         [tab]: {
@@ -221,7 +235,7 @@ export const useV10 = create<V10State>((set, get) => ({
     if (useGrowthShell.getState().route !== TAB_ROUTE[tab]) useGrowthShell.getState().go(TAB_ROUTE[tab])
   },
   selectView: (tab, id) => {
-    set({ open: null, active: id })
+    set({ open: null, active: id, playMode: 'list' })
     if (useGrowthShell.getState().route !== TAB_ROUTE[tab]) useGrowthShell.getState().go(TAB_ROUTE[tab])
   },
   addView: (tab, name, from) => {
@@ -240,11 +254,12 @@ export const useV10 = create<V10State>((set, get) => ({
 
 export function v10Location(route = useGrowthShell.getState().route): V10Location {
   const tab = ROUTE_TAB[route]
-  if (!tab) return { active: null, scope: 'portfolio', slice: 'all' }
+  if (!tab) return { active: null, scope: 'portfolio', slice: 'all', mode: 'list' }
   const state = useV10.getState()
   const view = state.saved.find((item) => item.id === state.active && item.tab === tab)
   const filters = view ?? state.filters[tab]
-  return { active: view?.id ?? null, scope: filters.scope, slice: filters.slice }
+  const mode = tab === 'plays' && !view && filters.scope !== 'portfolio' ? state.playMode : 'list'
+  return { active: view?.id ?? null, scope: filters.scope, slice: filters.slice, mode }
 }
 
 export function v10HashFor(route: NavLeafId, location = v10Location(route)): string {
@@ -253,6 +268,7 @@ export function v10HashFor(route: NavLeafId, location = v10Location(route)): str
   const params = new URLSearchParams()
   if (location.active) params.set('view', location.active)
   if (location.scope !== 'portfolio') params.set('scope', location.scope)
+  if (route === 'work.plays' && location.scope !== 'portfolio' && location.mode !== 'list') params.set('mode', location.mode)
   if (route === 'work.experiences' && location.slice !== 'all') params.set('slice', location.slice)
   const query = params.toString()
   return query ? `${base}?${query}` : base
@@ -268,6 +284,7 @@ export function restoreV10Location(route: NavLeafId, location?: V10Location) {
   }
   useV10.setState({
     active: null,
+    playMode: tab === 'plays' ? (location.mode ?? 'list') : 'list',
     filters: {
       ...state.filters,
       [tab]: { ...state.filters[tab], scope: location.scope, slice: tab === 'experiences' ? location.slice : 'all' },
@@ -284,6 +301,7 @@ export function syncV10FromHash(route: NavLeafId, hash: string) {
     active: parsed.active ?? null,
     scope: parsed.scope ?? current.scope,
     slice: parsed.slice ?? (tab === 'experiences' ? current.slice : 'all'),
+    mode: parsed.mode ?? 'list',
   })
 }
 

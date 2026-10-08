@@ -251,13 +251,32 @@ function PriorityPinned({ icon, title, lines, children }: { icon: SIconName; tit
 
 const PRIORITY_COLS = 'grid grid-cols-[44px_minmax(0,1.8fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_60px_56px] items-center gap-[16px]'
 
+/** Data and actions for one objective's priority list and canvas. Absent means the retention plays page. */
+export interface ObjectiveOrder {
+  globalControl: number
+  controlMax: number
+  heldBack: string
+  trafficLine: string
+  startTitle?: string
+  setGlobalControl: (value: number) => void
+  commit: (ids: string[]) => void
+  open: (id: string) => void
+  titleOf: (id: string) => string
+  fallback: { id: string | null; options: { id: string; title: string }[]; set: (id: string | null) => void } | null
+  openExperience?: (experienceId: string, playId: string) => void
+}
+
 /** v9: the priority list. Filtered plays keep their real place in the order. */
-function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] }) {
+export function PriorityList({ ranked, shown, source }: { ranked: CancelPlay[]; shown: CancelPlay[]; source?: ObjectiveOrder }) {
   const ids = ranked.map((p) => p.id)
   const warn = useMemo(() => new Map(overlaps(ranked).map((o) => [o.playId, o.coveredBy])), [ranked])
   const shells = useShells(ranked)
-  const globalControl = useCancelSettings((s) => s.globalControl)
-  const fallbackId = useCancelSettings((s) => s.globalFallbackId)
+  const settingsControl = useCancelSettings((s) => s.globalControl)
+  const settingsFallback = useCancelSettings((s) => s.globalFallbackId)
+  const globalControl = source?.globalControl ?? settingsControl
+  const fallbackId = source ? (source.fallback?.id ?? null) : settingsFallback
+  const commit = source?.commit ?? commitOrder
+  const open = source?.open ?? openPlay
   const threads = useWorkspace((s) => s.threads)
   const [drag, setDrag] = useState<number | null>(null)
   const [over, setOver] = useState<number | null>(null)
@@ -268,7 +287,7 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
           <span className="text-right">#</span>
           <span>Play</span>
           <span>Audience</span>
-          <span>Page type</span>
+          <span>{source && !source.fallback ? 'Experiences' : 'Page type'}</span>
           <span>Split</span>
           <span>Status</span>
           <span />
@@ -277,14 +296,14 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
       <PriorityPinned
         icon="shield"
         title="Global control"
-        lines={['They cancel with no cancel page', `Traffic: ${globalControl}%`]}
+        lines={[source?.heldBack ?? 'They cancel with no cancel page', `Traffic: ${globalControl}%`]}
       >
         <input
           type="range"
           min={0}
-          max={30}
+          max={source?.controlMax ?? 30}
           value={globalControl}
-          onChange={(e) => useCancelSettings.getState().setGlobalControl(Number(e.target.value))}
+          onChange={(e) => (source ? source.setGlobalControl(Number(e.target.value)) : useCancelSettings.getState().setGlobalControl(Number(e.target.value)))}
           aria-label="Global control"
           className="w-[140px] flex-none accent-slate-800"
         />
@@ -293,7 +312,7 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
 
       <li className="flex items-center gap-[6px] border-b border-[var(--slg-color-border-default)] px-[16px] py-[8px] text-[12px] text-slate-500">
         <SIcon name="arrow-down" size={12} className="flex-none text-slate-400" />
-        Send the remaining {100 - globalControl}% of traffic to these plays, in order. Drag a row to change it.
+        {source?.trafficLine ?? `Send the remaining ${100 - globalControl}% of traffic to these plays, in order. Drag a row to change it.`}
       </li>
 
       {shown.map((p) => {
@@ -320,7 +339,7 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
             }}
             onDrop={(e) => {
               e.preventDefault()
-              if (drag !== null && drag !== i) commitOrder(move(ids, drag, i))
+              if (drag !== null && drag !== i) commit(move(ids, drag, i))
               setDrag(null)
               setOver(null)
             }}
@@ -329,9 +348,9 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
             <div
               role="button"
               tabIndex={0}
-              onClick={() => openPlay(p.id)}
+              onClick={() => open(p.id)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.target === e.currentTarget) openPlay(p.id)
+                if (e.key === 'Enter' && e.target === e.currentTarget) open(p.id)
               }}
               className={`${PRIORITY_COLS} ${TABLE_ROW_OPEN} group active:cursor-grabbing ${
                 over === i && drag !== i ? 'shadow-[inset_0_2px_0_var(--slg-color-focus-ring)]' : ''
@@ -342,14 +361,14 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
                 <span className="tabular-nums">{i + 1}</span>
               </span>
               <div className="flex min-w-0 items-center gap-[10px]">
-                <RowMark>{initials(p.name)}</RowMark>
+                {!source && <RowMark>{initials(p.name)}</RowMark>}
                 <span className="truncate">{p.name}</span>
               </div>
               <span className="flex min-w-0 items-center gap-[6px]">
                 <SIcon name="users" size={12} className="flex-none text-slate-500" />
                 <span className="truncate">{audienceText(p.audience)}</span>
               </span>
-              <span className="truncate">{(shells.get(p.id) ?? []).map((s) => SHELL[s]?.label ?? s).join(', ') || <span className="text-slate-500">None yet</span>}</span>
+              <span className="truncate">{source ? [...new Set(p.variants.map((variant) => source.titleOf(variant.experienceId)))].join(', ') || <span className="text-slate-500">None yet</span> : (shells.get(p.id) ?? []).map((s) => SHELL[s]?.label ?? s).join(', ') || <span className="text-slate-500">None yet</span>}</span>
               <span className="truncate">
                 {p.splitBy === 'segments'
                   ? `${p.subAudiences.length} sub-audience${p.subAudiences.length === 1 ? '' : 's'}`
@@ -362,10 +381,10 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
                 onClick={(e) => e.stopPropagation()}
                 className="flex items-center justify-end opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
               >
-                <button type="button" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => commitOrder(move(ids, i, i - 1))} className="p-[3px] disabled:opacity-30">
+                <button type="button" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => commit(move(ids, i, i - 1))} className="p-[3px] disabled:opacity-30">
                   <SIcon name="chevron-up" size={13} />
                 </button>
-                <button type="button" aria-label={`Move ${p.name} down`} disabled={i === ranked.length - 1} onClick={() => commitOrder(move(ids, i, i + 1))} className="p-[3px] disabled:opacity-30">
+                <button type="button" aria-label={`Move ${p.name} down`} disabled={i === ranked.length - 1} onClick={() => commit(move(ids, i, i + 1))} className="p-[3px] disabled:opacity-30">
                   <SIcon name="chevron-down" size={13} />
                 </button>
               </div>
@@ -376,7 +395,7 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
                 <span className="min-w-0 flex-1">Nobody reaches this play. {coverPlay.name} is above it and already covers everyone it would.</span>
                 <button
                   type="button"
-                  onClick={() => commitOrder(move(ids, i, ranked.indexOf(coverPlay)))}
+                  onClick={() => commit(move(ids, i, ranked.indexOf(coverPlay)))}
                   className="flex-none bg-white px-[8px] py-[3px] font-semibold text-amber-800 shadow-sm hover:bg-amber-100"
                 >
                   Move up
@@ -392,6 +411,7 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
         </li>
       )}
 
+      {(!source || source.fallback) && (
       <PriorityPinned
         icon="corner-down-right"
         title="Global fallback"
@@ -399,18 +419,19 @@ function PriorityList({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPl
       >
         <select
           value={fallbackId ?? ''}
-          onChange={(e) => useCancelSettings.getState().setGlobalFallback(e.target.value || null)}
+          onChange={(e) => (source?.fallback ? source.fallback.set(e.target.value || null) : useCancelSettings.getState().setGlobalFallback(e.target.value || null))}
           aria-label="Fallback"
           className="h-[28px] w-[220px] flex-none border border-slate-200 bg-white px-[8px] text-[13px] outline-none focus:border-slate-400"
         >
           <option value="">No cancel page</option>
-          {orderedThreads(threads).map((t) => (
+          {(source?.fallback ? source.fallback.options : orderedThreads(threads).map((t) => ({ id: t.id, title: t.title }))).map((t) => (
             <option key={t.id} value={t.id}>
               {t.title}
             </option>
           ))}
         </select>
       </PriorityPinned>
+      )}
     </ol>
   )
 }
@@ -446,7 +467,7 @@ const COL = 330
 
 function buildGraph(
   ranked: CancelPlay[],
-  opts: { globalControl: number; fallback: string; titleOf: (id: string) => string; counts: OrderCounts | null; mode: Mode; run: WorkspaceRun | null; drafts: boolean },
+  opts: { globalControl: number; fallback: string; titleOf: (id: string) => string; counts: OrderCounts | null; mode: Mode; run: WorkspaceRun | null; drafts: boolean; startTitle?: string },
 ): { nodes: Node<CardData>[]; edges: Edge[] } {
   const { globalControl, counts, run } = opts
   const c = (n: number | undefined) => (counts ? fmt(n ?? 0) : undefined)
@@ -474,7 +495,7 @@ function buildGraph(
     id: 'start',
     type: 'card',
     position: { x: 0, y: 0 },
-    data: { icon: 'mouse-pointer-click', eyebrow: 'Start', title: 'Subscriber clicks Cancel', count: c(POPULATION_SIZE), tone: run ? 'path' : 'default', width: 220 },
+    data: { icon: 'mouse-pointer-click', eyebrow: 'Start', title: opts.startTitle ?? 'Subscriber clicks Cancel', count: c(POPULATION_SIZE), tone: run ? 'path' : 'default', width: 220 },
   })
   nodes.push({
     id: 'global',
@@ -634,12 +655,15 @@ function ago(at: number): string {
 }
 
 /** Pick a subscriber and watch which play takes them. None of this reaches reporting. */
-function OrderTestDrawer({ ranked, onRun, onClose }: { ranked: CancelPlay[]; onRun: (r: WorkspaceRun | null) => void; onClose: () => void }) {
-  const globalControl = useCancelSettings((s) => s.globalControl)
-  const fallbackId = useCancelSettings((s) => s.globalFallbackId)
+function OrderTestDrawer({ ranked, onRun, onClose, source }: { ranked: CancelPlay[]; onRun: (r: WorkspaceRun | null) => void; onClose: () => void; source?: ObjectiveOrder }) {
+  const settingsControl = useCancelSettings((s) => s.globalControl)
+  const settingsFallback = useCancelSettings((s) => s.globalFallbackId)
+  const globalControl = source?.globalControl ?? settingsControl
+  const fallbackId = source ? (source.fallback?.id ?? null) : settingsFallback
   const allSessions = useTestSessions((s) => s.sessions)
   const sessions = useMemo(() => allSessions.filter((x) => x.playId === null).slice(0, 6), [allSessions])
-  const titleOf = useTitleOf()
+  const ownTitle = useTitleOf()
+  const titleOf = source?.titleOf ?? ownTitle
   const [sub, setSub] = useState<SampleSubscriber | null>(null)
   const [drafts, setDrafts] = useState(true)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -668,7 +692,8 @@ function OrderTestDrawer({ ranked, onRun, onClose }: { ranked: CancelPlay[]; onR
   const walk = () => {
     if (!result?.winner || outcome?.kind !== 'variant') return
     if (sessionId) markWalked(sessionId)
-    openExperience(outcome.experienceId, result.winner.play.id)
+    if (source?.openExperience) source.openExperience(outcome.experienceId, result.winner.play.id)
+    else openExperience(outcome.experienceId, result.winner.play.id)
     useWorkspaceUi.setState({ previewAs: '' })
     openTab('preview')
   }
@@ -696,7 +721,7 @@ function OrderTestDrawer({ ranked, onRun, onClose }: { ranked: CancelPlay[]; onR
             <p className="text-[13px] font-semibold text-slate-900">{sub.name}</p>
             <p className="text-[12px] text-slate-500">{sub.summary}</p>
             {result.globalHeld ? (
-              <p className="mt-[8px] text-[12.5px] text-slate-700">In the {globalControl}% global control. No play is checked, and they cancel with no cancel page.</p>
+              <p className="mt-[8px] text-[12.5px] text-slate-700">{source?.heldBack ?? `In the ${globalControl}% global control. No play is checked, and they cancel with no cancel page.`}</p>
             ) : (
               <>
                 <ul className="mt-[10px] space-y-[6px]">
@@ -757,22 +782,27 @@ function OrderTestDrawer({ ranked, onRun, onClose }: { ranked: CancelPlay[]; onR
 }
 
 /** v9 passes status, counts and testing in from the page header; the classic page keeps its own floating controls. */
-function OrderCanvas({
+export function OrderCanvas({
   ranked,
   status,
   showCounts: shownFromHeader,
   testing: testingFromHeader,
   onTesting,
+  source,
 }: {
   ranked: CancelPlay[]
   status?: StatusFilter
   showCounts?: boolean
   testing?: boolean
   onTesting?: (v: boolean) => void
+  source?: ObjectiveOrder
 }) {
-  const globalControl = useCancelSettings((s) => s.globalControl)
-  const fallbackId = useCancelSettings((s) => s.globalFallbackId)
-  const titleOf = useTitleOf()
+  const settingsControl = useCancelSettings((s) => s.globalControl)
+  const settingsFallback = useCancelSettings((s) => s.globalFallbackId)
+  const ownTitle = useTitleOf()
+  const globalControl = source?.globalControl ?? settingsControl
+  const fallbackId = source ? (source.fallback?.id ?? null) : settingsFallback
+  const titleOf = source?.titleOf ?? ownTitle
   const [ownMode, setMode] = useState<Mode>('draft')
   const mode: Mode = status ? (status === 'live' ? 'live' : 'draft') : ownMode
   const bar = status !== undefined
@@ -790,7 +820,8 @@ function OrderCanvas({
     () =>
       buildGraph(ranked, {
         globalControl,
-        fallback: fallbackId ? titleOf(fallbackId) : 'No cancel page',
+        fallback: fallbackId ? titleOf(fallbackId) : source ? 'Nothing else' : 'No cancel page',
+        startTitle: source?.startTitle,
         titleOf,
         counts,
         mode,
@@ -870,6 +901,7 @@ function OrderCanvas({
       <SlideDrawer open={testing}>
         <OrderTestDrawer
           ranked={ranked}
+          source={source}
           onRun={setRun}
           onClose={() => {
             setTesting(false)

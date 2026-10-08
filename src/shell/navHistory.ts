@@ -14,6 +14,7 @@ interface V10Location {
   active: string | null
   scope: 'portfolio' | 'acquisition' | 'expansion' | 'retention'
   slice: 'all' | 'in_app_offer' | 'pricing_table' | 'cancel_page'
+  mode: 'list' | 'priority' | 'canvas'
 }
 
 let v10Api:
@@ -83,7 +84,7 @@ function keyOf(p: Place): string {
     p.page === 'library' ? (p.libraryKind ?? '') : '',
     p.page === 'soon' ? (p.soon?.id ?? '') : '',
     growthKey(p.growth),
-    p.v10 ? `${p.v10.active ?? ''}:${p.v10.scope}:${p.v10.slice}` : '',
+    p.v10 ? `${p.v10.active ?? ''}:${p.v10.scope}:${p.v10.slice}:${p.v10.mode ?? 'list'}` : '',
   ].join('|')
 }
 
@@ -92,6 +93,7 @@ function urlFor(place: Place): string {
   if (place.route.startsWith('work.') && place.v10) {
     const params = new URLSearchParams()
     if (place.route === 'work.plays' && place.v10.scope !== 'portfolio') params.set('scope', place.v10.scope)
+    if (place.route === 'work.plays' && place.v10.scope !== 'portfolio' && place.v10.mode && place.v10.mode !== 'list') params.set('mode', place.v10.mode)
     if (place.route === 'work.experiences' && place.v10.slice !== 'all') params.set('slice', place.v10.slice)
     if (place.v10.active) params.set('view', place.v10.active)
     const query = params.toString()

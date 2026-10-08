@@ -25,7 +25,7 @@ export const V10_GUTTER = 'px-[28px] min-[1440px]:px-[40px] min-[1800px]:px-[64p
 const PORTFOLIO_COLS =
   'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.7fr)_100px_110px_minmax(136px,1.2fr)_minmax(148px,1.3fr)_68px_52px_92px_52px]'
 const GROWTH_PLAY_COLS =
-  'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.6fr)_minmax(150px,1.25fr)_minmax(136px,1.1fr)_minmax(120px,1fr)_minmax(130px,1fr)_68px_92px_52px]'
+  'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.6fr)_minmax(150px,1.25fr)_minmax(136px,1.1fr)_minmax(120px,1fr)_minmax(130px,1fr)_68px_52px_92px_52px]'
 const RETENTION_PLAY_COLS =
   'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.6fr)_minmax(136px,1.1fr)_minmax(160px,1.3fr)_minmax(140px,1.1fr)_52px_68px_92px_52px]'
 const EXPERIENCE_COLS =
@@ -46,7 +46,7 @@ function compactTemplate(tab: V10Tab, scope: V10Scope) {
   if (tab === 'audiences') return '16px minmax(180px,1.6fr) minmax(108px,.8fr) minmax(220px,2fr) minmax(180px,1.4fr) 68px 52px'
   if (scope === 'portfolio') return '16px minmax(168px,1.7fr) 100px 110px minmax(136px,1.2fr) minmax(148px,1.3fr) 68px 52px 52px'
   if (scope === 'retention') return '16px minmax(168px,1.6fr) minmax(136px,1.1fr) minmax(160px,1.3fr) minmax(140px,1.1fr) 68px 52px 52px'
-  return '16px minmax(168px,1.6fr) minmax(150px,1.25fr) minmax(136px,1.1fr) minmax(120px,1fr) minmax(130px,1fr) 68px 52px'
+  return '16px minmax(168px,1.6fr) minmax(150px,1.25fr) minmax(136px,1.1fr) minmax(120px,1fr) minmax(130px,1fr) 68px 52px 52px'
 }
 
 interface UseChip {
@@ -187,14 +187,14 @@ function PlayHead({ scope, showEdited }: { scope: V10Scope; showEdited: boolean 
   if (scope === 'acquisition') {
     return (
       <>
-        <span>Acquisition play</span><span>Trigger</span><span>Audience</span><span>Experience type</span><span>Experiment</span><span>Status</span>{showEdited && <span>Edited</span>}<span />
+        <span>Acquisition play</span><span>Trigger</span><span>Audience</span><span>Experience type</span><span>Experiment</span><span>Status</span><span className="text-right">Priority</span>{showEdited && <span>Edited</span>}<span />
       </>
     )
   }
   if (scope === 'expansion') {
     return (
       <>
-        <span>Expansion play</span><span>Surface</span><span>Audience</span><span>Offer or plan</span><span>Experiment</span><span>Status</span>{showEdited && <span>Edited</span>}<span />
+        <span>Expansion play</span><span>Surface</span><span>Audience</span><span>Offer or plan</span><span>Experiment</span><span>Status</span><span className="text-right">Priority</span>{showEdited && <span>Edited</span>}<span />
       </>
     )
   }
@@ -272,7 +272,7 @@ function DataRow({
       <span>
         <StatusChip live={row.status === 'live'} />
       </span>
-      {row.kind === 'play' && (scope === 'portfolio' || scope === 'retention') && (
+      {row.kind === 'play' && (
         <span className="text-right tabular-nums">{facts.play.get(`${row.source}:${row.id}`)?.priority ?? '—'}</span>
       )}
       {showEdited && <Ago at={row.updatedAt} />}

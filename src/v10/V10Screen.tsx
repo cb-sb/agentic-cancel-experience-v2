@@ -13,6 +13,7 @@ import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { DropdownButton, ToastHost, useOutside, type MenuItem } from '../plays/ui'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { rowsFor, titleOf, useV10Rows, type V10Row } from './rows'
+import { ObjectivePlays } from './ObjectivePlays'
 import { V10_GUTTER, V10Table } from './V10Table'
 import { updateAudience, useAudiences } from './useAudiences'
 import {
@@ -26,6 +27,7 @@ import {
   useV10,
   type ExperienceSlice,
   type Filters,
+  type PlayMode,
   type Tag,
   type V10Ref,
   type V10Scope,
@@ -62,9 +64,9 @@ const GROUPS: { id: Filters['group']; label: string }[] = [
   { id: 'status', label: 'Status' },
   { id: 'type', label: 'Type' },
 ]
-const STATUS_PILLS: { id: 'live' | 'draft'; label: string }[] = [
-  { id: 'live', label: 'Live' },
-  { id: 'draft', label: 'Draft' },
+const STATUS_PILLS: { id: 'live' | 'draft'; label: string; dot: string }[] = [
+  { id: 'live', label: 'Live', dot: 'bg-[#22c55e]' },
+  { id: 'draft', label: 'Draft', dot: 'bg-[#f59e0b]' },
 ]
 const NEW_ITEMS: Record<V10Tab, MenuItem[]> = {
   plays: [
@@ -142,7 +144,10 @@ function useCurrentView(tab: V10Tab) {
 export function V10Screen({ tab }: { tab: V10Tab }) {
   const open = useV10((state) => state.open)
   const route = useGrowthShell((state) => state.route)
+  const playMode = useV10((state) => state.playMode)
+  const { view, filters } = useCurrentView(tab)
   const detail = open !== null && open.kind === KIND[tab]
+  const objectiveMode = tab === 'plays' && !detail && !view && filters.scope !== 'portfolio' ? playMode : 'list'
   useEffect(() => {
     const sync = () => syncV10FromHash(route, window.location.hash)
     sync()
@@ -151,20 +156,22 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
   }, [route])
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-white">
-      <ViewBar tab={tab} detail={detail} />
+      <ViewBar tab={tab} detail={detail} mode={objectiveMode} />
       {detail && open ? (
         <div className="min-h-0 flex-1">
           <Detail row={open} />
         </div>
-      ) : (
+      ) : objectiveMode === 'list' ? (
         <List tab={tab} />
+      ) : (
+        <ObjectivePlays objective={filters.scope as Exclude<V10Scope, 'portfolio'>} mode={objectiveMode} query={filters.query} status={filters.status} />
       )}
       <ToastHost />
     </div>
   )
 }
 
-function ViewBar({ tab, detail }: { tab: V10Tab; detail: boolean }) {
+function ViewBar({ tab, detail, mode }: { tab: V10Tab; detail: boolean; mode: PlayMode }) {
   const { view, filters } = useCurrentView(tab)
   if (detail) return <DetailBreadcrumb tab={tab} viewName={view?.name ?? null} filters={filters} />
   return (
@@ -175,12 +182,14 @@ function ViewBar({ tab, detail }: { tab: V10Tab; detail: boolean }) {
             <ViewTab key={id} tab={id} label={TAB_TITLE[id]} on={!view && id === tab} first={index === 0} />
           ))}
         </div>
-        <div className="self-center"><SavedViews tab={tab} /></div>
+        <div className="flex items-center gap-[8px] self-center">
+          <SavedViews tab={tab} />
+          <NewButton tab={tab} />
+        </div>
       </div>
-      <div className="flex min-h-[42px] items-center gap-[12px] border-b border-slate-200">
+      <div className="flex h-[40px] items-center justify-between gap-[12px] border-b border-[#e5e7eb]">
         <SystemViews tab={tab} filters={filters} />
-        <div className="min-w-0 flex-1" />
-        <Tools tab={tab} />
+        <Tools tab={tab} mode={mode} />
       </div>
     </div>
   )
@@ -232,27 +241,31 @@ function SystemViews({ tab, filters }: { tab: V10Tab; filters: Filters }) {
   }
   const items = tab === 'plays' ? PLAY_SCOPES : EXPERIENCE_SLICES
   return (
-    <div role="tablist" aria-label={`${TAB_TITLE[tab]} system views`} className="flex min-w-0 items-center gap-[18px] overflow-x-auto">
-      {items.map((item) => {
-        const on = tab === 'plays' ? filters.scope === item.id : filters.slice === item.id
-        return (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => {
-              if (tab === 'plays') useV10.getState().selectSystemView(tab, item.id as V10Scope)
-              else useV10.getState().selectSystemView(tab, 'portfolio', item.id as ExperienceSlice)
-            }}
-            className={`relative h-[42px] whitespace-nowrap text-[13px] ${
-              on ? 'font-medium text-slate-900 after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-slate-900' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {item.label}
-          </button>
-        )
-      })}
+    <div className="flex h-full min-w-0 items-center gap-[8px]">
+      <div role="tablist" aria-label={`${TAB_TITLE[tab]} system views`} className="flex h-full min-w-0 items-center gap-[8px]">
+        {items.map((item) => {
+          const on = tab === 'plays' ? filters.scope === item.id : filters.slice === item.id
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                if (tab === 'plays') useV10.getState().selectSystemView(tab, item.id as V10Scope)
+                else useV10.getState().selectSystemView(tab, 'portfolio', item.id as ExperienceSlice)
+              }}
+              className={`relative flex h-full items-center whitespace-nowrap px-[16px] text-[13px] ${
+                on ? 'font-semibold text-[#111827]' : 'text-[#6b7280] hover:text-[#111827]'
+              }`}
+            >
+              {item.label}
+              {on && <span className="absolute inset-x-0 -bottom-px h-[2px] bg-[#111827]" />}
+            </button>
+          )
+        })}
+      </div>
+      <div aria-hidden="true" className="h-[20px] w-px flex-none bg-[#e5e7eb]" />
     </div>
   )
 }
@@ -354,30 +367,45 @@ function ViewTab({ tab, label, on, first }: { tab: V10Tab; label: string; on: bo
   )
 }
 
-function Tools({ tab }: { tab: V10Tab }) {
+function NewButton({ tab }: { tab: V10Tab }) {
+  const { filters } = useCurrentView(tab)
+  return <DropdownButton label="New" items={newItemsFor(tab, filters)} width={240} />
+}
+
+function Tools({ tab, mode }: { tab: V10Tab; mode: PlayMode }) {
   const { filters, set } = useCurrentView(tab)
-  const items = newItemsFor(tab, filters)
-  const newLabel =
-    tab === 'plays' && filters.scope !== 'portfolio'
-      ? `New ${tagLabel(filters.scope as Tag).toLowerCase()} play`
-      : tab === 'experiences' && filters.slice !== 'all'
-        ? `New ${EXPERIENCE_SLICES.find((slice) => slice.id === filters.slice)?.label.slice(0, -1).toLowerCase()}`
-      : 'New'
+  const objective = tab === 'plays' && filters.scope !== 'portfolio'
+  const table = mode === 'list'
+  const status = (
+    <div role="group" aria-label="Status" className="flex items-center gap-[6px]">
+      <span className="text-[12px] font-medium text-[#666980]">Status:</span>
+      <StatusPill label="All" on={filters.status.length === 0} onClick={() => set({ status: [] })} />
+      {STATUS_PILLS.map((item) => (
+        <StatusPill
+          key={item.id}
+          label={item.label}
+          dot={item.dot}
+          on={filters.status.includes(item.id)}
+          onClick={() => set({ status: filters.status.includes(item.id) ? filters.status.filter((entry) => entry !== item.id) : [...filters.status, item.id] })}
+        />
+      ))}
+    </div>
+  )
+  if (tab === 'plays') {
+    return (
+      <div className="flex flex-none items-center gap-[53px]">
+        <div className={objective ? '' : 'invisible'} aria-hidden={!objective}>
+          <PlayModeSwitch mode={mode} />
+        </div>
+        {status}
+      </div>
+    )
+  }
   return (
     <div className="flex flex-none items-center gap-[6px]">
-      <SearchField tab={tab} value={filters.query} onChange={(query) => set({ query })} />
-      <div role="group" aria-label="Status" className="flex items-center gap-[4px]">
-        <StatusPill label="All" on={filters.status.length === 0} onClick={() => set({ status: [] })} />
-        {STATUS_PILLS.map((status) => (
-          <StatusPill
-            key={status.id}
-            label={status.label}
-            on={filters.status.includes(status.id)}
-            onClick={() => set({ status: filters.status.includes(status.id) ? filters.status.filter((item) => item !== status.id) : [...filters.status, status.id] })}
-          />
-        ))}
-      </div>
-      <ToolMenu icon="more-horizontal" label="More" on={filters.tags.length > 0 || filters.sort !== 'recent' || filters.group !== 'none' || filters.columns.includes('hide-edited')}>
+      {mode !== 'canvas' && <SearchField tab={tab} value={filters.query} onChange={(query) => set({ query })} />}
+      {mode !== 'canvas' && status}
+      {table && <ToolMenu icon="more-horizontal" label="More" on={filters.tags.length > 0 || filters.sort !== 'recent' || filters.group !== 'none' || filters.columns.includes('hide-edited')}>
         <MenuHeading>Objective filter</MenuHeading>
         {TAGS.map((tag) => (
           <Option
@@ -401,10 +429,7 @@ function Tools({ tab }: { tab: V10Tab }) {
           on={!filters.columns.includes('hide-edited')}
           onClick={() => set({ columns: filters.columns.includes('hide-edited') ? filters.columns.filter((item) => item !== 'hide-edited') : [...filters.columns, 'hide-edited'] })}
         />
-      </ToolMenu>
-      <div className="ml-[8px]">
-        <DropdownButton label={newLabel} items={items} width={240} />
-      </div>
+      </ToolMenu>}
     </div>
   )
 }
@@ -421,6 +446,30 @@ function newItemsFor(tab: V10Tab, filters: Filters): MenuItem[] {
   if (filters.scope === 'expansion') return NEW_ITEMS.plays[1].items ?? []
   if (filters.scope === 'retention') return [NEW_ITEMS.plays[2]]
   return NEW_ITEMS.plays
+}
+
+function PlayModeSwitch({ mode }: { mode: PlayMode }) {
+  const items: { id: PlayMode; label: string }[] = [
+    { id: 'list', label: 'List' },
+    { id: 'priority', label: 'Priority' },
+    { id: 'canvas', label: 'Canvas' },
+  ]
+  return (
+    <div role="tablist" aria-label="Objective view" className="flex h-[28px] items-stretch rounded-[6px] border border-[#e5e7eb] bg-[#f3f4f6] p-[2px]">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="tab"
+          aria-selected={mode === item.id}
+          onClick={() => useV10.getState().setPlayMode(item.id)}
+          className={`flex items-center rounded-[4px] px-[12px] text-[12px] ${mode === item.id ? 'bg-[#111827] font-semibold text-white' : 'font-medium text-[#6b7280] hover:text-[#111827]'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function ToolButton({ icon, label, on, open, onClick }: { icon: SIconName; label: string; on?: boolean; open?: boolean; onClick: () => void }) {
@@ -502,15 +551,18 @@ function SearchField({ tab, value, onChange }: { tab: V10Tab; value: string; onC
   )
 }
 
-function StatusPill({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+function StatusPill({ label, on, onClick, dot }: { label: string; on: boolean; onClick: () => void; dot?: string }) {
   return (
     <button
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`h-[22px] rounded-full px-[8px] text-[11.5px] font-medium ${on ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+      className={`flex items-center gap-[5px] rounded-[4px] px-[10px] py-[4px] text-[12px] ${
+        on ? 'bg-[#111827] font-semibold text-white' : 'border border-[#e5e7eb] bg-[#f2f2fb] font-medium text-[#374151] hover:bg-[#e9e9f6]'
+      }`}
     >
-      {label}
+      {dot && <span className={`h-[6px] w-[6px] flex-none rounded-full ${dot}`} />}
+      ✓ {label}
     </button>
   )
 }
@@ -562,9 +614,6 @@ function List({ tab }: { tab: V10Tab }) {
           </div>
         )}
         <div className="pt-[12px]">
-          <p className="mb-[8px] text-[12px] tabular-nums text-slate-400">
-            {shown.length} {shown.length === 1 ? TAB_TITLE[tab].slice(0, -1).toLowerCase() : TAB_TITLE[tab].toLowerCase()}
-          </p>
           <V10Table tab={tab} scope={filters.scope} shown={shown} groups={groups} grouped={filters.group !== 'none'} showEdited={!filters.columns.includes('hide-edited')} />
         </div>
       </div>
