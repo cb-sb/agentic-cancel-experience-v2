@@ -182,8 +182,7 @@ function ViewBar({ tab, detail, mode }: { tab: V10Tab; detail: boolean; mode: Pl
             <ViewTab key={id} tab={id} label={TAB_TITLE[id]} on={!view && id === tab} first={index === 0} />
           ))}
         </div>
-        <div className="flex items-center gap-[8px] self-center">
-          <SavedViews tab={tab} />
+        <div className="self-center">
           <NewButton tab={tab} />
         </div>
       </div>
@@ -266,89 +265,6 @@ function SystemViews({ tab, filters }: { tab: V10Tab; filters: Filters }) {
         })}
       </div>
       <div aria-hidden="true" className="h-[20px] w-px flex-none bg-[#e5e7eb]" />
-    </div>
-  )
-}
-
-function SavedViews({ tab }: { tab: V10Tab }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const allSaved = useV10((state) => state.saved)
-  const saved = allSaved.filter((view) => view.tab === tab)
-  const active = useV10((state) => state.active)
-  useOutside(open, ref, () => setOpen(false))
-  const add = () => {
-    const current = useV10.getState().filters[tab]
-    useV10.getState().addView(tab, undefined, current)
-    setOpen(false)
-  }
-  return (
-    <div ref={ref} className="relative flex-none">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className={`flex h-[28px] items-center gap-[6px] rounded-md px-[8px] text-[12.5px] ${
-          active ? 'bg-slate-100 font-medium text-slate-800' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-        }`}
-      >
-        <SIcon name="bookmark" size={14} />
-        Saved views
-        <SIcon name="chevron-down" size={13} />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-[6px] w-[240px] rounded-xl border border-slate-200 bg-white p-[4px] shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
-          {saved.length === 0 && <p className="px-[10px] py-[8px] text-[12px] text-slate-400">No saved views yet.</p>}
-          {saved.map((view) => (
-            <button
-              key={view.id}
-              type="button"
-              onClick={() => {
-                useV10.getState().selectView(tab, view.id)
-                setOpen(false)
-              }}
-              className={`flex w-full items-center rounded-lg px-[10px] py-[7px] text-left text-[13px] hover:bg-slate-100 ${active === view.id ? 'font-medium text-slate-900' : 'text-slate-700'}`}
-            >
-              <span className="min-w-0 flex-1 truncate">{view.name}</span>
-              {active === view.id && <SIcon name="check" size={13} />}
-            </button>
-          ))}
-          <div className="my-[4px] border-t border-slate-100" />
-          <button type="button" onClick={add} className="flex w-full items-center gap-[8px] rounded-lg px-[10px] py-[7px] text-left text-[13px] text-slate-700 hover:bg-slate-100">
-            <SIcon name="plus" size={14} />
-            Save current view
-          </button>
-          {active && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  const view = saved.find((item) => item.id === active)
-                  const name = view ? window.prompt('Rename saved view', view.name) : null
-                  if (view && name?.trim()) useV10.getState().updateView(view.id, { name: name.trim() })
-                  setOpen(false)
-                }}
-                className="flex w-full items-center gap-[8px] rounded-lg px-[10px] py-[7px] text-left text-[13px] text-slate-700 hover:bg-slate-100"
-              >
-                <SIcon name="pencil" size={14} />
-                Rename current view
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const view = saved.find((item) => item.id === active)
-                  if (view) useV10.getState().deleteView(view.id)
-                  setOpen(false)
-                }}
-                className="flex w-full items-center gap-[8px] rounded-lg px-[10px] py-[7px] text-left text-[13px] text-rose-700 hover:bg-rose-50"
-              >
-                <SIcon name="trash-2" size={14} />
-                Delete current view
-              </button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   )
 }
