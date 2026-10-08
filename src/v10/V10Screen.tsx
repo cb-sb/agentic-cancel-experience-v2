@@ -41,7 +41,7 @@ const TAGS: { id: Tag; label: string }[] = [
 const KIND: Record<V10Tab, V10Row['kind']> = { plays: 'play', experiences: 'experience', audiences: 'audience' }
 const VIEWS: V10Tab[] = ['plays', 'experiences', 'audiences']
 const PLAY_SCOPES: { id: V10Scope; label: string }[] = [
-  { id: 'portfolio', label: 'Portfolio' },
+  { id: 'portfolio', label: 'All' },
   { id: 'acquisition', label: 'Acquisition' },
   { id: 'expansion', label: 'Expansion' },
   { id: 'retention', label: 'Retention' },

@@ -19,6 +19,7 @@ import { ToolButton, ToolSelect } from '../layout/SlgChrome'
 import { offerVariantLabel } from '../lib/offerVariants'
 import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
+import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { fileOfThread, threadIsLive, useWorkspace } from '../workspace/useWorkspace'
 import { fmt, playCounts, POPULATION_SIZE, type PlayCounts } from './population'
@@ -110,6 +111,7 @@ interface VariantInfo {
 
 function useVariantInfo(play: CancelPlay): VariantInfo[] {
   const threads = useWorkspace((s) => s.threads)
+  const growth = useGrowthExperiences((s) => s.items)
   const activeId = useWorkspace((s) => s.activeId)
   const activeFile = useJourney((s) => s.file)
   const activeLive = useOrchestration((s) => s.play.publishState === 'live')
@@ -121,7 +123,7 @@ function useVariantInfo(play: CancelPlay): VariantInfo[] {
       id: v.id,
       experienceId: v.experienceId,
       letter: variantLetter(i),
-      title: t?.title ?? 'Missing experience',
+      title: t?.title ?? growth.find((item) => item.id === v.experienceId)?.name ?? 'Missing experience',
       steps,
       live: t ? threadIsLive(t, activeId, activeLive) : false,
     }
@@ -363,6 +365,9 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
+            onInit={(instance) => {
+              window.setTimeout(() => void instance.fitView({ padding: 0.2, maxZoom: 1 }), 80)
+            }}
             minZoom={0.3}
             maxZoom={1.5}
             nodesDraggable={false}

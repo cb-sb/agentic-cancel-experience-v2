@@ -1,5 +1,5 @@
-import { useMemo, type CSSProperties } from 'react'
-import { SIcon } from '@chargebee/sting-react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { TRIGGER_LABEL, TYPE_ICON, TYPE_LABEL, WIDGET_LABEL, type GrowthObjective } from '../concierge/model'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import { archiveGrowthExperience, duplicateGrowthExperience, useGrowthExperiences } from '../concierge/useGrowthExperiences'
@@ -8,10 +8,11 @@ import { SHELL_KIND, shellOf, stepCount } from '../layout/experienceKind'
 import { Ago, BulkAction, Check, RowActions, RowMark, SelectHead, TableEmpty, TableRow, initials, useSelection } from '../layout/SlgTable'
 import { StatusChip } from '../layout/StatusChip'
 import { archiveExperienceNow, archivePlayNow } from '../plays/archive'
-import { audienceText, fallbackVariant } from '../plays/resolve'
-import type { CancelPlay } from '../plays/types'
+import { PlayCanvas } from '../plays/PlayCanvas'
+import { audienceText, fallbackVariant, pagesIn } from '../plays/resolve'
+import type { CancelPlay, PlayVariant } from '../plays/types'
 import { toast, type MenuItem } from '../plays/ui'
-import { duplicatePlay, playsUsing, usePlays, useRankedPlays } from '../plays/usePlays'
+import { audienceUnset, duplicatePlay, playsUsing, usePlays, useRankedPlays } from '../plays/usePlays'
 import { audienceSummary } from '../types/orchestration'
 import { duplicateThread, useWorkspace } from '../workspace/useWorkspace'
 import { useAudiences } from './useAudiences'
@@ -92,6 +93,7 @@ export function V10Table({
 }) {
   const facts = useFacts()
   const pins = useV10((state) => state.pins)
+  const [openPlay, setOpenPlay] = useState<string | null>(null)
   const sel = useSelection(shown.map(rowKey))
   const picked = shown.filter((row) => sel.has(rowKey(row)))
   const liveCount = picked.filter((row) => row.status === 'live').length
@@ -156,9 +158,25 @@ export function V10Table({
               <span className="font-normal tabular-nums text-slate-400">{group.rows.length}</span>
             </h2>
           )}
-          {group.rows.map((row) => (
-            <DataRow key={`${rowKey(row)}:${group.label}`} row={row} scope={scope} cols={cols} style={compactStyle} showEdited={showEdited} picked={sel.has(rowKey(row))} onToggle={() => sel.toggle(rowKey(row))} pinned={pins.some((pin) => pin.kind === row.kind && pin.id === row.id)} facts={facts} />
-          ))}
+          {group.rows.map((row) => {
+            const key = rowKey(row)
+            return (
+              <DataRow
+                key={`${key}:${group.label}`}
+                row={row}
+                scope={scope}
+                cols={cols}
+                style={compactStyle}
+                showEdited={showEdited}
+                picked={sel.has(key)}
+                onToggle={() => sel.toggle(key)}
+                pinned={pins.some((pin) => pin.kind === row.kind && pin.id === row.id)}
+                facts={facts}
+                expanded={row.kind === 'play' && openPlay === key}
+                onExpand={row.kind === 'play' ? () => setOpenPlay((current) => (current === key ? null : key)) : undefined}
+              />
+            )
+          })}
         </div>
       ))}
     </div>
@@ -204,6 +222,8 @@ function DataRow({
   onToggle,
   pinned,
   facts,
+  expanded = false,
+  onExpand,
 }: {
   row: V10Row
   scope: V10Scope
@@ -214,13 +234,30 @@ function DataRow({
   onToggle: () => void
   pinned: boolean
   facts: Facts
+  expanded?: boolean
+  onExpand?: () => void
 }) {
   const items = menuOf(row, pinned)
   return (
-    <TableRow cols={cols} style={style} onOpen={() => openRef(row)} className={`group ${picked ? 'is-picked' : ''}`}>
+    <>
+    <TableRow cols={cols} style={style} onOpen={() => (onExpand ? onExpand() : openRef(row))} className={`group ${picked ? 'is-picked' : ''} ${expanded ? 'bg-slate-50' : ''}`}>
       <Check on={picked} onChange={onToggle} label={`Select ${row.title}`} />
-      <div className="flex min-w-0 items-center gap-[10px]">
-        <RowMark>{initials(row.title)}</RowMark>
+      <div className="flex min-w-0 items-center gap-[8px]">
+        {onExpand && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={expanded ? `Collapse ${row.title}` : `Expand ${row.title}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              onExpand()
+            }}
+            className="flex h-[20px] w-[16px] flex-none items-center justify-center text-slate-400"
+          >
+            <SIcon name="chevron-right" size={13} className={`transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
+          </button>
+        )}
+        {row.kind === 'audience' && <RowMark>{initials(row.title)}</RowMark>}
         <span className="truncate">{row.title}</span>
       </div>
       {row.kind === 'play' ? (
@@ -255,6 +292,121 @@ function DataRow({
         <RowActions label={`Actions for ${row.title}`} items={items} />
       </span>
     </TableRow>
+    {expanded && <PlayMap row={row} />}
+    </>
+  )
+}
+
+function PlayMap({ row }: { row: V10Row }) {
+  const growthPlay = useGrowthPlays((state) => (row.source === 'growth' ? state.plays.find((play) => play.id === row.id) : undefined))
+  const retentionPlay = usePlays((state) => (row.source === 'retention' ? state.plays.find((play) => play.id === row.id) : undefined))
+  const play = growthPlay ?? retentionPlay
+  const growthExperiences = useGrowthExperiences((state) => state.items)
+  const threads = useWorkspace((state) => state.threads)
+  const [canvasOpen, setCanvasOpen] = useState(false)
+  if (!play) return null
+  const nameOf = (id: string) => growthExperiences.find((item) => item.id === id)?.name ?? threads.find((item) => item.id === id)?.title ?? 'Experience'
+  const iconOf = (id: string): SIconName => {
+    const experience = growthExperiences.find((item) => item.id === id)
+    if (experience) return TYPE_ICON[experience.type]
+    const thread = threads.find((item) => item.id === id)
+    return thread ? SHELL_KIND[shellOf(thread)].icon : 'file'
+  }
+  const openExperience = (id: string) => {
+    openRef(row.source === 'growth' ? { kind: 'experience', source: 'growth', id, objective: row.objective } : { kind: 'experience', source: 'retention', id })
+  }
+  const audienceLine = play.audience.targetAll ? 'All subscribers' : audienceUnset(play.audience) ? 'No audience yet' : audienceText(play.audience)
+  const experienceNode = (variant: PlayVariant, depth: number) => (
+    <MapNode key={variant.id} icon={iconOf(variant.experienceId)} label={nameOf(variant.experienceId)} depth={depth} onClick={() => openExperience(variant.experienceId)} />
+  )
+  return (
+    <div className="flex items-center border-b border-[var(--slg-color-border-default)] bg-slate-50 py-[8px] pl-[40px] pr-[16px]">
+      <CanvasMark name={play.name} onClick={() => setCanvasOpen(true)} />
+      <div className="ml-[8px] flex max-w-[520px] flex-col border-l border-slate-200 py-[2px] pl-[12px]">
+        <MapNode icon="users" label={audienceLine} onClick={() => openRef(row)} />
+        {play.splitBy === 'segments' ? (
+          <>
+            {play.subAudiences.map((item, index) => {
+              const pages = pagesIn(play, item.id)
+              return (
+                <div key={item.id}>
+                  <MapNode icon="users-round" label={audienceUnset(item.audience) ? `Sub-audience ${index + 1}` : audienceText(item.audience)} depth={1} onClick={() => openRef(row)} />
+                  {pages.length === 0 ? <EmptyMap depth={2} /> : pages.map((variant) => experienceNode(variant, 2))}
+                </div>
+              )
+            })}
+            <MapNode icon="shield" label="Fallback" depth={1} onClick={() => openRef(row)} />
+            {fallbackVariant(play) ? experienceNode(fallbackVariant(play)!, 2) : <EmptyMap depth={2} />}
+          </>
+        ) : play.variants.length === 0 ? (
+          <EmptyMap depth={1} />
+        ) : (
+          play.variants.map((variant) => experienceNode(variant, 1))
+        )}
+      </div>
+      {canvasOpen && <CanvasOverlay play={play} onClose={() => setCanvasOpen(false)} />}
+    </div>
+  )
+}
+
+function CanvasMark({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open ${name} canvas`}
+      title="Open canvas"
+      className="flex flex-none items-center justify-center bg-transparent p-0 text-slate-400 transition-colors hover:text-slate-800"
+    >
+      <svg viewBox="0 0 32 24" aria-hidden className="h-[18px] w-[24px] fill-none stroke-current stroke-[1.6]">
+        <path d="M10 12H14M14 12V6.5H20M14 12V17.5H20" strokeLinejoin="round" />
+        <rect x="2.5" y="8.5" width="7" height="7" rx="1.5" />
+        <rect x="20.5" y="2.5" width="7" height="7" rx="1.5" />
+        <rect x="20.5" y="14.5" width="7" height="7" rx="1.5" />
+      </svg>
+    </button>
+  )
+}
+
+function CanvasOverlay({ play, onClose }: { play: CancelPlay; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/30 p-[24px]" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={`${play.name} canvas`} className="flex h-[min(760px,90vh)] w-[min(1120px,100%)] flex-col overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <header className="flex h-[48px] flex-none items-center gap-[8px] border-b border-slate-200 px-[16px]">
+          <h2 className="min-w-0 truncate text-[14px] font-semibold text-slate-900">{play.name}</h2>
+          <button type="button" aria-label="Close canvas" onClick={onClose} className="ml-auto flex h-[28px] w-[28px] items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+            <SIcon name="x" size={14} />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1">
+          <PlayCanvas play={play} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MapNode({ icon, label, depth = 0, onClick }: { icon: SIconName; label: string; depth?: number; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex h-[28px] min-w-0 items-center gap-[8px] text-left text-[13px] text-slate-700 hover:text-slate-900" style={{ paddingLeft: depth * 20 }}>
+      <SIcon name={icon} size={13} className="flex-none text-slate-400" />
+      <span className="truncate">{label}</span>
+    </button>
+  )
+}
+
+function EmptyMap({ depth }: { depth: number }) {
+  return (
+    <p className="flex h-[28px] items-center text-[12.5px] text-slate-400" style={{ paddingLeft: depth * 20 + 21 }}>
+      No experience yet
+    </p>
   )
 }
 
