@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SIcon } from '@chargebee/sting-react'
 import { V10 } from '../layout/layoutMode'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W } from '../layout/ThreadSidebar'
@@ -7,9 +7,7 @@ import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import type { NavLeafId } from './nav'
 import { ARC_APPS, useArcApp, type ArcAppId } from './useArcApp'
 import { useGrowthShell } from './useGrowthShell'
-
-/** Wider at the base, so the row reads as the attached tab strip. */
-const TAB_CLIP = 'polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%)'
+import { SlantedTab } from './SlantedTab'
 
 function paneInset(route: NavLeafId, sidebarOpen: boolean): number {
   if (route === 'work.plays' || route === 'work.experiences' || route === 'work.audiences') return SIDEBAR_W
@@ -151,26 +149,6 @@ function AccountMenu() {
   )
 }
 
-function GrowthTab({
-  label,
-  active,
-  first,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active: boolean; first?: boolean }) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className={`relative h-9 flex-none px-7 text-[12px] font-medium uppercase tracking-[0.06em] ${first ? '' : '-ml-2'} ${
-        active ? 'z-10 bg-[#1a1c2e] text-white' : 'bg-white text-slate-800 shadow-[inset_0_0_0_1px_#e5e7eb] hover:bg-[#f3f3f3]'
-      }`}
-      style={{ clipPath: TAB_CLIP }}
-    >
-      {label}
-    </button>
-  )
-}
-
 /** Growth's destinations. Home and the three objectives stay visible; Renewal and Reports fold into More. */
 export function GrowthTopNav() {
   const route = useGrowthShell((s) => s.route)
@@ -188,7 +166,7 @@ export function GrowthTopNav() {
         <div />
         <div ref={row} data-growth-row className="flex min-w-0 items-end justify-center px-4">
           {tabs.map((tab, index) => (
-            <GrowthTab
+            <SlantedTab
               key={tab.id}
               label={tab.label}
               first={index === 0}
@@ -204,7 +182,7 @@ export function GrowthTopNav() {
             />
           ))}
           <div className="relative" data-growth-more hidden={hidden === 0}>
-            <GrowthTab label="More" active={false} aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)} />
+            <SlantedTab label="More" active={false} aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)} />
             {moreOpen && hidden > 0 && (
               <div className="absolute left-0 top-10 z-30 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
                 {overflow.map((tab) => (

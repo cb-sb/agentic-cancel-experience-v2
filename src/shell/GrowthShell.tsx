@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { EASE_ENTER } from '../lib/motion'
 import { NAV_FOLDED_W, NAV_W } from '../orchestration/paneTokens'
-import { SIDEBAR_W } from '../layout/ThreadSidebar'
+import { SIDEBAR_FOLDED_W, SIDEBAR_W } from '../layout/ThreadSidebar'
+import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { OrchestrationCanvas } from '../orchestration/OrchestrationCanvas'
 import { Composer } from '../composer/Composer'
 import { CONCIERGE, STUDIO, USES_THREADS, V10 } from '../layout/layoutMode'
@@ -37,15 +38,7 @@ export function GrowthShell({ children }: { children: React.ReactNode }) {
     const growth = arcApp === 'growth'
     const page = growth ? (inExperience ? children : <GrowthHome route={route} />) : <ArcAppPlaceholder app={arcApp} />
     if (V10 && growth) {
-      return (
-        <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
-          <ArcBar />
-          <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `${SIDEBAR_W}px minmax(0,1fr)` }}>
-            <V10Nav />
-            <div className="min-h-0 min-w-0 overflow-hidden">{page}</div>
-          </div>
-        </div>
-      )
+      return <V10Frame page={page} />
     }
     return (
       <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
@@ -67,6 +60,25 @@ export function GrowthShell({ children }: { children: React.ReactNode }) {
       <GrowthNav />
       <div className="flex min-h-0 min-w-0 flex-col">
         {inExperience ? children : <GrowthHome route={route} />}
+      </div>
+    </div>
+  )
+}
+
+function V10Frame({ page }: { page: React.ReactNode }) {
+  const sidebarOpen = useWorkspaceUi((state) => state.sidebarOpen)
+  return (
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+      <ArcBar />
+      <div
+        className="grid min-h-0 flex-1 motion-reduce:transition-none"
+        style={{
+          gridTemplateColumns: `${sidebarOpen ? SIDEBAR_W : SIDEBAR_FOLDED_W}px minmax(0,1fr)`,
+          transition: `grid-template-columns ${PANEL_MS}ms ${EASE_ENTER}`,
+        }}
+      >
+        <V10Nav />
+        <div className="min-h-0 min-w-0 overflow-hidden">{page}</div>
       </div>
     </div>
   )

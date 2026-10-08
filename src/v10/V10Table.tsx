@@ -1,13 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { SIcon } from '@chargebee/sting-react'
-import { TYPE_ICON, TYPE_LABEL, type GrowthObjective } from '../concierge/model'
+import { TRIGGER_LABEL, TYPE_ICON, TYPE_LABEL, WIDGET_LABEL, type GrowthObjective } from '../concierge/model'
+import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import { archiveGrowthExperience, duplicateGrowthExperience, useGrowthExperiences } from '../concierge/useGrowthExperiences'
 import { archiveGrowthPlay, duplicateGrowthPlay, useGrowthPlays } from '../concierge/useGrowthPlays'
 import { SHELL_KIND, shellOf, stepCount } from '../layout/experienceKind'
 import { Ago, BulkAction, Check, RowActions, RowMark, SelectHead, TableEmpty, TableRow, initials, useSelection } from '../layout/SlgTable'
 import { StatusChip } from '../layout/StatusChip'
 import { archiveExperienceNow, archivePlayNow } from '../plays/archive'
-import { audienceText } from '../plays/resolve'
+import { audienceText, fallbackVariant } from '../plays/resolve'
 import type { CancelPlay } from '../plays/types'
 import { toast, type MenuItem } from '../plays/ui'
 import { duplicatePlay, playsUsing, usePlays, useRankedPlays } from '../plays/usePlays'
@@ -15,19 +16,37 @@ import { audienceSummary } from '../types/orchestration'
 import { duplicateThread, useWorkspace } from '../workspace/useWorkspace'
 import { useAudiences } from './useAudiences'
 import type { V10Row } from './rows'
-import { openRef, useV10, type V10Source, type V10Tab } from './useV10'
+import { openRef, useV10, type V10Scope, type V10Source, type V10Tab } from './useV10'
 
 /** Shared with the view bar so the table and the tabs line up, including on wide screens. */
 export const V10_GUTTER = 'px-[28px] min-[1440px]:px-[40px] min-[1800px]:px-[64px]'
 
-const PLAY_COLS =
-  'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.8fr)_minmax(108px,0.9fr)_minmax(136px,1.35fr)_minmax(148px,1.35fr)_minmax(108px,0.85fr)_minmax(120px,1fr)_68px_52px_92px_52px]'
+const PORTFOLIO_COLS =
+  'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.7fr)_100px_110px_minmax(136px,1.2fr)_minmax(148px,1.3fr)_68px_52px_92px_52px]'
+const GROWTH_PLAY_COLS =
+  'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.6fr)_minmax(150px,1.25fr)_minmax(136px,1.1fr)_minmax(120px,1fr)_minmax(130px,1fr)_68px_92px_52px]'
+const RETENTION_PLAY_COLS =
+  'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.6fr)_minmax(136px,1.1fr)_minmax(160px,1.3fr)_minmax(140px,1.1fr)_52px_68px_92px_52px]'
 const EXPERIENCE_COLS =
   'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(180px,1.8fr)_minmax(108px,0.85fr)_minmax(120px,0.8fr)_52px_minmax(200px,1.7fr)_68px_92px_52px]'
 const AUDIENCE_COLS =
   'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(180px,1.6fr)_minmax(108px,0.8fr)_minmax(220px,2fr)_minmax(180px,1.4fr)_68px_92px_52px]'
 
-const COLS = { plays: PLAY_COLS, experiences: EXPERIENCE_COLS, audiences: AUDIENCE_COLS } as const
+const COLS = { experiences: EXPERIENCE_COLS, audiences: AUDIENCE_COLS } as const
+
+function playCols(scope: V10Scope) {
+  if (scope === 'retention') return RETENTION_PLAY_COLS
+  if (scope === 'acquisition' || scope === 'expansion') return GROWTH_PLAY_COLS
+  return PORTFOLIO_COLS
+}
+
+function compactTemplate(tab: V10Tab, scope: V10Scope) {
+  if (tab === 'experiences') return '16px minmax(180px,1.8fr) minmax(108px,.85fr) minmax(120px,.8fr) 52px minmax(200px,1.7fr) 68px 52px'
+  if (tab === 'audiences') return '16px minmax(180px,1.6fr) minmax(108px,.8fr) minmax(220px,2fr) minmax(180px,1.4fr) 68px 52px'
+  if (scope === 'portfolio') return '16px minmax(168px,1.7fr) 100px 110px minmax(136px,1.2fr) minmax(148px,1.3fr) 68px 52px 52px'
+  if (scope === 'retention') return '16px minmax(168px,1.6fr) minmax(136px,1.1fr) minmax(160px,1.3fr) minmax(140px,1.1fr) 68px 52px 52px'
+  return '16px minmax(168px,1.6fr) minmax(150px,1.25fr) minmax(136px,1.1fr) minmax(120px,1fr) minmax(130px,1fr) 68px 52px'
+}
 
 interface UseChip {
   key: string
@@ -58,81 +77,76 @@ function pageTypes(play: CancelPlay, source: V10Source, growthTypes: Map<string,
 /** Plays, experiences and audiences in the same table, with the columns each list has in the app. */
 export function V10Table({
   tab,
+  scope,
   shown,
   groups,
   grouped,
+  showEdited = true,
 }: {
   tab: V10Tab
+  scope: V10Scope
   shown: V10Row[]
   groups: { label: string; rows: V10Row[] }[]
   grouped: boolean
+  showEdited?: boolean
 }) {
   const facts = useFacts()
   const pins = useV10((state) => state.pins)
   const sel = useSelection(shown.map(rowKey))
   const picked = shown.filter((row) => sel.has(rowKey(row)))
   const liveCount = picked.filter((row) => row.status === 'live').length
-  const cols = COLS[tab]
+  const cols = tab === 'plays' ? playCols(scope) : COLS[tab]
+  const compactStyle = showEdited ? undefined : { gridTemplateColumns: compactTemplate(tab, scope) }
   return (
     <div className="min-w-[1080px] min-[1440px]:min-w-0">
-      <SelectHead
-        cols={cols}
-        total={shown.length}
-        picked={sel.picked.length}
-        onAll={sel.setAll}
-        onClear={sel.clear}
-        actions={
-          tab === 'audiences' ? null : (
-            <BulkAction
-              icon="archive"
-              label="Archive"
-              confirm={liveCount > 0 ? `${liveCount} live ${liveCount === 1 ? 'item stops' : 'items stop'} showing. Archive?` : undefined}
-              onClick={() => {
-                picked.forEach(archiveRow)
-                sel.clear()
-              }}
-            />
-          )
-        }
-      >
-        {tab === 'plays' && (
-          <>
-            <span>Play</span>
-            <span>Tags</span>
-            <span>Audience</span>
-            <span>Experiences</span>
-            <span>Page type</span>
-            <span>Setup</span>
-            <span>Status</span>
-            <span className="text-right">Priority</span>
-            <span>Edited</span>
-            <span />
-          </>
-        )}
-        {tab === 'experiences' && (
-          <>
-            <span>Experience</span>
-            <span>Tags</span>
-            <span>Type</span>
-            <span className="text-right">Steps</span>
-            <span>Used in</span>
-            <span>Status</span>
-            <span>Edited</span>
-            <span />
-          </>
-        )}
-        {tab === 'audiences' && (
-          <>
-            <span>Audience</span>
-            <span>Tags</span>
-            <span>Rules</span>
-            <span>Used in</span>
-            <span>Status</span>
-            <span>Edited</span>
-            <span />
-          </>
-        )}
-      </SelectHead>
+      <div className="sticky top-0 z-20 bg-white">
+        <SelectHead
+          cols={cols}
+          style={compactStyle}
+          total={shown.length}
+          picked={sel.picked.length}
+          onAll={sel.setAll}
+          onClear={sel.clear}
+          actions={
+            tab === 'audiences' ? null : (
+              <BulkAction
+                icon="archive"
+                label="Archive"
+                confirm={liveCount > 0 ? `${liveCount} live ${liveCount === 1 ? 'item stops' : 'items stop'} showing. Archive?` : undefined}
+                onClick={() => {
+                  picked.forEach(archiveRow)
+                  sel.clear()
+                }}
+              />
+            )
+          }
+        >
+          {tab === 'plays' && <PlayHead scope={scope} showEdited={showEdited} />}
+          {tab === 'experiences' && (
+            <>
+              <span>Experience</span>
+              <span>Tags</span>
+              <span>Type</span>
+              <span className="text-right">Steps</span>
+              <span>Used in</span>
+              <span>Status</span>
+              {showEdited && <span>Edited</span>}
+              <span />
+            </>
+          )}
+          {tab === 'audiences' && (
+            <>
+              <span>Audience</span>
+              <span>Tags</span>
+              <span>Rules</span>
+              <span>Used in</span>
+              <span>Status</span>
+              {showEdited && <span>Edited</span>}
+              <span />
+            </>
+          )}
+        </SelectHead>
+      </div>
       {shown.length === 0 && <TableEmpty>Nothing matches this view.</TableEmpty>}
       {groups.map((group) => (
         <div key={group.label || 'all'}>
@@ -143,7 +157,7 @@ export function V10Table({
             </h2>
           )}
           {group.rows.map((row) => (
-            <DataRow key={`${rowKey(row)}:${group.label}`} row={row} cols={cols} picked={sel.has(rowKey(row))} onToggle={() => sel.toggle(rowKey(row))} pinned={pins.some((pin) => pin.kind === row.kind && pin.id === row.id)} facts={facts} />
+            <DataRow key={`${rowKey(row)}:${group.label}`} row={row} scope={scope} cols={cols} style={compactStyle} showEdited={showEdited} picked={sel.has(rowKey(row))} onToggle={() => sel.toggle(rowKey(row))} pinned={pins.some((pin) => pin.kind === row.kind && pin.id === row.id)} facts={facts} />
           ))}
         </div>
       ))}
@@ -151,16 +165,51 @@ export function V10Table({
   )
 }
 
+function PlayHead({ scope, showEdited }: { scope: V10Scope; showEdited: boolean }) {
+  if (scope === 'acquisition') {
+    return (
+      <>
+        <span>Acquisition play</span><span>Trigger</span><span>Audience</span><span>Experience type</span><span>Experiment</span><span>Status</span>{showEdited && <span>Edited</span>}<span />
+      </>
+    )
+  }
+  if (scope === 'expansion') {
+    return (
+      <>
+        <span>Expansion play</span><span>Surface</span><span>Audience</span><span>Offer or plan</span><span>Experiment</span><span>Status</span>{showEdited && <span>Edited</span>}<span />
+      </>
+    )
+  }
+  if (scope === 'retention') {
+    return (
+      <>
+        <span>Retention play</span><span>Cancel audience</span><span>Save treatments</span><span>Fallback</span><span>Status</span><span className="text-right">Priority</span>{showEdited && <span>Edited</span>}<span />
+      </>
+    )
+  }
+  return (
+    <>
+      <span>Play</span><span>Objective</span><span>Play type</span><span>Audience</span><span>Experience</span><span>Status</span><span className="text-right">Priority</span>{showEdited && <span>Edited</span>}<span />
+    </>
+  )
+}
+
 function DataRow({
   row,
+  scope,
   cols,
+  style,
+  showEdited,
   picked,
   onToggle,
   pinned,
   facts,
 }: {
   row: V10Row
+  scope: V10Scope
   cols: string
+  style?: CSSProperties
+  showEdited: boolean
   picked: boolean
   onToggle: () => void
   pinned: boolean
@@ -168,21 +217,28 @@ function DataRow({
 }) {
   const items = menuOf(row, pinned)
   return (
-    <TableRow cols={cols} onOpen={() => openRef(row)} className={`group ${picked ? 'is-picked' : ''}`}>
+    <TableRow cols={cols} style={style} onOpen={() => openRef(row)} className={`group ${picked ? 'is-picked' : ''}`}>
       <Check on={picked} onChange={onToggle} label={`Select ${row.title}`} />
       <div className="flex min-w-0 items-center gap-[10px]">
         <RowMark>{initials(row.title)}</RowMark>
         <span className="truncate">{row.title}</span>
       </div>
-      <span className="truncate text-slate-600">{row.tags.map(tagWord).join(', ') || '—'}</span>
-      {row.kind === 'play' && <PlayCells row={row} facts={facts} />}
-      {row.kind === 'experience' && <ExperienceCells row={row} facts={facts} />}
-      {row.kind === 'audience' && <AudienceCells row={row} facts={facts} />}
+      {row.kind === 'play' ? (
+        <PlayCells row={row} scope={scope} facts={facts} />
+      ) : (
+        <>
+          <span className="truncate text-slate-600">{row.tags.map(tagWord).join(', ') || '—'}</span>
+          {row.kind === 'experience' && <ExperienceCells row={row} facts={facts} />}
+          {row.kind === 'audience' && <AudienceCells row={row} facts={facts} />}
+        </>
+      )}
       <span>
         <StatusChip live={row.status === 'live'} />
       </span>
-      {row.kind === 'play' && <span className="text-right tabular-nums">{facts.play.get(`${row.source}:${row.id}`)?.priority ?? '—'}</span>}
-      <Ago at={row.updatedAt} />
+      {row.kind === 'play' && (scope === 'portfolio' || scope === 'retention') && (
+        <span className="text-right tabular-nums">{facts.play.get(`${row.source}:${row.id}`)?.priority ?? '—'}</span>
+      )}
+      {showEdited && <Ago at={row.updatedAt} />}
       <span className="flex items-center justify-end gap-[2px]">
         <button
           type="button"
@@ -202,10 +258,41 @@ function DataRow({
   )
 }
 
-function PlayCells({ row, facts }: { row: V10Row; facts: Facts }) {
+function PlayCells({ row, scope, facts }: { row: V10Row; scope: V10Scope; facts: Facts }) {
   const play = facts.play.get(`${row.source}:${row.id}`)
+  if (scope === 'acquisition') {
+    return (
+      <>
+        <span className="truncate text-slate-600">{play?.trigger ?? 'Any page'}</span>
+        <span className="truncate">{play?.audience ?? '—'}</span>
+        <span className="truncate text-slate-600">{play?.pageType ?? 'None yet'}</span>
+        <span className="truncate text-slate-600">{play?.setup ?? '—'}</span>
+      </>
+    )
+  }
+  if (scope === 'expansion') {
+    return (
+      <>
+        <span className="truncate text-slate-600">{play?.surface ?? '—'}</span>
+        <span className="truncate">{play?.audience ?? '—'}</span>
+        <span className="truncate text-slate-600">{play?.content ?? 'None yet'}</span>
+        <span className="truncate text-slate-600">{play?.setup ?? '—'}</span>
+      </>
+    )
+  }
+  if (scope === 'retention') {
+    return (
+      <>
+        <span className="truncate">{play?.audience ?? '—'}</span>
+        <span className="truncate text-slate-600">{play?.treatments ?? 'None yet'}</span>
+        <span className="truncate text-slate-600">{play?.fallback ?? 'No fallback'}</span>
+      </>
+    )
+  }
   return (
     <>
+      <span className="truncate text-slate-600">{row.tags.map(tagWord).join(', ') || '—'}</span>
+      <span className="truncate text-slate-600">{play?.pageType ?? 'None yet'}</span>
       <span className="flex min-w-0 items-center gap-[6px]">
         <SIcon name="users" size={12} className="flex-none text-slate-500" />
         <span className="truncate">{play?.audience ?? '—'}</span>
@@ -220,8 +307,6 @@ function PlayCells({ row, facts }: { row: V10Row; facts: Facts }) {
           <span className="text-slate-500">None yet</span>
         )}
       </span>
-      <span className="truncate text-slate-600">{play?.pageType ?? 'None yet'}</span>
-      <span className="truncate text-slate-600">{play?.setup ?? '—'}</span>
     </>
   )
 }
@@ -336,6 +421,11 @@ interface PlayFact {
   pageType: string
   setup: string
   priority: number
+  trigger: string
+  surface: string
+  content: string
+  treatments: string
+  fallback: string
 }
 
 interface ExperienceFact {
@@ -363,6 +453,8 @@ function useFacts(): Facts {
   const ranked = useRankedPlays()
   const threads = useWorkspace((state) => state.threads)
   const audiences = useAudiences((state) => state.items)
+  const offers = useGrowthLibrary((state) => state.offers)
+  const pricingTables = useGrowthLibrary((state) => state.pricingTables)
 
   return useMemo(() => {
     const names = new Map<string, string>()
@@ -370,9 +462,23 @@ function useFacts(): Facts {
     threads.forEach((thread) => names.set(thread.id, thread.title))
     const growthTypes = new Map(growthExperiences.map((item) => [item.id, TYPE_LABEL[item.type]]))
     const shells = new Map(threads.map((thread) => [thread.id, SHELL_KIND[shellOf(thread)].label]))
+    const references = new Map([...offers, ...pricingTables].map((item) => [item.id, item.name]))
     const play = new Map<string, PlayFact>()
     const addPlay = (item: CancelPlay, source: V10Source, priority: number) => {
       const ids = [...new Set(item.variants.map((variant) => variant.experienceId))]
+      const growthItems = ids.map((id) => growthExperiences.find((experience) => experience.id === id)).filter((value): value is NonNullable<typeof value> => Boolean(value))
+      const triggers = [...new Set(growthItems.map((experience) => {
+        const label = TRIGGER_LABEL[experience.trigger.kind]
+        return experience.trigger.value ? `${label}: ${experience.trigger.value}` : label
+      }))]
+      const surfaces = [...new Set(growthItems.map((experience) => {
+        if (experience.type === 'pricing_table') return 'Pricing page'
+        const offer = offers.find((entry) => entry.id === experience.refId)
+        return offer ? WIDGET_LABEL[offer.widget] : TYPE_LABEL[experience.type]
+      }))]
+      const contents = [...new Set(growthItems.map((experience) => experience.refId ? references.get(experience.refId) : undefined).filter((value): value is string => Boolean(value)))]
+      const fallback = fallbackVariant(item)
+      const fallbackName = fallback ? names.get(fallback.experienceId) : undefined
       play.set(`${source}:${item.id}`, {
         audience: audienceText(item.audience),
         experience: ids[0] ? (names.get(ids[0]) ?? 'Experience') : '',
@@ -380,6 +486,11 @@ function useFacts(): Facts {
         pageType: pageTypes(item, source, growthTypes, shells),
         setup: setupLine(item),
         priority,
+        trigger: triggers.join(', ') || (source === 'retention' ? 'Cancellation' : 'Any page'),
+        surface: surfaces.join(', ') || pageTypes(item, source, growthTypes, shells),
+        content: contents.join(', ') || (ids[0] ? (names.get(ids[0]) ?? 'Experience') : ''),
+        treatments: ids.map((id) => names.get(id)).filter(Boolean).join(', '),
+        fallback: fallbackName ?? (item.splitBy === 'segments' ? 'Not set' : 'Not used'),
       })
     }
     ranked.forEach((item, index) => addPlay(item, 'retention', index + 1))
@@ -409,7 +520,7 @@ function useFacts(): Facts {
       experience.set(`retention:${thread.id}`, { icon: SHELL_KIND[shellOf(thread)].icon, steps: stepCount(thread), uses: usesOf(thread.id) })
     })
 
-    const references = (id: string, name: string, item: CancelPlay) => {
+    const referencesAudience = (id: string, name: string, item: CancelPlay) => {
       const hit = (audience: { savedAudienceId?: string | null; name?: string } | undefined) => audience?.savedAudienceId === id || audience?.name === name
       return hit(item.audience) || item.subAudiences.some((sub) => hit(sub.audience))
     }
@@ -419,11 +530,11 @@ function useFacts(): Facts {
       audience.set(item.id, {
         rules: text || 'No rules yet',
         uses: [
-          ...growthPlays.filter((playItem) => references(item.id, item.name, playItem)).map((playItem) => chip(playItem, 'growth', playItem.objective)),
-          ...retention.filter((playItem) => references(item.id, item.name, playItem)).map((playItem) => chip(playItem, 'retention')),
+          ...growthPlays.filter((playItem) => referencesAudience(item.id, item.name, playItem)).map((playItem) => chip(playItem, 'growth', playItem.objective)),
+          ...retention.filter((playItem) => referencesAudience(item.id, item.name, playItem)).map((playItem) => chip(playItem, 'retention')),
         ],
       })
     })
     return { play, experience, audience }
-  }, [audiences, growthExperiences, growthOrder, growthPlays, ranked, retention, threads])
+  }, [audiences, growthExperiences, growthOrder, growthPlays, offers, pricingTables, ranked, retention, threads])
 }

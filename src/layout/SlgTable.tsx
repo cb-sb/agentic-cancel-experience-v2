@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { RowMenu, type MenuItem } from '../plays/ui'
 import { ago } from './ThreadSidebar'
@@ -22,7 +22,7 @@ export function TableHead({ cols, children }: { cols: string; children: ReactNod
   return <div className={`${cols} ${TABLE_HEAD}`}>{children}</div>
 }
 
-export function TableRow({ cols, onOpen, children, className = '' }: { cols: string; onOpen: () => void; children: ReactNode; className?: string }) {
+export function TableRow({ cols, onOpen, children, className = '', style }: { cols: string; onOpen: () => void; children: ReactNode; className?: string; style?: CSSProperties }) {
   return (
     <div
       role="button"
@@ -32,6 +32,7 @@ export function TableRow({ cols, onOpen, children, className = '' }: { cols: str
         if (e.key === 'Enter' && e.target === e.currentTarget) onOpen()
       }}
       className={`${cols} ${TABLE_ROW_OPEN} ${className}`}
+      style={style}
     >
       {children}
     </div>
@@ -151,6 +152,7 @@ export function SelectHead({
   onClear,
   actions,
   children,
+  style,
 }: {
   cols: string
   total: number
@@ -159,11 +161,12 @@ export function SelectHead({
   onClear: () => void
   actions: ReactNode
   children: ReactNode
+  style?: CSSProperties
 }) {
   const all = total > 0 && picked === total
   if (picked === 0) {
     return (
-      <div className={`${cols} ${TABLE_HEAD}`}>
+      <div className={`${cols} ${TABLE_HEAD}`} style={style}>
         <Check on={false} onChange={() => onAll(true)} label="Select all" />
         {children}
       </div>

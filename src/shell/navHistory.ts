@@ -10,6 +10,19 @@ import { useWorkspaceUi, type LibraryKind, type StudioPage } from '../workspace/
 import { hashFor, routeFromHash, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
 
+interface V10Location {
+  active: string | null
+  scope: 'portfolio' | 'acquisition' | 'expansion' | 'retention'
+  slice: 'all' | 'in_app_offer' | 'pricing_table' | 'cancel_page'
+}
+
+let v10Api:
+  | {
+      location: (route?: NavLeafId) => V10Location
+      restore: (route: NavLeafId, location?: V10Location) => void
+    }
+  | undefined
+
 /** Where the merchant is: the Growth page, and inside the composer which view and experience. */
 interface Place {
   route: NavLeafId
@@ -24,6 +37,8 @@ interface Place {
   growth?: GrowthPlace
   /** Concierge: the not-yet-built place open in Retention. */
   soon?: SoonPlace | null
+  /** V10's permanent scope or merchant-saved view. */
+  v10?: V10Location
 }
 
 interface EntryState {
@@ -47,6 +62,7 @@ function currentPlace(): Place {
     libraryKind: ui.libraryKind,
     growth: growthPlace(),
     soon: useRetentionSoon.getState().place,
+    v10: v10Api?.location(),
   }
 }
 
@@ -67,11 +83,21 @@ function keyOf(p: Place): string {
     p.page === 'library' ? (p.libraryKind ?? '') : '',
     p.page === 'soon' ? (p.soon?.id ?? '') : '',
     growthKey(p.growth),
+    p.v10 ? `${p.v10.active ?? ''}:${p.v10.scope}:${p.v10.slice}` : '',
   ].join('|')
 }
 
-function urlFor(route: NavLeafId): string {
-  return `${window.location.pathname}${window.location.search}${hashFor(route)}`
+function urlFor(place: Place): string {
+  let hash = hashFor(place.route)
+  if (place.route.startsWith('work.') && place.v10) {
+    const params = new URLSearchParams()
+    if (place.route === 'work.plays' && place.v10.scope !== 'portfolio') params.set('scope', place.v10.scope)
+    if (place.route === 'work.experiences' && place.v10.slice !== 'all') params.set('slice', place.v10.slice)
+    if (place.v10.active) params.set('view', place.v10.active)
+    const query = params.toString()
+    if (query) hash += `?${query}`
+  }
+  return `${window.location.pathname}${window.location.search}${hash}`
 }
 
 function readEntry(state: unknown): EntryState | null {
@@ -87,8 +113,8 @@ function write(mode: 'push' | 'replace', idx: number) {
   const place = currentPlace()
   committed = keyOf(place)
   const entry: EntryState = { place, idx }
-  if (mode === 'push') window.history.pushState(entry, '', urlFor(place.route))
-  else window.history.replaceState(entry, '', urlFor(place.route))
+  if (mode === 'push') window.history.pushState(entry, '', urlFor(place))
+  else window.history.replaceState(entry, '', urlFor(place))
   useNavHistory.setState({ idx })
 }
 
@@ -107,6 +133,7 @@ function schedule() {
 function apply(place: Place) {
   if (place.growth) restoreGrowthPlace(place.growth)
   if (place.soon !== undefined) useRetentionSoon.setState({ place: place.soon })
+  v10Api?.restore(place.route, place.v10)
   useGrowthShell.getState().go(place.route)
   const ws = useWorkspace.getState()
   if (place.threadId !== ws.activeId && ws.threads.some((t) => t.id === place.threadId)) {
@@ -157,6 +184,11 @@ export function startNavHistory() {
   useUpload.subscribe(schedule)
   useGrowthUi.subscribe(schedule)
   useRetentionSoon.subscribe(schedule)
+  void import('../v10/useV10').then(({ restoreV10Location, useV10, v10Location }) => {
+    v10Api = { location: v10Location, restore: restoreV10Location }
+    write('replace', useNavHistory.getState().idx)
+    useV10.subscribe(schedule)
+  })
   window.addEventListener('popstate', onPopState)
 }
 

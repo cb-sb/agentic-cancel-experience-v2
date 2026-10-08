@@ -169,7 +169,7 @@ const V10_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'work.plays', label: 'Plays', icon: 'list-ordered' } },
   { kind: 'leaf', leaf: { id: 'work.experiences', label: 'Experiences', icon: 'layers' } },
   { kind: 'leaf', leaf: { id: 'work.audiences', label: 'Audiences', icon: 'user-search' } },
-  { kind: 'leaf', leaf: { id: 'renewal', label: 'Renewal', icon: 'repeat' } },
+  { kind: 'leaf', leaf: { id: 'renewal', label: 'Revenue optimization', icon: 'repeat' } },
   {
     kind: 'group',
     group: { id: 'reports', label: 'Reports', icon: 'bar-chart', children: reportLeaves() },
@@ -220,7 +220,7 @@ export function groupOf(id: NavLeafId): NavGroupId | null {
 }
 
 export function labelOf(id: NavLeafId): string {
-  for (const entry of V8 ? [...BETA_NAV, ...NAV] : NAV) {
+  for (const entry of V10 ? NAV : V8 ? [...BETA_NAV, ...NAV] : NAV) {
     if (entry.kind === 'leaf' && entry.leaf.id === id) return entry.leaf.label
     if (entry.kind === 'group') {
       const hit = entry.group.children.find((c) => c.id === id)
@@ -237,7 +237,7 @@ export function hashFor(id: NavLeafId): string {
 }
 
 export function routeFromHash(hash: string): NavLeafId {
-  const raw = hash.replace(/^#\/?/, '').trim()
+  const raw = hash.replace(/^#\/?/, '').split('?')[0].trim()
   if (!raw) return DEFAULT_ROUTE
   const id = raw.replace(/\//g, '.') as NavLeafId
   return LEAF_IDS.has(id) ? id : DEFAULT_ROUTE

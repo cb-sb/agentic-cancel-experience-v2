@@ -1,17 +1,21 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { SIcon } from '@chargebee/sting-react'
+import { SIcon, type SIconName } from '@chargebee/sting-react'
+import { TYPE_LABEL, type GrowthExperience } from '../concierge/model'
 import { GrowthLooseRow, GrowthPlayRow } from '../concierge/objective/GrowthPane'
 import { useGrowthUi } from '../concierge/objective/useGrowthUi'
 import { useGrowthExperiences } from '../concierge/useGrowthExperiences'
 import { useGrowthPlays, type GrowthPlay } from '../concierge/useGrowthPlays'
+import { SHELL_KIND, shellOf } from '../layout/experienceKind'
+import { HeaderButton } from '../layout/ObjectivePane'
 import { LooseRow, PlayRow } from '../layout/PlaysTree'
 import { navItem } from '../layout/navStyle'
+import { SettingRow } from '../layout/ThreadSidebar'
 import { RowMenu } from '../plays/ui'
 import type { CancelPlay } from '../plays/types'
 import { usePlays } from '../plays/usePlays'
 import { childrenOf, type NavLeafId } from '../shell/nav'
 import { useGrowthShell } from '../shell/useGrowthShell'
-import { useWorkspace } from '../workspace/useWorkspace'
+import { useWorkspace, type ExperienceThread } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { titleOf, useV10Rows } from './rows'
 import { useAudiences } from './useAudiences'
@@ -19,6 +23,7 @@ import {
   createV10Audience,
   createV10CancelPage,
   createV10Experience,
+  createV10GrowthPlay,
   createV10Play,
   createV10RetentionPlay,
   openRef,
@@ -28,7 +33,7 @@ import {
 
 const DESTINATIONS: { id: string; label: string; route: NavLeafId; match: (route: NavLeafId) => boolean }[] = [
   { id: 'home', label: 'Home', route: 'home', match: (route) => route === 'home' },
-  { id: 'renewal', label: 'Renewal', route: 'renewal', match: (route) => route === 'renewal' },
+  { id: 'renewal', label: 'Revenue optimization', route: 'renewal', match: (route) => route === 'renewal' },
 ]
 
 const VIEWS: { label: string; route: NavLeafId }[] = [
@@ -42,100 +47,139 @@ function visit(route: NavLeafId) {
   useGrowthShell.getState().go(route)
 }
 
-/** Destinations, pins, the open play, and recents in one rail. */
+const NEW_ITEMS = [
+  {
+    label: 'Acquisition play',
+    icon: 'rocket' as const,
+    items: [
+      { label: 'In-app offer play', icon: 'gift' as const, onClick: () => createV10GrowthPlay('acquisition', 'in_app_offer') },
+      { label: 'Pricing table play', icon: 'table' as const, onClick: () => createV10GrowthPlay('acquisition', 'pricing_table') },
+      { label: 'Empty play', icon: 'workflow' as const, onClick: createV10Play },
+    ],
+  },
+  {
+    label: 'Expansion play',
+    icon: 'arrow-up-right' as const,
+    items: [
+      { label: 'In-app offer play', icon: 'gift' as const, onClick: () => createV10GrowthPlay('expansion', 'in_app_offer') },
+      { label: 'Pricing table play', icon: 'table' as const, onClick: () => createV10GrowthPlay('expansion', 'pricing_table') },
+      { label: 'Empty play', icon: 'workflow' as const, onClick: () => createV10GrowthPlay('expansion') },
+    ],
+  },
+  { label: 'Retention play', icon: 'repeat' as const, onClick: createV10RetentionPlay },
+  {
+    label: 'In-app offer',
+    icon: 'gift' as const,
+    items: [
+      { label: 'For Acquisition', icon: 'rocket' as const, onClick: () => createV10Experience('in_app_offer', 'acquisition') },
+      { label: 'For Expansion', icon: 'arrow-up-right' as const, onClick: () => createV10Experience('in_app_offer', 'expansion') },
+    ],
+  },
+  {
+    label: 'Pricing table',
+    icon: 'table' as const,
+    items: [
+      { label: 'For Acquisition', icon: 'rocket' as const, onClick: () => createV10Experience('pricing_table', 'acquisition') },
+      { label: 'For Expansion', icon: 'arrow-up-right' as const, onClick: () => createV10Experience('pricing_table', 'expansion') },
+    ],
+  },
+  { label: 'Cancel page', icon: 'file-text' as const, onClick: createV10CancelPage },
+  { label: 'Audience', icon: 'users' as const, onClick: createV10Audience },
+]
+
+function viewOf(route: NavLeafId) {
+  return VIEWS.find((view) => view.route === route) ?? VIEWS[0]
+}
+
+function viewIcon(route: NavLeafId): SIconName {
+  if (route === 'work.experiences') return 'layers'
+  if (route === 'work.audiences') return 'user-search'
+  return 'list-ordered'
+}
+
+/** Destinations stay put. What you open is grouped underneath, and the rail can fold to icons. */
 export function V10Nav() {
   const route = useGrowthShell((s) => s.route)
   const reportsOpen = useGrowthShell((s) => s.openGroups.reports)
   const toggleGroup = useGrowthShell((s) => s.toggleGroup)
   const openGroup = useGrowthShell((s) => s.openGroup)
+  const sidebarOpen = useWorkspaceUi((state) => state.sidebarOpen)
+  const setSidebarOpen = useWorkspaceUi((state) => state.setSidebarOpen)
   const reportsCurrent = route.startsWith('reports')
-  const reportsShown = reportsOpen && reportsCurrent
-  const pins = useV10((state) => state.pins)
-  const recent = useV10((state) => state.recent)
-  const rows = useV10Rows()
+  const reportsShown = reportsOpen && reportsCurrent && sidebarOpen
+  const folded = !sidebarOpen
+  const view = viewOf(route)
 
   useEffect(() => {
     if (reportsCurrent) openGroup('reports')
   }, [openGroup, reportsCurrent])
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
-      <div className="flex h-[52px] flex-none items-center border-b border-slate-200 px-[14px]">
-        <RowMenu
-          label="New"
-          icon="plus"
-          align="left"
-          width={220}
-          text="New"
-          items={[
-            { label: 'Play', icon: 'workflow', onClick: createV10Play },
-            { label: 'Retention play', icon: 'repeat', onClick: createV10RetentionPlay },
-            { label: 'In-app offer', icon: 'gift', onClick: () => createV10Experience('in_app_offer') },
-            { label: 'Pricing table', icon: 'table', onClick: () => createV10Experience('pricing_table') },
-            { label: 'Cancel page', icon: 'file-text', onClick: createV10CancelPage },
-            { label: 'Audience', icon: 'users', onClick: createV10Audience },
-          ]}
-        />
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200 bg-white">
+      <div className={`flex h-[52px] flex-none items-center border-b border-slate-200 ${folded ? 'justify-center' : 'gap-[4px] px-[14px]'}`}>
+        {!folded && <RowMenu label="New" icon="plus" align="left" width={220} text="New" items={NEW_ITEMS} className="mr-auto" />}
+        <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setSidebarOpen(folded)} />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto px-[8px] py-[12px]">
-        <nav className="flex flex-col gap-[2px]" aria-label="Growth">
-          {DESTINATIONS.filter((item) => item.id === 'home').map((item) => (
-            <NavDestination key={item.id} item={item} route={route} />
-          ))}
-          <NavDestination
-            item={{
-              label: VIEWS.find((view) => view.route === route)?.label ?? 'Plays',
-              route: VIEWS.find((view) => view.route === route)?.route ?? 'work.plays',
-              match: (current) => VIEWS.some((view) => view.route === current),
-            }}
-            route={route}
-          />
-          {DESTINATIONS.filter((item) => item.id === 'renewal').map((item) => (
-            <NavDestination key={item.id} item={item} route={route} />
-          ))}
-          <button
-            type="button"
-            aria-expanded={reportsShown}
-            onClick={() => {
-              if (reportsCurrent) toggleGroup('reports')
-              else visit('reports.cancels')
-            }}
-            className={`${navItem(false, reportsCurrent)} flex h-10 w-full items-center gap-[8px] px-[10px] text-left text-[13px]`}
-          >
-            <span className="min-w-0 flex-1 truncate">Reports</span>
-            <SIcon name="chevron-down" size={16} className={`slg-nav-icon flex-none transition-transform ${reportsShown ? 'rotate-180' : ''}`} />
-          </button>
-          {reportsShown && (
-            <div className="slg-nav-tree mb-[2px] ml-[19px] flex flex-col gap-[2px] border-l pl-[4px]">
-              {childrenOf('reports').map((leaf) => (
-                <button
-                  key={leaf.id}
-                  type="button"
-                  aria-current={route === leaf.id ? 'page' : undefined}
-                  onClick={() => visit(leaf.id)}
-                  className={`${navItem(route === leaf.id)} flex h-8 w-full items-center px-[10px] text-left text-[13px]`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{leaf.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </nav>
-        <OpenTree />
-        <div className="flex flex-col gap-[2px]">
-          {pins.length === 0 && recent.length === 0 && (
-            <p className="px-[10px] text-[12px] text-slate-400">Plays, experiences and audiences you open show up here.</p>
-          )}
-          {pins.map((pin) => (
-            <NavButton key={`pin:${pin.kind}:${pin.id}`} label={titleOf(rows, pin)} pinned marker onClick={() => openRef(pin)} />
-          ))}
-          {recent
-            .filter((item) => !pins.some((pin) => pin.kind === item.kind && pin.id === item.id))
-            .map((item) => (
-              <NavButton key={`recent:${item.kind}:${item.id}`} label={titleOf(rows, item)} marker onClick={() => openRef(item)} />
-            ))}
+      {folded ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-[2px] px-[8px] py-[10px]">
+          <div className="flex h-10 items-center justify-center">
+            <RowMenu label="New" icon="plus" align="beside" width={220} items={NEW_ITEMS} />
+          </div>
+          <SettingRow icon="home" label="Home" folded active={route === 'home'} onClick={() => visit('home')} />
+          <SettingRow icon={viewIcon(view.route)} label={view.label} folded active={VIEWS.some((item) => item.route === route)} onClick={() => visit(view.route)} />
+          <SettingRow icon="repeat" label="Revenue optimization" folded active={route === 'renewal'} onClick={() => visit('renewal')} />
+          <SettingRow icon="bar-chart" label="Reports" folded active={reportsCurrent} onClick={() => visit('reports.cancels')} />
         </div>
-      </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col gap-[12px] overflow-y-auto px-[8px] py-[12px]">
+          <nav className="flex flex-col gap-[2px]" aria-label="Growth">
+            {DESTINATIONS.filter((item) => item.id === 'home').map((item) => (
+              <NavDestination key={item.id} item={item} route={route} />
+            ))}
+            <NavDestination
+              item={{
+                label: view.label,
+                route: view.route,
+                match: (current) => VIEWS.some((item) => item.route === current),
+              }}
+              route={route}
+            />
+            {DESTINATIONS.filter((item) => item.id === 'renewal').map((item) => (
+              <NavDestination key={item.id} item={item} route={route} />
+            ))}
+            <button
+              type="button"
+              aria-expanded={reportsShown}
+              onClick={() => {
+                if (reportsCurrent) toggleGroup('reports')
+                else visit('reports.cancels')
+              }}
+              className={`${navItem(false, reportsCurrent)} flex h-10 w-full items-center gap-[8px] px-[10px] text-left text-[13px]`}
+            >
+              <span className="min-w-0 flex-1 truncate">Reports</span>
+              <SIcon name="chevron-down" size={16} className={`slg-nav-icon flex-none transition-transform ${reportsShown ? 'rotate-180' : ''}`} />
+            </button>
+            {reportsShown && (
+              <div className="slg-nav-tree mb-[2px] ml-[19px] flex flex-col gap-[2px] border-l pl-[4px]">
+                {childrenOf('reports').map((leaf) => (
+                  <button
+                    key={leaf.id}
+                    type="button"
+                    aria-current={route === leaf.id ? 'page' : undefined}
+                    onClick={() => visit(leaf.id)}
+                    className={`${navItem(route === leaf.id)} flex h-8 w-full items-center px-[10px] text-left text-[13px]`}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{leaf.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </nav>
+          <div className="-mx-[8px] border-t border-slate-200 px-[8px] pt-[12px]">
+            <RecentGroups />
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
@@ -161,11 +205,143 @@ function NavDestination({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div>
+    <div className="flex flex-col gap-[2px]">
       <div className="flex h-7 items-end px-[10px] pb-[4px]">
-        <span className="truncate text-[12px] font-medium text-slate-500">{title}</span>
+        <span className="slg-pane-head truncate">{title}</span>
       </div>
-      <div className="flex flex-col gap-[2px]">{children}</div>
+      {children}
+    </div>
+  )
+}
+
+function sameRef(a: V10Ref, b: V10Ref) {
+  return a.kind === b.kind && a.source === b.source && a.id === b.id
+}
+
+function experienceTitle(item: V10Ref, threads: ExperienceThread[], growth: GrowthExperience[]): string {
+  if (item.source === 'retention') {
+    const thread = threads.find((entry) => entry.id === item.id)
+    const shell = thread ? shellOf(thread) : 'modal'
+    return `Recent ${SHELL_KIND[shell].plural.toLowerCase()}`
+  }
+  const found = growth.find((entry) => entry.id === item.id)
+  const label = found ? TYPE_LABEL[found.type].toLowerCase() : 'experience'
+  const plural = label.endsWith('s') ? label : `${label}s`
+  return `Recent ${plural}`
+}
+
+/** Pins and what you opened, split the way the objective pane splits them. */
+function RecentGroups() {
+  const pins = useV10((state) => state.pins)
+  const recent = useV10((state) => state.recent)
+  const open = useV10((state) => state.open)
+  const rows = useV10Rows()
+  const growthPlays = useGrowthPlays((state) => state.plays)
+  const retentionPlays = usePlays((state) => state.plays)
+  const threads = useWorkspace((state) => state.threads)
+  const growthExperiences = useGrowthExperiences((state) => state.items)
+  const objective = open?.objective
+  const growthPlayId = useGrowthUi((state) => (objective ? state.views[objective].playId : null))
+  const retentionPlayId = useWorkspaceUi((state) => state.playId)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const context = open ? contextPlay(open, growthPlays, retentionPlays, growthPlayId, retentionPlayId) : null
+  const contextKey = context ? `${context.source}:${context.id}` : null
+  useEffect(() => {
+    if (!contextKey) return
+    setExpanded((current) => (current.has(contextKey) ? current : new Set(current).add(contextKey)))
+  }, [contextKey])
+
+  const items: V10Ref[] = []
+  const push = (ref: V10Ref) => {
+    if (!items.some((item) => sameRef(item, ref))) items.push(ref)
+  }
+  for (const pin of pins) push(pin)
+  if (open?.kind === 'play') push(open)
+  if (context) push(context)
+  for (const item of recent) push(item)
+
+  const plays = items.filter((item) => item.kind === 'play')
+  const audiences = items.filter((item) => item.kind === 'audience')
+  const shownExperience = (id: string) =>
+    open?.kind === 'experience' &&
+    open.id === id &&
+    plays.some((play) => {
+      if (!expanded.has(`${play.source}:${play.id}`)) return false
+      const tree = play.source === 'growth' ? growthPlays.find((item) => item.id === play.id) : retentionPlays.find((item) => item.id === play.id)
+      return tree?.variants.some((variant) => variant.experienceId === id)
+    })
+  const experienceGroups: { title: string; items: V10Ref[] }[] = []
+  for (const item of items.filter((entry) => entry.kind === 'experience' && !shownExperience(entry.id))) {
+    const title = experienceTitle(item, threads, growthExperiences)
+    const group = experienceGroups.find((entry) => entry.title === title)
+    if (group) group.items.push(item)
+    else experienceGroups.push({ title, items: [item] })
+  }
+  const pinned = (item: V10Ref) => pins.some((pin) => sameRef(pin, item))
+
+  if (plays.length === 0 && experienceGroups.length === 0 && audiences.length === 0 && open?.kind !== 'audience') {
+    return <p className="px-[10px] text-[12px] text-slate-400">Plays, experiences and audiences you open show up here.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-[16px]">
+      {open?.kind === 'audience' && <AudienceTree id={open.id} />}
+      {plays.length > 0 && (
+        <Section title="Recent plays">
+          {plays.map((play) => {
+            const key = `${play.source}:${play.id}`
+            return <RecentPlay key={key} item={play} open={expanded.has(key)} onToggle={() => setExpanded((current) => {
+              const next = new Set(current)
+              if (next.has(key)) next.delete(key)
+              else next.add(key)
+              return next
+            })} />
+          })}
+        </Section>
+      )}
+      {experienceGroups.map((group) => (
+        <Section key={group.title} title={group.title}>
+          {group.items.map((item) => (
+            <RecentExperience key={`${item.source}:${item.id}`} item={item} pinned={pinned(item)} />
+          ))}
+        </Section>
+      ))}
+      {audiences.length > 0 && (
+        <Section title="Recent audiences">
+          {audiences.map((item) => (
+            <NavButton
+              key={item.id}
+              label={titleOf(rows, item)}
+              pinned={pinned(item)}
+              marker
+              current={open?.kind === 'audience' && open.id === item.id}
+              onClick={() => openRef(item)}
+            />
+          ))}
+        </Section>
+      )}
+    </div>
+  )
+}
+
+function RecentPlay({ item, open, onToggle }: { item: V10Ref; open: boolean; onToggle: () => void }) {
+  const growth = useGrowthPlays((state) => state.plays.find((play) => play.id === item.id))
+  const retention = usePlays((state) => state.plays.find((play) => play.id === item.id))
+  if (item.source === 'growth') return growth ? <GrowthPlayRow play={growth} open={open} onToggle={onToggle} /> : null
+  return retention ? <PlayRow play={retention} open={open} onToggle={onToggle} /> : null
+}
+
+function RecentExperience({ item, pinned }: { item: V10Ref; pinned: boolean }) {
+  const current = useV10((state) => state.open?.kind === 'experience' && state.open.id === item.id && state.open.source === item.source)
+  const growth = useGrowthExperiences((state) => state.items.find((entry) => entry.id === item.id))
+  const thread = useWorkspace((state) => state.threads.find((entry) => entry.id === item.id))
+  const row = item.source === 'growth' ? (growth ? <GrowthLooseRow x={growth} current={current} /> : null) : thread ? <LooseRow thread={thread} current={current} /> : null
+  if (!row) return null
+  return (
+    <div className="relative">
+      {pinned && <SIcon name="pin" size={13} className="slg-nav-icon absolute left-[10px] top-[9px]" />}
+      {row}
     </div>
   )
 }
@@ -180,50 +356,6 @@ function contextPlay(open: V10Ref, growth: GrowthPlay[], retention: CancelPlay[]
   }
   const preferred = retention.find((play) => play.id === retentionPlayId && holds(play)) ?? retention.find(holds)
   return preferred ? { kind: 'play', source: 'retention', id: preferred.id } : null
-}
-
-/** The open play's full tree, the play an experience sits in, or the audience's own rules. */
-function OpenTree() {
-  const open = useV10((state) => state.open)
-  const growth = useGrowthPlays((state) => state.plays)
-  const retention = usePlays((state) => state.plays)
-  const objective = open?.objective
-  const growthPlayId = useGrowthUi((state) => (objective ? state.views[objective].playId : null))
-  const retentionPlayId = useWorkspaceUi((state) => state.playId)
-  if (!open) return null
-  if (open.kind === 'audience') return <AudienceTree id={open.id} />
-  const play = contextPlay(open, growth, retention, growthPlayId, retentionPlayId)
-  if (play?.source === 'growth') return <GrowthBranch key={play.id} id={play.id} />
-  if (play) return <RetentionBranch key={play.id} id={play.id} />
-  if (open.kind === 'experience' && open.source === 'retention') return <LooseRetention id={open.id} />
-  if (open.kind === 'experience' && open.source === 'growth') return <LooseGrowth id={open.id} />
-  return null
-}
-
-function GrowthBranch({ id }: { id: string }) {
-  const play = useGrowthPlays((state) => state.plays.find((item) => item.id === id))
-  const [open, setOpen] = useState(true)
-  if (!play) return null
-  return <GrowthPlayRow play={play} open={open} onToggle={() => setOpen((value) => !value)} />
-}
-
-function RetentionBranch({ id }: { id: string }) {
-  const play = usePlays((state) => state.plays.find((item) => item.id === id))
-  const [open, setOpen] = useState(true)
-  if (!play) return null
-  return <PlayRow play={play} open={open} onToggle={() => setOpen((value) => !value)} />
-}
-
-function LooseGrowth({ id }: { id: string }) {
-  const experience = useGrowthExperiences((state) => state.items.find((item) => item.id === id))
-  if (!experience) return null
-  return <GrowthLooseRow x={experience} current />
-}
-
-function LooseRetention({ id }: { id: string }) {
-  const thread = useWorkspace((state) => state.threads.find((item) => item.id === id))
-  if (!thread) return null
-  return <LooseRow thread={thread} current />
 }
 
 function AudienceTree({ id }: { id: string }) {

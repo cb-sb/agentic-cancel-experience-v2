@@ -5,10 +5,12 @@ import { PlayPage } from '../concierge/objective/PlayPage'
 import { ThreadView } from '../layout/StudioWorkspace'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { RuleBuilder } from '../orchestration/NodeSetup'
+import { SlantedTab } from '../shell/SlantedTab'
+import { useGrowthShell } from '../shell/useGrowthShell'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
 import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
-import { DropdownButton, MenuList, ToastHost, useOutside, type MenuItem } from '../plays/ui'
+import { DropdownButton, ToastHost, useOutside, type MenuItem } from '../plays/ui'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { rowsFor, useV10Rows, type V10Row } from './rows'
 import { V10_GUTTER, V10Table } from './V10Table'
@@ -17,18 +19,20 @@ import {
   createV10Audience,
   createV10CancelPage,
   createV10Experience,
+  createV10GrowthPlay,
   createV10Play,
   createV10RetentionPlay,
+  syncV10FromHash,
   useV10,
+  type ExperienceSlice,
   type Filters,
-  type SavedView,
   type Tag,
   type V10Ref,
+  type V10Scope,
   type V10Tab,
 } from './useV10'
 
 const TAB_TITLE: Record<V10Tab, string> = { plays: 'Plays', experiences: 'Experiences', audiences: 'Audiences' }
-const TAB_ICON: Record<V10Tab, SIconName> = { plays: 'workflow', experiences: 'layout-template', audiences: 'users' }
 const TAGS: { id: Tag; label: string }[] = [
   { id: 'acquisition', label: 'Acquisition' },
   { id: 'expansion', label: 'Expansion' },
@@ -36,6 +40,18 @@ const TAGS: { id: Tag; label: string }[] = [
 ]
 const KIND: Record<V10Tab, V10Row['kind']> = { plays: 'play', experiences: 'experience', audiences: 'audience' }
 const VIEWS: V10Tab[] = ['plays', 'experiences', 'audiences']
+const PLAY_SCOPES: { id: V10Scope; label: string }[] = [
+  { id: 'portfolio', label: 'Portfolio' },
+  { id: 'acquisition', label: 'Acquisition' },
+  { id: 'expansion', label: 'Expansion' },
+  { id: 'retention', label: 'Retention' },
+]
+const EXPERIENCE_SLICES: { id: ExperienceSlice; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'in_app_offer', label: 'In-app offers' },
+  { id: 'pricing_table', label: 'Pricing tables' },
+  { id: 'cancel_page', label: 'Cancel pages' },
+]
 const SORTS: { id: Filters['sort']; label: string }[] = [
   { id: 'recent', label: 'Last updated' },
   { id: 'name', label: 'Name' },
@@ -46,19 +62,49 @@ const GROUPS: { id: Filters['group']; label: string }[] = [
   { id: 'status', label: 'Status' },
   { id: 'type', label: 'Type' },
 ]
-const STATUSES: { id: Filters['status']; label: string }[] = [
-  { id: 'any', label: 'Any status' },
+const STATUS_PILLS: { id: 'live' | 'draft'; label: string }[] = [
   { id: 'live', label: 'Live' },
   { id: 'draft', label: 'Draft' },
 ]
 const NEW_ITEMS: Record<V10Tab, MenuItem[]> = {
   plays: [
-    { label: 'Play', icon: 'workflow', onClick: createV10Play },
+    {
+      label: 'Acquisition play',
+      icon: 'rocket',
+      items: [
+        { label: 'In-app offer play', icon: 'gift', onClick: () => createV10GrowthPlay('acquisition', 'in_app_offer') },
+        { label: 'Pricing table play', icon: 'table', onClick: () => createV10GrowthPlay('acquisition', 'pricing_table') },
+        { label: 'Empty play', icon: 'workflow', onClick: createV10Play },
+      ],
+    },
+    {
+      label: 'Expansion play',
+      icon: 'arrow-up-right',
+      items: [
+        { label: 'In-app offer play', icon: 'gift', onClick: () => createV10GrowthPlay('expansion', 'in_app_offer') },
+        { label: 'Pricing table play', icon: 'table', onClick: () => createV10GrowthPlay('expansion', 'pricing_table') },
+        { label: 'Empty play', icon: 'workflow', onClick: () => createV10GrowthPlay('expansion') },
+      ],
+    },
     { label: 'Retention play', icon: 'repeat', onClick: createV10RetentionPlay },
   ],
   experiences: [
-    { label: 'In-app offer', icon: 'gift', onClick: () => createV10Experience('in_app_offer') },
-    { label: 'Pricing table', icon: 'table', onClick: () => createV10Experience('pricing_table') },
+    {
+      label: 'In-app offer',
+      icon: 'gift',
+      items: [
+        { label: 'For Acquisition', icon: 'rocket', onClick: () => createV10Experience('in_app_offer', 'acquisition') },
+        { label: 'For Expansion', icon: 'arrow-up-right', onClick: () => createV10Experience('in_app_offer', 'expansion') },
+      ],
+    },
+    {
+      label: 'Pricing table',
+      icon: 'table',
+      items: [
+        { label: 'For Acquisition', icon: 'rocket', onClick: () => createV10Experience('pricing_table', 'acquisition') },
+        { label: 'For Expansion', icon: 'arrow-up-right', onClick: () => createV10Experience('pricing_table', 'expansion') },
+      ],
+    },
     { label: 'Cancel page', icon: 'file-text', onClick: createV10CancelPage },
   ],
   audiences: [{ label: 'Audience', icon: 'users', onClick: createV10Audience }],
@@ -69,7 +115,16 @@ function tagLabel(tag: Tag) {
 }
 
 function filtersOf(view: Filters): Filters {
-  return { query: view.query, tags: view.tags, status: view.status, group: view.group, sort: view.sort }
+  return {
+    query: view.query,
+    tags: view.tags,
+    status: view.status,
+    group: view.group,
+    sort: view.sort,
+    scope: view.scope,
+    slice: view.slice,
+    columns: view.columns,
+  }
 }
 
 /** The added view selected for this tab, or the tab's default view. Edits save to whichever is on screen. */
@@ -86,7 +141,14 @@ function useCurrentView(tab: V10Tab) {
 /** One place. Plays, Experiences and Audiences are the default views; merchants add their own beside them. */
 export function V10Screen({ tab }: { tab: V10Tab }) {
   const open = useV10((state) => state.open)
+  const route = useGrowthShell((state) => state.route)
   const detail = open !== null && open.kind === KIND[tab]
+  useEffect(() => {
+    const sync = () => syncV10FromHash(route, window.location.hash)
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [route])
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-white">
       <ViewBar tab={tab} detail={detail} />
@@ -103,139 +165,186 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
 }
 
 function ViewBar({ tab, detail }: { tab: V10Tab; detail: boolean }) {
-  const saved = useV10((state) => state.saved)
-  const active = useV10((state) => state.active)
-  const current = saved.find((view) => view.id === active && view.tab === tab)?.id ?? tab
+  const { view, filters } = useCurrentView(tab)
   return (
     <div className={`flex-none ${detail ? `border-b border-slate-200 ${V10_GUTTER}` : `${V10_GUTTER} pt-[20px]`}`}>
-      <div className={`flex min-h-[44px] items-center gap-[12px] ${detail ? '' : 'border-b border-slate-200'}`}>
-        <div role="tablist" aria-label="Views" className="flex min-w-0 flex-1 flex-wrap items-center gap-[2px] py-[6px]">
-          {VIEWS.map((id) => (
-            <ViewTab key={id} tab={id} label={TAB_TITLE[id]} on={current === id} />
+      <div className="flex min-h-[43px] items-end gap-[12px] border-b border-[#1b1a2e]">
+        <div role="tablist" aria-label="Views" className="flex min-w-0 flex-1 items-end overflow-x-auto pl-[6px] pt-[7px]">
+          {VIEWS.map((id, index) => (
+            <ViewTab key={id} tab={id} label={TAB_TITLE[id]} on={!view && id === tab} first={index === 0} />
           ))}
-          {saved.map((view) => (
-            <ViewTab key={view.id} tab={view.tab} label={view.name} view={view} on={current === view.id} />
-          ))}
-          <AddView />
         </div>
-        {!detail && <Tools tab={tab} />}
+        {!detail && <div className="self-center"><SavedViews tab={tab} /></div>}
       </div>
-    </div>
-  )
-}
-
-function ViewTab({ tab, label, view, on }: { tab: V10Tab; label: string; view?: SavedView; on: boolean }) {
-  const [menu, setMenu] = useState(false)
-  const [renaming, setRenaming] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useOutside(menu, ref, () => setMenu(false))
-  const duplicate = () => {
-    const from = view ? filtersOf(view) : useV10.getState().filters[tab]
-    useV10.getState().addView(tab, `${label} copy`, from)
-  }
-  const items: MenuItem[] = view
-    ? [
-        { label: 'Rename', icon: 'pencil', onClick: () => setRenaming(true) },
-        { label: 'Duplicate view', icon: 'copy', onClick: duplicate },
-        { label: 'Delete view', icon: 'trash-2', danger: true, confirm: 'Delete this view?', onClick: () => useV10.getState().deleteView(view.id) },
-      ]
-    : [{ label: 'Duplicate view', icon: 'copy', onClick: duplicate }]
-
-  if (renaming && view) {
-    const commit = (value: string) => {
-      if (value.trim()) useV10.getState().updateView(view.id, { name: value.trim() })
-      setRenaming(false)
-    }
-    return (
-      <input
-        autoFocus
-        defaultValue={view.name}
-        aria-label="View name"
-        onBlur={(event) => commit(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') commit(event.currentTarget.value)
-          if (event.key === 'Escape') setRenaming(false)
-        }}
-        className="h-[30px] w-[160px] rounded-md border border-slate-300 px-[8px] text-[13px] outline-none"
-      />
-    )
-  }
-
-  return (
-    <div ref={ref} className="relative flex-none">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={on}
-        aria-haspopup={on ? 'menu' : undefined}
-        onClick={() => (on ? setMenu((value) => !value) : useV10.getState().selectView(tab, view?.id ?? null))}
-        onDoubleClick={() => view && setRenaming(true)}
-        className={`flex h-[30px] items-center gap-[6px] rounded-md px-[8px] text-[13px] ${
-          on ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-        }`}
-      >
-        <SIcon name={TAB_ICON[tab]} size={14} className="flex-none" />
-        <span className="max-w-[160px] truncate">{label}</span>
-      </button>
-      {menu && (
-        <div role="menu" className="absolute left-0 top-full z-50 mt-[4px] w-[200px] rounded-xl border border-slate-200 bg-white p-[4px] shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
-          <MenuList items={items} close={() => setMenu(false)} />
+      {!detail && (
+        <div className="flex min-h-[42px] items-center gap-[12px] border-b border-slate-200">
+          <SystemViews tab={tab} filters={filters} />
+          <div className="min-w-0 flex-1" />
+          <Tools tab={tab} />
+        </div>
+      )}
+      {detail && view && (
+        <div className="pb-[6px] text-[12px] text-slate-500">
+          From {view.name}
         </div>
       )}
     </div>
   )
 }
 
-function AddView() {
+function SystemViews({ tab, filters }: { tab: V10Tab; filters: Filters }) {
+  if (tab === 'audiences') {
+    return <span className="px-[2px] text-[13px] font-medium text-slate-700">All audiences</span>
+  }
+  const items = tab === 'plays' ? PLAY_SCOPES : EXPERIENCE_SLICES
+  return (
+    <div role="tablist" aria-label={`${TAB_TITLE[tab]} system views`} className="flex min-w-0 items-center gap-[18px] overflow-x-auto">
+      {items.map((item) => {
+        const on = tab === 'plays' ? filters.scope === item.id : filters.slice === item.id
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => {
+              if (tab === 'plays') useV10.getState().selectSystemView(tab, item.id as V10Scope)
+              else useV10.getState().selectSystemView(tab, 'portfolio', item.id as ExperienceSlice)
+            }}
+            className={`relative h-[42px] whitespace-nowrap text-[13px] ${
+              on ? 'font-medium text-slate-900 after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-slate-900' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {item.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function SavedViews({ tab }: { tab: V10Tab }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const allSaved = useV10((state) => state.saved)
+  const saved = allSaved.filter((view) => view.tab === tab)
+  const active = useV10((state) => state.active)
   useOutside(open, ref, () => setOpen(false))
-  const add = (base: V10Tab) => {
-    useV10.getState().addView(base)
+  const add = () => {
+    const current = useV10.getState().filters[tab]
+    useV10.getState().addView(tab, undefined, current)
     setOpen(false)
   }
   return (
     <div ref={ref} className="relative flex-none">
       <button
         type="button"
-        aria-label="Add a view"
-        title="Add a view"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`flex h-[28px] w-[28px] items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 ${open ? 'bg-slate-100 text-slate-700' : ''}`}
+        className={`flex h-[28px] items-center gap-[6px] rounded-md px-[8px] text-[12.5px] ${
+          active ? 'bg-slate-100 font-medium text-slate-800' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+        }`}
       >
-        <SIcon name="plus" size={14} />
+        <SIcon name="bookmark" size={14} />
+        Saved views
+        <SIcon name="chevron-down" size={13} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-[6px] w-[300px] rounded-xl border border-slate-200 bg-white p-[10px] shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
-          <p className="px-[4px] pb-[8px] text-[12px] text-slate-500">New view of</p>
-          <div className="grid grid-cols-3 gap-[4px]">
-            {VIEWS.map((id) => (
+        <div className="absolute right-0 top-full z-50 mt-[6px] w-[240px] rounded-xl border border-slate-200 bg-white p-[4px] shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
+          {saved.length === 0 && <p className="px-[10px] py-[8px] text-[12px] text-slate-400">No saved views yet.</p>}
+          {saved.map((view) => (
+            <button
+              key={view.id}
+              type="button"
+              onClick={() => {
+                useV10.getState().selectView(tab, view.id)
+                setOpen(false)
+              }}
+              className={`flex w-full items-center rounded-lg px-[10px] py-[7px] text-left text-[13px] hover:bg-slate-100 ${active === view.id ? 'font-medium text-slate-900' : 'text-slate-700'}`}
+            >
+              <span className="min-w-0 flex-1 truncate">{view.name}</span>
+              {active === view.id && <SIcon name="check" size={13} />}
+            </button>
+          ))}
+          <div className="my-[4px] border-t border-slate-100" />
+          <button type="button" onClick={add} className="flex w-full items-center gap-[8px] rounded-lg px-[10px] py-[7px] text-left text-[13px] text-slate-700 hover:bg-slate-100">
+            <SIcon name="plus" size={14} />
+            Save current view
+          </button>
+          {active && (
+            <>
               <button
-                key={id}
                 type="button"
-                onClick={() => add(id)}
-                className="flex flex-col items-center gap-[6px] rounded-lg px-[6px] py-[10px] text-[12.5px] text-slate-700 hover:bg-slate-100"
+                onClick={() => {
+                  const view = saved.find((item) => item.id === active)
+                  const name = view ? window.prompt('Rename saved view', view.name) : null
+                  if (view && name?.trim()) useV10.getState().updateView(view.id, { name: name.trim() })
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-[8px] rounded-lg px-[10px] py-[7px] text-left text-[13px] text-slate-700 hover:bg-slate-100"
               >
-                <SIcon name={TAB_ICON[id]} size={18} />
-                {TAB_TITLE[id]}
+                <SIcon name="pencil" size={14} />
+                Rename current view
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const view = saved.find((item) => item.id === active)
+                  if (view) useV10.getState().deleteView(view.id)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-[8px] rounded-lg px-[10px] py-[7px] text-left text-[13px] text-rose-700 hover:bg-rose-50"
+              >
+                <SIcon name="trash-2" size={14} />
+                Delete current view
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
   )
 }
 
+function ViewTab({ tab, label, on, first }: { tab: V10Tab; label: string; on: boolean; first: boolean }) {
+  return (
+    <SlantedTab
+      label={label}
+      active={on}
+      first={first}
+      rounded
+      role="tab"
+      aria-selected={on}
+      onClick={() => useV10.getState().selectSystemView(tab, 'portfolio', 'all')}
+    />
+  )
+}
+
 function Tools({ tab }: { tab: V10Tab }) {
   const { filters, set } = useCurrentView(tab)
-  const [searching, setSearching] = useState(false)
-  const filtering = filters.tags.length > 0 || filters.status !== 'any'
+  const items = newItemsFor(tab, filters)
+  const newLabel =
+    tab === 'plays' && filters.scope !== 'portfolio'
+      ? `New ${tagLabel(filters.scope as Tag).toLowerCase()} play`
+      : tab === 'experiences' && filters.slice !== 'all'
+        ? `New ${EXPERIENCE_SLICES.find((slice) => slice.id === filters.slice)?.label.slice(0, -1).toLowerCase()}`
+      : 'New'
   return (
-    <div className="flex flex-none items-center gap-[2px]">
-      <ToolMenu icon="list-filter" label="Filter" on={filtering}>
-        <MenuHeading>Tags</MenuHeading>
+    <div className="flex flex-none items-center gap-[6px]">
+      <SearchField tab={tab} value={filters.query} onChange={(query) => set({ query })} />
+      <div role="group" aria-label="Status" className="flex items-center gap-[4px]">
+        <StatusPill label="All" on={filters.status.length === 0} onClick={() => set({ status: [] })} />
+        {STATUS_PILLS.map((status) => (
+          <StatusPill
+            key={status.id}
+            label={status.label}
+            on={filters.status.includes(status.id)}
+            onClick={() => set({ status: filters.status.includes(status.id) ? filters.status.filter((item) => item !== status.id) : [...filters.status, status.id] })}
+          />
+        ))}
+      </div>
+      <ToolMenu icon="more-horizontal" label="More" on={filters.tags.length > 0 || filters.sort !== 'recent' || filters.group !== 'none' || filters.columns.includes('hide-edited')}>
+        <MenuHeading>Objective filter</MenuHeading>
         {TAGS.map((tag) => (
           <Option
             key={tag.id}
@@ -244,47 +353,40 @@ function Tools({ tab }: { tab: V10Tab }) {
             onClick={() => set({ tags: filters.tags.includes(tag.id) ? filters.tags.filter((item) => item !== tag.id) : [...filters.tags, tag.id] })}
           />
         ))}
-        <MenuHeading>Status</MenuHeading>
-        {STATUSES.map((status) => (
-          <Option key={status.id} label={status.label} on={filters.status === status.id} onClick={() => set({ status: status.id })} />
-        ))}
-      </ToolMenu>
-      <ToolMenu icon="arrow-up-down" label="Sort" on={filters.sort !== 'recent'}>
         <MenuHeading>Sort by</MenuHeading>
         {SORTS.map((sort) => (
           <Option key={sort.id} label={sort.label} on={filters.sort === sort.id} onClick={() => set({ sort: sort.id })} />
         ))}
-      </ToolMenu>
-      <ToolMenu icon="rows-3" label="Group" on={filters.group !== 'none'}>
         <MenuHeading>Group by</MenuHeading>
         {GROUPS.map((group) => (
           <Option key={group.id} label={group.label} on={filters.group === group.id} onClick={() => set({ group: group.id })} />
         ))}
-      </ToolMenu>
-      {searching || filters.query ? (
-        <input
-          autoFocus
-          value={filters.query}
-          onChange={(event) => set({ query: event.target.value })}
-          onBlur={() => setSearching(false)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              set({ query: '' })
-              setSearching(false)
-            }
-          }}
-          placeholder={`Search ${TAB_TITLE[tab].toLowerCase()}`}
-          aria-label={`Search ${TAB_TITLE[tab].toLowerCase()}`}
-          className="h-[28px] w-[180px] rounded-md border border-slate-200 px-[8px] text-[13px] outline-none focus:border-slate-400"
+        <MenuHeading>Columns</MenuHeading>
+        <Option
+          label="Updated date"
+          on={!filters.columns.includes('hide-edited')}
+          onClick={() => set({ columns: filters.columns.includes('hide-edited') ? filters.columns.filter((item) => item !== 'hide-edited') : [...filters.columns, 'hide-edited'] })}
         />
-      ) : (
-        <ToolButton icon="search" label="Search" onClick={() => setSearching(true)} />
-      )}
+      </ToolMenu>
       <div className="ml-[8px]">
-        <DropdownButton label="New" items={NEW_ITEMS[tab]} width={220} />
+        <DropdownButton label={newLabel} items={items} width={240} />
       </div>
     </div>
   )
+}
+
+function newItemsFor(tab: V10Tab, filters: Filters): MenuItem[] {
+  if (tab === 'experiences') {
+    if (filters.slice === 'in_app_offer') return NEW_ITEMS.experiences[0].items ?? []
+    if (filters.slice === 'pricing_table') return NEW_ITEMS.experiences[1].items ?? []
+    if (filters.slice === 'cancel_page') return [NEW_ITEMS.experiences[2]]
+    return NEW_ITEMS.experiences
+  }
+  if (tab === 'audiences') return NEW_ITEMS.audiences
+  if (filters.scope === 'acquisition') return NEW_ITEMS.plays[0].items ?? []
+  if (filters.scope === 'expansion') return NEW_ITEMS.plays[1].items ?? []
+  if (filters.scope === 'retention') return [NEW_ITEMS.plays[2]]
+  return NEW_ITEMS.plays
 }
 
 function ToolButton({ icon, label, on, open, onClick }: { icon: SIconName; label: string; on?: boolean; open?: boolean; onClick: () => void }) {
@@ -318,6 +420,67 @@ function ToolMenu({ icon, label, on, children }: { icon: SIconName; label: strin
   )
 }
 
+function SearchField({ tab, value, onChange }: { tab: V10Tab; value: string; onChange: (query: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const help = `Search ${TAB_TITLE[tab].toLowerCase()}...`
+  const field = useRef<HTMLDivElement>(null)
+  const shown = open || value.length > 0
+  useEffect(() => {
+    if (open) input.current?.focus()
+  }, [open])
+  return (
+    <div
+      ref={field}
+      onBlur={() => {
+        window.setTimeout(() => {
+          if (!field.current?.contains(document.activeElement) && !value) setOpen(false)
+        }, 0)
+      }}
+      className={`flex h-[30px] items-center overflow-hidden transition-[width] duration-200 ease-out ${shown ? 'w-[210px]' : 'w-[24px]'}`}
+    >
+      <button
+        type="button"
+        aria-label={help}
+        aria-expanded={shown}
+        onClick={() => setOpen(true)}
+        className="flex h-[24px] w-[24px] flex-none items-center justify-center text-slate-900"
+      >
+        <SIcon name="search" size={16} />
+      </button>
+      <input
+        ref={input}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            onChange('')
+            setOpen(false)
+            input.current?.blur()
+          }
+        }}
+        placeholder={help}
+        aria-label={help}
+        tabIndex={shown ? 0 : -1}
+        className={`min-w-0 flex-1 bg-transparent pr-[4px] text-[14px] text-slate-800 outline-none transition-opacity duration-200 placeholder:text-slate-400 ${shown ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      />
+    </div>
+  )
+}
+
+function StatusPill({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`h-[22px] rounded-full px-[8px] text-[11.5px] font-medium ${on ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+    >
+      {label}
+    </button>
+  )
+}
+
 function MenuHeading({ children }: { children: ReactNode }) {
   return <p className="px-[10px] pb-[2px] pt-[8px] text-[11.5px] font-medium text-slate-400 first:pt-[4px]">{children}</p>
 }
@@ -344,7 +507,7 @@ function List({ tab }: { tab: V10Tab }) {
   const groups = groupRows(shown, filters.group)
   const pills: { id: string; label: string; clear: () => void }[] = [
     ...(filters.tags.length > 0 ? [{ id: 'tags', label: `Tag: ${filters.tags.map(tagLabel).join(', ')}`, clear: () => set({ tags: [] }) }] : []),
-    ...(filters.status !== 'any' ? [{ id: 'status', label: `Status: ${filters.status === 'live' ? 'Live' : 'Draft'}`, clear: () => set({ status: 'any' }) }] : []),
+    ...(filters.status.length > 0 ? [{ id: 'status', label: `Status: ${filters.status.map((status) => (status === 'live' ? 'Live' : 'Draft')).join(', ')}`, clear: () => set({ status: [] }) }] : []),
   ]
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -359,13 +522,16 @@ function List({ tab }: { tab: V10Tab }) {
                 </button>
               </span>
             ))}
-            <button type="button" onClick={() => set({ tags: [], status: 'any' })} className="h-[26px] px-[6px] text-[12px] text-slate-500 hover:text-slate-800">
+            <button type="button" onClick={() => set({ tags: [], status: [] })} className="h-[26px] px-[6px] text-[12px] text-slate-500 hover:text-slate-800">
               Clear
             </button>
           </div>
         )}
         <div className="pt-[12px]">
-          <V10Table tab={tab} shown={shown} groups={groups} grouped={filters.group !== 'none'} />
+          <p className="mb-[8px] text-[12px] tabular-nums text-slate-400">
+            {shown.length} {shown.length === 1 ? TAB_TITLE[tab].slice(0, -1).toLowerCase() : TAB_TITLE[tab].toLowerCase()}
+          </p>
+          <V10Table tab={tab} scope={filters.scope} shown={shown} groups={groups} grouped={filters.group !== 'none'} showEdited={!filters.columns.includes('hide-edited')} />
         </div>
       </div>
     </div>
@@ -384,8 +550,13 @@ function applyFilters(rows: V10Row[], filters: Filters): V10Row[] {
   const query = filters.query.trim().toLowerCase()
   const next = rows.filter((row) => {
     if (query && !row.title.toLowerCase().includes(query)) return false
+    if (filters.scope !== 'portfolio' && !row.tags.includes(filters.scope)) return false
+    if (row.kind === 'experience' && filters.slice !== 'all') {
+      const label = filters.slice === 'in_app_offer' ? 'In-app offer' : filters.slice === 'pricing_table' ? 'Pricing table' : 'Cancel page'
+      if (row.type !== label) return false
+    }
     if (filters.tags.length > 0 && !row.tags.some((tag) => filters.tags.includes(tag))) return false
-    if (filters.status !== 'any' && row.status !== filters.status) return false
+    if (filters.status.length > 0 && !filters.status.includes(row.status)) return false
     return true
   })
   next.sort((a, b) => (filters.sort === 'name' ? a.title.localeCompare(b.title) : b.updatedAt - a.updatedAt))
