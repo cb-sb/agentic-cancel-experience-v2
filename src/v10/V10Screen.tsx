@@ -12,7 +12,7 @@ import { useOrchestration } from '../store/useOrchestration'
 import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { DropdownButton, ToastHost, useOutside, type MenuItem } from '../plays/ui'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
-import { rowsFor, useV10Rows, type V10Row } from './rows'
+import { rowsFor, titleOf, useV10Rows, type V10Row } from './rows'
 import { V10_GUTTER, V10Table } from './V10Table'
 import { updateAudience, useAudiences } from './useAudiences'
 import {
@@ -166,28 +166,62 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
 
 function ViewBar({ tab, detail }: { tab: V10Tab; detail: boolean }) {
   const { view, filters } = useCurrentView(tab)
+  if (detail) return <DetailBreadcrumb tab={tab} viewName={view?.name ?? null} filters={filters} />
   return (
-    <div className={`flex-none ${detail ? `border-b border-slate-200 ${V10_GUTTER}` : `${V10_GUTTER} pt-[20px]`}`}>
+    <div className={`flex-none ${V10_GUTTER} pt-[20px]`}>
       <div className="flex min-h-[43px] items-end gap-[12px] border-b border-[#1b1a2e]">
         <div role="tablist" aria-label="Views" className="flex min-w-0 flex-1 items-end overflow-x-auto pl-[6px] pt-[7px]">
           {VIEWS.map((id, index) => (
             <ViewTab key={id} tab={id} label={TAB_TITLE[id]} on={!view && id === tab} first={index === 0} />
           ))}
         </div>
-        {!detail && <div className="self-center"><SavedViews tab={tab} /></div>}
+        <div className="self-center"><SavedViews tab={tab} /></div>
       </div>
-      {!detail && (
-        <div className="flex min-h-[42px] items-center gap-[12px] border-b border-slate-200">
-          <SystemViews tab={tab} filters={filters} />
-          <div className="min-w-0 flex-1" />
-          <Tools tab={tab} />
-        </div>
-      )}
-      {detail && view && (
-        <div className="pb-[6px] text-[12px] text-slate-500">
-          From {view.name}
-        </div>
-      )}
+      <div className="flex min-h-[42px] items-center gap-[12px] border-b border-slate-200">
+        <SystemViews tab={tab} filters={filters} />
+        <div className="min-w-0 flex-1" />
+        <Tools tab={tab} />
+      </div>
+    </div>
+  )
+}
+
+function DetailBreadcrumb({ tab, viewName, filters }: { tab: V10Tab; viewName: string | null; filters: Filters }) {
+  const open = useV10((state) => state.open)
+  const rows = useV10Rows()
+  const title = open ? titleOf(rows, open) : ''
+  const crumbs: { label: string; onClick?: () => void }[] = [
+    { label: TAB_TITLE[tab], onClick: () => useV10.getState().selectSystemView(tab, 'portfolio', 'all') },
+  ]
+  if (viewName) crumbs.push({ label: viewName, onClick: () => useV10.getState().close() })
+  else if (tab === 'plays' && filters.scope !== 'portfolio') {
+    const label = PLAY_SCOPES.find((item) => item.id === filters.scope)?.label ?? filters.scope
+    crumbs.push({ label, onClick: () => useV10.getState().selectSystemView(tab, filters.scope) })
+  } else if (tab === 'experiences' && filters.slice !== 'all') {
+    const label = EXPERIENCE_SLICES.find((item) => item.id === filters.slice)?.label ?? filters.slice
+    crumbs.push({ label, onClick: () => useV10.getState().selectSystemView(tab, 'portfolio', filters.slice) })
+  }
+  crumbs.push({ label: title })
+  return (
+    <div className={`flex-none border-b border-slate-200 ${V10_GUTTER}`}>
+      <nav aria-label="Breadcrumb" className="flex h-[48px] min-w-0 items-center gap-[8px] text-[13px]">
+        {crumbs.map((crumb, index) => (
+          <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-[8px]">
+            {index > 0 && (
+              <SIcon name="chevron-right" size={12} className="flex-none text-slate-300" />
+            )}
+            {crumb.onClick ? (
+              <button type="button" onClick={crumb.onClick} className="flex-none text-slate-500 hover:text-slate-900">
+                {crumb.label}
+              </button>
+            ) : (
+              <span aria-current="page" className="truncate font-medium text-slate-900">
+                {crumb.label}
+              </span>
+            )}
+          </span>
+        ))}
+      </nav>
     </div>
   )
 }
