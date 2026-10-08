@@ -163,7 +163,7 @@ function reportLeaves(): NavLeaf[] {
   return V10 ? [...leaves, ENGAGED] : leaves
 }
 
-/** v10: Home, then Plays, Experiences and Audiences as three tabs of one screen. People leaves the row. */
+/** v10: Home, then Build. Plays, Experiences and Audiences are views inside Build. */
 const V10_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
   { kind: 'leaf', leaf: { id: 'work.plays', label: 'Plays', icon: 'list-ordered' } },

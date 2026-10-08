@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { SIcon, type SIconName } from '@chargebee/sting-react'
+import { SIcon } from '@chargebee/sting-react'
 import { TYPE_LABEL, type GrowthExperience } from '../concierge/model'
 import { GrowthLooseRow, GrowthPlayRow } from '../concierge/objective/GrowthPane'
 import { useGrowthUi } from '../concierge/objective/useGrowthUi'
@@ -87,14 +87,8 @@ const NEW_ITEMS = [
   { label: 'Audience', icon: 'users' as const, onClick: createV10Audience },
 ]
 
-function viewOf(route: NavLeafId) {
-  return VIEWS.find((view) => view.route === route) ?? VIEWS[0]
-}
-
-function viewIcon(route: NavLeafId): SIconName {
-  if (route === 'work.experiences') return 'layers'
-  if (route === 'work.audiences') return 'user-search'
-  return 'list-ordered'
+function inBuild(route: NavLeafId) {
+  return VIEWS.some((view) => view.route === route)
 }
 
 /** Destinations stay put. What you open is grouped underneath, and the rail can fold to icons. */
@@ -108,7 +102,7 @@ export function V10Nav() {
   const reportsCurrent = route.startsWith('reports')
   const reportsShown = reportsOpen && reportsCurrent && sidebarOpen
   const folded = !sidebarOpen
-  const view = viewOf(route)
+  const buildRoute = inBuild(route) ? route : 'work.plays'
 
   useEffect(() => {
     if (reportsCurrent) openGroup('reports')
@@ -126,7 +120,7 @@ export function V10Nav() {
             <RowMenu label="New" icon="plus" align="beside" width={220} items={NEW_ITEMS} />
           </div>
           <SettingRow icon="home" label="Home" folded active={route === 'home'} onClick={() => visit('home')} />
-          <SettingRow icon={viewIcon(view.route)} label={view.label} folded active={VIEWS.some((item) => item.route === route)} onClick={() => visit(view.route)} />
+          <SettingRow icon="layers" label="Build" folded active={inBuild(route)} onClick={() => visit(buildRoute)} />
           <SettingRow icon="repeat" label="Revenue optimization" folded active={route === 'renewal'} onClick={() => visit('renewal')} />
           <SettingRow icon="bar-chart" label="Reports" folded active={reportsCurrent} onClick={() => visit('reports.cancels')} />
         </div>
@@ -138,9 +132,9 @@ export function V10Nav() {
             ))}
             <NavDestination
               item={{
-                label: view.label,
-                route: view.route,
-                match: (current) => VIEWS.some((item) => item.route === current),
+                label: 'Build',
+                route: buildRoute,
+                match: inBuild,
               }}
               route={route}
             />

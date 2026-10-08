@@ -20,9 +20,13 @@ function paneInset(route: NavLeafId, sidebarOpen: boolean): number {
 
 const V10_TABS: { id: string; label: string; route: NavLeafId; match: (route: NavLeafId) => boolean; keep: boolean }[] = [
   { id: 'home', label: 'Home', route: 'home', match: (route) => route === 'home', keep: true },
-  { id: 'plays', label: 'Plays', route: 'work.plays', match: (route) => route === 'work.plays', keep: true },
-  { id: 'experiences', label: 'Experiences', route: 'work.experiences', match: (route) => route === 'work.experiences', keep: true },
-  { id: 'audiences', label: 'Audiences', route: 'work.audiences', match: (route) => route === 'work.audiences', keep: true },
+  {
+    id: 'build',
+    label: 'Build',
+    route: 'work.plays',
+    match: (route) => route === 'work.plays' || route === 'work.experiences' || route === 'work.audiences',
+    keep: true,
+  },
   { id: 'renewal', label: 'Renewal', route: 'renewal', match: (route) => route === 'renewal', keep: false },
   { id: 'reports', label: 'Reports', route: 'reports.cancels', match: (route) => route.startsWith('reports'), keep: false },
 ]
