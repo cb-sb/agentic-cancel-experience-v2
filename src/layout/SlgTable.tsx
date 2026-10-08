@@ -101,13 +101,16 @@ export function useSelection(ids: string[]) {
 /** A square tick box. Clicks on it never open the row. */
 export function Check({ on, onChange, label }: { on: boolean | 'some'; onChange: () => void; label: string }) {
   return (
-    <span onClick={(e) => e.stopPropagation()} className="flex h-full items-center">
+    <span className="flex h-full items-center">
       <button
         type="button"
         role="checkbox"
         aria-checked={on === 'some' ? 'mixed' : on}
         aria-label={label}
-        onClick={onChange}
+        onClick={(event) => {
+          event.stopPropagation()
+          onChange()
+        }}
         className={`slg-check flex h-[16px] w-[16px] flex-none items-center justify-center border ${on ? 'is-on' : ''}`}
       >
         {on && <SIcon name={on === 'some' ? 'minus' : 'check'} size={12} />}
@@ -166,7 +169,7 @@ export function SelectHead({
   const all = total > 0 && picked === total
   if (picked === 0) {
     return (
-      <div className={`${cols} ${TABLE_HEAD}`} style={style}>
+      <div className={`${cols} ${TABLE_HEAD} slg-head`} style={style}>
         <Check on={false} onChange={() => onAll(true)} label="Select all" />
         {children}
       </div>

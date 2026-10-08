@@ -46,8 +46,44 @@
   border-color: var(--slg-neutral-400, #9ca3af);
   color: var(--slg-color-text-on-solid, #fff);
   transition:
+    opacity 150ms ease,
     background-color 150ms ease,
     border-color 150ms ease;
+}
+
+/* The column stays. The box itself waits for hover, focus, or an active selection. */
+.slg-selectable .slg-check {
+  opacity: 0;
+  pointer-events: none;
+}
+.slg-selectable .slg-row:is(:hover, :focus-within) .slg-check,
+.slg-selectable .slg-head:is(:hover, :focus-within) .slg-check,
+.slg-selectable.slg-picking .slg-check {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.slg-arm {
+  display: none;
+}
+@media (hover: none), (pointer: coarse) {
+  .slg-selectable .slg-arm {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    z-index: 1;
+    display: inline-flex;
+    height: 24px;
+    transform: translateY(-50%);
+    align-items: center;
+    border-radius: 6px;
+    background: var(--slg-neutral-100, #f3f4f6);
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+  }
 }
 .slg-check:hover {
   border-color: var(--slg-neutral-900);

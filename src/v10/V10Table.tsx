@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { TRIGGER_LABEL, TYPE_ICON, TYPE_LABEL, WIDGET_LABEL, type GrowthObjective } from '../concierge/model'
 import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
@@ -95,13 +95,39 @@ export function V10Table({
   const pins = useV10((state) => state.pins)
   const [openPlay, setOpenPlay] = useState<string | null>(null)
   const sel = useSelection(shown.map(rowKey))
+  const [armed, setArmed] = useState(false)
   const picked = shown.filter((row) => sel.has(rowKey(row)))
+  const picking = armed || picked.length > 0
   const liveCount = picked.filter((row) => row.status === 'live').length
   const cols = tab === 'plays' ? playCols(scope) : COLS[tab]
   const compactStyle = showEdited ? undefined : { gridTemplateColumns: compactTemplate(tab, scope) }
+  const clearRef = useRef(sel.clear)
+  clearRef.current = sel.clear
+  const pickedCount = picked.length
+  const previousCount = useRef(0)
+  useEffect(() => {
+    if (previousCount.current > 0 && pickedCount === 0) setArmed(false)
+    previousCount.current = pickedCount
+  }, [pickedCount])
+  useEffect(() => {
+    if (!picking) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return
+      clearRef.current()
+      setArmed(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [picking])
   return (
-    <div className="min-w-[1080px] min-[1440px]:min-w-0">
+    <div className={`slg-selectable min-w-[1080px] min-[1440px]:min-w-0 ${picking ? 'slg-picking' : ''}`}>
       <div className="sticky top-0 z-20 bg-white">
+        {pickedCount === 0 && (
+          <button type="button" className="slg-arm" onClick={() => setArmed((value) => !value)}>
+            {armed ? 'Cancel' : 'Select'}
+          </button>
+        )}
         <SelectHead
           cols={cols}
           style={compactStyle}
@@ -363,7 +389,7 @@ function CanvasMark({ name, onClick }: { name: string; onClick: () => void }) {
       onClick={onClick}
       aria-label={`Open ${name} canvas`}
       title="Open canvas"
-      className="flex flex-none items-center justify-center bg-transparent p-0 text-slate-400 transition-colors hover:text-slate-800"
+      className="-m-[6px] flex flex-none cursor-pointer items-center justify-center rounded-md border border-transparent p-[6px] text-slate-400 transition-[color,background-color,border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[var(--slg-color-action-primary)] hover:bg-[var(--slg-color-action-primary)] hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--slg-color-action-primary)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-sm"
     >
       <svg viewBox="0 0 32 24" aria-hidden className="h-[18px] w-[24px] fill-none stroke-current stroke-[1.6]">
         <path d="M10 12H14M14 12V6.5H20M14 12V17.5H20" strokeLinejoin="round" />
