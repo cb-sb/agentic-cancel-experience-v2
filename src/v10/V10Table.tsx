@@ -173,7 +173,14 @@ export function V10Table({
                 pinned={pins.some((pin) => pin.kind === row.kind && pin.id === row.id)}
                 facts={facts}
                 expanded={row.kind === 'play' && openPlay === key}
-                onExpand={row.kind === 'play' ? () => setOpenPlay((current) => (current === key ? null : key)) : undefined}
+                onExpand={
+                  row.kind === 'play'
+                    ? () => {
+                        setOpenPlay((current) => (current === key ? null : key))
+                        useV10.getState().setTree({ kind: 'play', source: row.source, id: row.id, objective: row.objective })
+                      }
+                    : undefined
+                }
               />
             )
           })}

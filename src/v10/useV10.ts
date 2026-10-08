@@ -51,6 +51,9 @@ export interface SavedView extends Filters {
 
 interface V10State {
   open: V10Ref | null
+  /** The play, experience, or audience whose tree is open in the left rail. */
+  tree: V10Ref | null
+  treeAt: number
   pins: V10Ref[]
   recent: V10Ref[]
   filters: Record<V10Tab, Filters>
@@ -60,6 +63,7 @@ interface V10State {
   /** Extra tags a merchant added. Absent means the item keeps the tag it already has. */
   tags: Record<string, Tag[]>
   close: () => void
+  setTree: (ref: V10Ref | null) => void
   togglePin: (ref: V10Ref) => void
   setFilters: (tab: V10Tab, patch: Partial<Filters>) => void
   /** List, priority, or canvas for one objective. Saved views stay on the table. */
@@ -209,9 +213,12 @@ function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'activ
 
 export const useV10 = create<V10State>((set, get) => ({
   open: null,
+  tree: null,
+  treeAt: 0,
   playMode: typeof window === 'undefined' ? 'list' : (locationFromHash(window.location.hash).mode ?? 'list'),
   ...load(),
-  close: () => set({ open: null }),
+  close: () => set({ open: null, tree: null }),
+  setTree: (tree) => set({ tree, treeAt: Date.now() }),
   setPlayMode: (playMode) => set({ playMode, active: playMode === 'list' ? get().active : null }),
   togglePin: (ref) =>
     set((state) => ({
@@ -321,7 +328,7 @@ function remember(ref: V10Ref) {
 export function noteV10Open(ref: V10Ref) {
   if (!V10) return
   remember(ref)
-  useV10.setState({ open: ref })
+  useV10.setState({ open: ref, tree: ref, treeAt: Date.now() })
   const route = TAB_ROUTE[tabOf(ref)]
   if (useGrowthShell.getState().route !== route) useGrowthShell.getState().go(route)
 }
@@ -338,7 +345,7 @@ export function openRef(ref: V10Ref) {
   if (ref.source === 'retention' && ref.kind === 'play') openConfigure(ref.id, 1)
   if (ref.source === 'retention' && ref.kind === 'experience') openExperience(ref.id, playsUsing(ref.id)[0]?.id ?? null)
   remember(ref)
-  useV10.setState({ open: ref })
+  useV10.setState({ open: ref, tree: ref, treeAt: Date.now() })
   const route = TAB_ROUTE[tabOf(ref)]
   if (useGrowthShell.getState().route !== route) useGrowthShell.getState().go(route)
 }

@@ -103,10 +103,18 @@ export function V10Nav() {
   const reportsShown = reportsOpen && reportsCurrent && sidebarOpen
   const folded = !sidebarOpen
   const buildRoute = inBuild(route) ? route : 'work.plays'
+  const tree = useV10((state) => state.tree)
+  const treeAt = useV10((state) => state.treeAt)
+  const treeKey = tree ? `${tree.kind}:${tree.source}:${tree.id}` : ''
+  const [recentOpen, setRecentOpen] = useState(true)
 
   useEffect(() => {
     if (reportsCurrent) openGroup('reports')
   }, [openGroup, reportsCurrent])
+
+  useEffect(() => {
+    setRecentOpen(treeKey === '')
+  }, [treeKey, treeAt])
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200 bg-white">
@@ -125,8 +133,8 @@ export function V10Nav() {
           <SettingRow icon="bar-chart" label="Reports" folded active={reportsCurrent} onClick={() => visit('reports.cancels')} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-[12px] overflow-y-auto px-[8px] py-[12px]">
-          <nav className="flex flex-col gap-[2px]" aria-label="Growth">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <nav className="flex flex-col gap-[2px] px-[8px] py-[12px]" aria-label="Growth">
             {DESTINATIONS.filter((item) => item.id === 'home').map((item) => (
               <NavDestination key={item.id} item={item} route={route} />
             ))}
@@ -169,9 +177,32 @@ export function V10Nav() {
               </div>
             )}
           </nav>
-          <div className="-mx-[8px] border-t border-slate-200 px-[8px] pt-[12px]">
-            <RecentGroups />
+          {tree && (
+            <>
+              <div className="h-px flex-none bg-slate-300" role="separator" />
+              <div className="bg-slate-100 px-[8px] py-[12px]">
+                <OpenTree tree={tree} />
+              </div>
+              <div className="h-px flex-none bg-slate-300" role="separator" />
+            </>
+          )}
+          <div className="px-[8px] py-[8px]">
+            <button
+              type="button"
+              aria-expanded={recentOpen}
+              onClick={() => setRecentOpen((value) => !value)}
+              className="flex h-9 w-full items-center gap-[6px] rounded-md px-[10px] text-left hover:bg-slate-100"
+            >
+              <SIcon name="chevron-right" size={13} className={`flex-none text-slate-400 transition-transform ${recentOpen ? 'rotate-90' : ''}`} />
+              <span className="slg-pane-head">Recent</span>
+            </button>
+            {recentOpen && (
+              <div className="pt-[8px]">
+                <RecentGroups focus={tree} />
+              </div>
+            )}
           </div>
+          <div className="h-px flex-none bg-slate-300" role="separator" />
         </div>
       )}
     </aside>
@@ -216,16 +247,37 @@ function experienceTitle(item: V10Ref, threads: ExperienceThread[], growth: Grow
   if (item.source === 'retention') {
     const thread = threads.find((entry) => entry.id === item.id)
     const shell = thread ? shellOf(thread) : 'modal'
-    return `Recent ${SHELL_KIND[shell].plural.toLowerCase()}`
+    return SHELL_KIND[shell].plural
   }
   const found = growth.find((entry) => entry.id === item.id)
   const label = found ? TYPE_LABEL[found.type].toLowerCase() : 'experience'
   const plural = label.endsWith('s') ? label : `${label}s`
-  return `Recent ${plural}`
+  return plural.charAt(0).toUpperCase() + plural.slice(1)
+}
+
+/** The play, experience, or audience last clicked, with its tree open. */
+function OpenTree({ tree }: { tree: V10Ref | null }) {
+  const treeAt = useV10((state) => state.treeAt)
+  const growthPlays = useGrowthPlays((state) => state.plays)
+  const retentionPlays = usePlays((state) => state.plays)
+  const objective = tree?.objective
+  const growthPlayId = useGrowthUi((state) => (objective ? state.views[objective].playId : null))
+  const retentionPlayId = useWorkspaceUi((state) => state.playId)
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  useEffect(() => {
+    setOpenKey(null)
+  }, [treeAt])
+  if (!tree) return null
+  const context = contextPlay(tree, growthPlays, retentionPlays, growthPlayId, retentionPlayId)
+  const shown = tree.kind === 'audience' ? null : context
+  const key = shown ? `${shown.source}:${shown.id}` : `${tree.kind}:${tree.source}:${tree.id}`
+  if (tree.kind === 'audience') return <AudienceTree id={tree.id} />
+  if (shown) return <RecentPlay item={shown} open={openKey !== key} onToggle={() => setOpenKey((current) => (current === key ? null : key))} />
+  return <RecentExperience item={tree} pinned={false} />
 }
 
 /** Pins and what you opened, split the way the objective pane splits them. */
-function RecentGroups() {
+function RecentGroups({ focus }: { focus: V10Ref | null }) {
   const pins = useV10((state) => state.pins)
   const recent = useV10((state) => state.recent)
   const open = useV10((state) => state.open)
@@ -234,17 +286,13 @@ function RecentGroups() {
   const retentionPlays = usePlays((state) => state.plays)
   const threads = useWorkspace((state) => state.threads)
   const growthExperiences = useGrowthExperiences((state) => state.items)
-  const objective = open?.objective
+  const objective = focus?.objective
   const growthPlayId = useGrowthUi((state) => (objective ? state.views[objective].playId : null))
   const retentionPlayId = useWorkspaceUi((state) => state.playId)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const context = open ? contextPlay(open, growthPlays, retentionPlays, growthPlayId, retentionPlayId) : null
-  const contextKey = context ? `${context.source}:${context.id}` : null
-  useEffect(() => {
-    if (!contextKey) return
-    setExpanded((current) => (current.has(contextKey) ? current : new Set(current).add(contextKey)))
-  }, [contextKey])
+  const context = focus ? contextPlay(focus, growthPlays, retentionPlays, growthPlayId, retentionPlayId) : null
+  const skip = (item: V10Ref) => Boolean((focus && sameRef(item, focus)) || (context && item.kind === 'play' && sameRef(item, context)))
 
   const items: V10Ref[] = []
   const push = (ref: V10Ref) => {
@@ -255,8 +303,8 @@ function RecentGroups() {
   if (context) push(context)
   for (const item of recent) push(item)
 
-  const plays = items.filter((item) => item.kind === 'play')
-  const audiences = items.filter((item) => item.kind === 'audience')
+  const plays = items.filter((item) => item.kind === 'play' && !skip(item))
+  const audiences = items.filter((item) => item.kind === 'audience' && !skip(item))
   const shownExperience = (id: string) =>
     open?.kind === 'experience' &&
     open.id === id &&
@@ -266,7 +314,7 @@ function RecentGroups() {
       return tree?.variants.some((variant) => variant.experienceId === id)
     })
   const experienceGroups: { title: string; items: V10Ref[] }[] = []
-  for (const item of items.filter((entry) => entry.kind === 'experience' && !shownExperience(entry.id))) {
+  for (const item of items.filter((entry) => entry.kind === 'experience' && !skip(entry) && !shownExperience(entry.id))) {
     const title = experienceTitle(item, threads, growthExperiences)
     const group = experienceGroups.find((entry) => entry.title === title)
     if (group) group.items.push(item)
@@ -274,15 +322,14 @@ function RecentGroups() {
   }
   const pinned = (item: V10Ref) => pins.some((pin) => sameRef(pin, item))
 
-  if (plays.length === 0 && experienceGroups.length === 0 && audiences.length === 0 && open?.kind !== 'audience') {
+  if (plays.length === 0 && experienceGroups.length === 0 && audiences.length === 0) {
     return <p className="px-[10px] text-[12px] text-slate-400">Plays, experiences and audiences you open show up here.</p>
   }
 
   return (
     <div className="flex flex-col gap-[16px]">
-      {open?.kind === 'audience' && <AudienceTree id={open.id} />}
       {plays.length > 0 && (
-        <Section title="Recent plays">
+        <Section title="Plays">
           {plays.map((play) => {
             const key = `${play.source}:${play.id}`
             return <RecentPlay key={key} item={play} open={expanded.has(key)} onToggle={() => setExpanded((current) => {
@@ -302,7 +349,7 @@ function RecentGroups() {
         </Section>
       ))}
       {audiences.length > 0 && (
-        <Section title="Recent audiences">
+        <Section title="Audiences">
           {audiences.map((item) => (
             <NavButton
               key={item.id}
