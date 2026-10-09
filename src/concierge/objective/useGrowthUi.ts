@@ -6,7 +6,7 @@ import type { GrowthObjective, GrowthType } from '../model'
 import type { SoonPlace } from '../Soon'
 
 export type GrowthPage = 'index' | 'experience' | 'play' | 'order' | 'templates' | 'offers' | 'pricing_tables' | 'brand' | 'soon' | 'archive'
-export type PlayTab = 'configure' | 'summary' | 'tasks'
+export type PlayTab = 'configure' | 'summary' | 'tasks' | 'canvas'
 export type ExperienceTab = 'preview' | 'summary'
 
 export interface GrowthView {
@@ -14,6 +14,8 @@ export interface GrowthView {
   experienceId: string | null
   playId: string | null
   playTab: PlayTab
+  /** Canvas is opened on demand and stays as its own tab until closed. */
+  canvasOpen?: boolean
   experienceTab: ExperienceTab
   /** A blank experience the merchant chose to start with Copilot. */
   withCopilot: boolean
@@ -32,6 +34,7 @@ const START: GrowthView = {
   experienceId: null,
   playId: null,
   playTab: 'configure',
+  canvasOpen: false,
   experienceTab: 'preview',
   withCopilot: false,
   fillId: null,

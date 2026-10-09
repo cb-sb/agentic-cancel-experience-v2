@@ -230,9 +230,21 @@ export function hasSplit(play: CancelPlay): boolean {
 /** What is wrong with how the play divides people, in a sentence. Null when it is sound. */
 export function splitProblem(play: CancelPlay): string | null {
   const sum = (pages: PlayVariant[]) => pages.reduce((a, v) => a + v.weight, 0)
+  const signature = (variant: PlayVariant) =>
+    `${variant.experienceId}:${Object.entries(variant.componentOverrides ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([slot, id]) => `${slot}=${id}`).join('|')}`
+  const duplicateIn = (pages: PlayVariant[]) => {
+    const seen = new Set<string>()
+    return pages.some((variant) => {
+      const key = signature(variant)
+      if (seen.has(key)) return true
+      seen.add(key)
+      return false
+    })
+  }
   if (play.emptyRows.length > 0) return 'Pick a cancel page for every row'
   if (play.splitBy === 'percent') {
     if (play.variants.length < 2) return null
+    if (duplicateIn(play.variants)) return 'Choose a different experience or component for every test row'
     const total = sum(play.variants)
     return total === 100 ? null : `The shares add up to ${total}%, not 100%`
   }
@@ -242,6 +254,7 @@ export function splitProblem(play: CancelPlay): string | null {
     if (audienceUnset(x.audience)) return `Pick who is in ${name}`
     const pages = pagesIn(play, x.id)
     if (pages.length === 0) return `Pick a cancel page for ${name}`
+    if (duplicateIn(pages)) return `${name} has the same experience and component more than once`
     if (pages.length > 1 && sum(pages) !== 100) return `${name} adds up to ${sum(pages)}%, not 100%`
   }
   return fallbackVariant(play) ? null : 'Pick a fallback page for people in no sub-audience'

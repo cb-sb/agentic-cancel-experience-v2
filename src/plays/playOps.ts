@@ -184,7 +184,7 @@ export function makePlayOps(store: PlayStore) {
           variants: [...p.variants, variantFor(experienceId, empty.weight, group ?? undefined)],
         }
       }
-      if (rowId) return { ...p, variants: p.variants.map((v) => (v.id === rowId ? { ...v, experienceId } : v)) }
+      if (rowId) return { ...p, variants: p.variants.map((v) => (v.id === rowId ? { ...v, experienceId, componentOverrides: undefined } : v)) }
       const rest = p.variants.filter((v) => groupOf(p, v) !== group)
       return { ...p, variants: [...rest, variantFor(experienceId, 100, group ?? undefined)] }
     })
@@ -223,6 +223,50 @@ export function makePlayOps(store: PlayStore) {
 
   function setVariant(playId: string, variantId: string, change: Partial<Omit<PlayVariant, 'id'>>) {
     patch(playId, (p) => ({ ...p, variants: p.variants.map((v) => (v.id === variantId ? { ...v, ...change } : v)) }))
+  }
+
+  /** Replace one component only in this play variant, without changing the shared experience. */
+  function setComponentOverride(playId: string, variantId: string, slotId: string, componentId: string | null) {
+    patch(playId, (p) => ({
+      ...p,
+      variants: p.variants.map((v) => {
+        if (v.id !== variantId) return v
+        const componentOverrides = { ...(v.componentOverrides ?? {}) }
+        if (componentId) componentOverrides[slotId] = componentId
+        else delete componentOverrides[slotId]
+        return { ...v, componentOverrides: Object.keys(componentOverrides).length ? componentOverrides : undefined }
+      }),
+    }))
+  }
+
+  /**
+   * Add a sibling that reuses the same experience but swaps one component.
+   * This is the only supported duplicate-experience case inside one test.
+   */
+  function addComponentTestVariant(playId: string, variantId: string, slotId: string, componentId: string): string | null {
+    const play = get(playId)
+    const source = play?.variants.find((v) => v.id === variantId)
+    if (!play || !source) return null
+    const group = groupOf(play, source)
+    const componentOverrides = { ...(source.componentOverrides ?? {}), [slotId]: componentId }
+    const duplicate = play.variants.some(
+      (v) =>
+        groupOf(play, v) === group &&
+        v.experienceId === source.experienceId &&
+        JSON.stringify(v.componentOverrides ?? {}) === JSON.stringify(componentOverrides),
+    )
+    if (duplicate) return null
+    const id = newPlayId('var')
+    patch(playId, (p) =>
+      evenIn(
+        {
+          ...p,
+          variants: [...p.variants, { ...source, id, weight: 0, componentOverrides }],
+        },
+        group,
+      ),
+    )
+    return id
   }
 
   function evenWeightsIn(playId: string, group: string | null) {
@@ -302,6 +346,8 @@ export function makePlayOps(store: PlayStore) {
     setRowWeight,
     removeRow,
     setVariant,
+    setComponentOverride,
+    addComponentTestVariant,
     evenWeightsIn,
     addToPlay,
     removeFromPlay,

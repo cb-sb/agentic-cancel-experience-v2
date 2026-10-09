@@ -2,6 +2,7 @@ import { SButton, SIcon } from '@chargebee/sting-react'
 import type { ReactNode } from 'react'
 import { FRAME_FORM } from '../../layout/frames'
 import { AngledTabs, PageHeader, ToolButton, ToolDivider } from '../../layout/SlgChrome'
+import { PlayCanvas } from '../../plays/PlayCanvas'
 import { PlayConfigure, RoutingTree, RulesList } from '../../plays/PlayConfigure'
 import { PlaysBackendProvider } from '../../plays/PlaysBackend'
 import { audienceText } from '../../plays/resolve'
@@ -13,7 +14,7 @@ import { renameGrowthPlay, setGrowthPlayLive, useGrowthPlays, type GrowthPlay } 
 import { growthPlayChecks } from './actions'
 import { growthBackend } from './growthBackend'
 import { CopilotColumn } from './ui'
-import { goGrowth, openGrowthExperience, openGrowthPlay, setRenaming, useGrowthUi, useGrowthView, type PlayTab } from './useGrowthUi'
+import { goGrowth, openGrowthExperience, openGrowthPlay, setGrowthView, setRenaming, useGrowthUi, useGrowthView, type PlayTab } from './useGrowthUi'
 
 const PLAY_TABS: { id: PlayTab; label: string; hint: string }[] = [
   { id: 'configure', label: 'Configure', hint: 'Set up who sees this play and which experiences they get' },
@@ -149,7 +150,26 @@ export function PlayPage({ objective }: { objective: GrowthObjective }) {
                 </span>
               }
               meta={[<Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>]}
-              tabs={<AngledTabs label="Play tabs" value={view.playTab} onChange={(tab) => openGrowthPlay(objective, play.id, tab)} items={PLAY_TABS} />}
+              tabs={
+                <AngledTabs
+                  label="Play tabs"
+                  value={view.playTab}
+                  onChange={(tab) => openGrowthPlay(objective, play.id, tab)}
+                  items={[
+                    ...PLAY_TABS,
+                    ...(view.canvasOpen
+                      ? [
+                          {
+                            id: 'canvas' as const,
+                            label: 'Canvas',
+                            hint: 'Every variant, and a test with a subscriber',
+                            onClose: () => setGrowthView(objective, { canvasOpen: false, playTab: view.playTab === 'canvas' ? 'configure' : view.playTab }),
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              }
               actions={
                 <>
                   <ToolButton icon="list-ordered" label="All plays" onClick={() => goGrowth(objective, { page: 'order' })}>
@@ -163,6 +183,7 @@ export function PlayPage({ objective }: { objective: GrowthObjective }) {
           </header>
           <div className="min-h-0 flex-1">
             {view.playTab === 'configure' && <PlayConfigure key={play.id} play={play} />}
+            {view.playTab === 'canvas' && view.canvasOpen && <PlayCanvas key={play.id} play={play} />}
             {view.playTab === 'summary' && <Summary play={play} />}
             {view.playTab === 'tasks' && <TaskList play={play} />}
           </div>

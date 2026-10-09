@@ -662,6 +662,314 @@ export function RoutingTree({ play }: { play: CancelPlay }) {
   )
 }
 
+function CanvasMark({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open ${name} canvas`}
+      title="Open canvas"
+      className="-m-[6px] flex flex-none cursor-pointer items-center justify-center rounded-md border border-transparent p-[6px] text-slate-400 transition-[color,background-color,border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[var(--slg-color-action-primary)] hover:bg-[var(--slg-color-action-primary)] hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--slg-color-action-primary)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-sm"
+    >
+      <svg viewBox="0 0 32 24" aria-hidden className="h-[18px] w-[24px] fill-none stroke-current stroke-[1.6]">
+        <path d="M10 12H14M14 12V6.5H20M14 12V17.5H20" strokeLinejoin="round" />
+        <rect x="2.5" y="8.5" width="7" height="7" rx="1.5" />
+        <rect x="20.5" y="2.5" width="7" height="7" rx="1.5" />
+        <rect x="20.5" y="14.5" width="7" height="7" rx="1.5" />
+      </svg>
+    </button>
+  )
+}
+
+function Branch({ depth = 0, children }: { depth?: number; children: ReactNode }) {
+  return (
+    <div className="flex min-h-[32px] min-w-0 items-center gap-[8px] py-[2px]" style={{ paddingLeft: depth * 20 }}>
+      {children}
+    </div>
+  )
+}
+
+function InlineAudience({
+  audience,
+  onChange,
+}: {
+  audience: Audience
+  onChange: (audience: Audience) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  return (
+    <div className="space-y-[10px] py-[8px] pl-[21px]">
+      <div className="flex items-center gap-[8px]">
+        <AudienceSelect value={audience} placeholder="Choose an audience…" onPick={onChange} className="max-w-[420px] flex-1" />
+        <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => setEditing((value) => !value)}>
+          {editing ? 'Done' : 'Edit rules'}
+        </SButton>
+      </div>
+      {editing ? <RulesEditor audience={audience} onChange={onChange} onDone={() => setEditing(false)} /> : <RulesList audience={audience} />}
+    </div>
+  )
+}
+
+function VariantTreeRow({
+  play,
+  variant,
+  group,
+  rowCount,
+  depth,
+  slots,
+}: {
+  play: CancelPlay
+  variant: PlayVariant
+  group: string | null
+  rowCount: number
+  depth: number
+  slots: ReturnType<ReturnType<typeof usePlaysBackend>['useComponentMap']>[string]
+}) {
+  const backend = usePlaysBackend()
+  const { addComponentTestVariant, removeRow, setComponentOverride, setRowWeight } = backend.ops
+  const title = usePageTitle()
+  return (
+    <div>
+      <Branch depth={depth}>
+        <PageSelect play={play} group={group} rowId={variant.id} value={variant.experienceId} className="min-w-[180px] max-w-[320px] flex-1" />
+        {rowCount > 1 && (
+          <label className="flex h-[32px] w-[68px] flex-none items-center border border-slate-200 bg-white px-[6px] text-[12.5px]">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={variant.weight}
+              aria-label={`Traffic for ${title(variant.experienceId)}`}
+              onChange={(event) => setRowWeight(play.id, variant.id, Number(event.target.value) || 0)}
+              className="w-full min-w-0 bg-transparent text-right tabular-nums outline-none"
+            />
+            <span className="pl-[2px] text-slate-400">%</span>
+          </label>
+        )}
+        <IconButton icon="x" label="Remove experience from this test" disabled={rowCount <= 1} onClick={() => removeRow(play.id, variant.id)} />
+      </Branch>
+      {slots?.map((slot) => {
+        const overrideId = variant.componentOverrides?.[slot.id]
+        const effectiveId = overrideId ?? slot.baseId
+        const alternative = slot.choices.find((choice) => choice.id !== effectiveId)
+        return (
+          <Branch key={slot.id} depth={depth + 1}>
+            <span className="w-[88px] flex-none text-[12.5px] text-slate-500">{slot.label}</span>
+            <select
+              value={overrideId ?? ''}
+              aria-label={`${slot.label} for ${title(variant.experienceId)}`}
+              onChange={(event) => setComponentOverride(play.id, variant.id, slot.id, event.target.value || null)}
+              className="h-[32px] min-w-[180px] max-w-[360px] flex-1 border border-slate-200 bg-white px-[8px] text-[12.5px] outline-none focus:border-slate-400"
+            >
+              <option value="">Shared: {slot.baseLabel}</option>
+              {slot.choices.filter((choice) => choice.id !== slot.baseId).map((choice) => (
+                <option key={choice.id} value={choice.id}>{choice.label}</option>
+              ))}
+            </select>
+            {overrideId && (
+              <>
+                <span className="flex-none bg-indigo-50 px-[6px] py-[2px] text-[10.5px] font-semibold text-indigo-700">Override in this play</span>
+                <button type="button" onClick={() => setComponentOverride(play.id, variant.id, slot.id, null)} className="text-[12px] font-medium text-slate-500 hover:text-slate-900">
+                  Reset
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              disabled={!alternative}
+              onClick={() => {
+                if (!alternative) return
+                const created = addComponentTestVariant(play.id, variant.id, slot.id, alternative.id)
+                toast(created ? `Added a ${slot.label.toLowerCase()} test variant` : 'That component configuration is already in this test')
+              }}
+              className="ml-auto flex-none text-[12px] font-medium text-[#1a56db] hover:underline disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline"
+            >
+              Test another {slot.label.toLowerCase()}
+            </button>
+          </Branch>
+        )
+      })}
+    </div>
+  )
+}
+
+function ConfigGroup({
+  play,
+  group,
+  label,
+  depth,
+  audience,
+  componentMap,
+  selected,
+  onSelect,
+  onAudience,
+  fallback,
+  bare,
+}: {
+  play: CancelPlay
+  group: string | null
+  label: string
+  depth: number
+  audience?: Audience
+  componentMap: ReturnType<ReturnType<typeof usePlaysBackend>['useComponentMap']>
+  selected: string | null
+  onSelect: (id: string | null) => void
+  onAudience?: (audience: Audience) => void
+  fallback?: boolean
+  bare?: boolean
+}) {
+  const backend = usePlaysBackend()
+  const rows = rowsOf(play, group)
+  const variants = rows.filter((row): row is Extract<Row, { kind: 'page' }> => row.kind === 'page')
+  const groupKey = group ?? (fallback ? 'fallback' : 'root')
+  const editing = selected === `audience:${groupKey}`
+  const childDepth = bare ? depth : depth + 1
+  return (
+    <>
+      {!bare && (
+        <button type="button" className="block w-full text-left" onClick={() => onSelect(editing ? null : `audience:${groupKey}`)}>
+          <Branch depth={depth}>
+            <SIcon name={fallback ? 'shield' : 'users'} size={13} className="flex-none text-slate-400" />
+            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-700">{label}</span>
+          </Branch>
+        </button>
+      )}
+      {editing && audience && onAudience && <InlineAudience audience={audience} onChange={onAudience} />}
+      {variants.map(({ v }) => (
+        <VariantTreeRow key={v.id} play={play} variant={v} group={group} rowCount={rows.length} depth={childDepth} slots={componentMap[v.experienceId] ?? []} />
+      ))}
+      {rows.filter((row): row is Extract<Row, { kind: 'empty' }> => row.kind === 'empty').map(({ r }) => (
+        <Branch key={r.id} depth={childDepth}>
+          <PageSelect play={play} group={group} rowId={r.id} value={null} className="max-w-[320px] flex-1" />
+          <IconButton icon="x" label="Remove empty test row" onClick={() => backend.ops.removeRow(play.id, r.id)} />
+        </Branch>
+      ))}
+      {!fallback && (
+        <div className="py-[4px]" style={{ paddingLeft: childDepth * 20 }}>
+          <button type="button" onClick={() => backend.ops.addRow(play.id, group)} className="text-[12.5px] font-medium text-[#1a56db] hover:underline">
+            Test another {backend.noun}
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
+
+/** V10's review-first play configuration. Shared experiences stay shared; overrides live on variants. */
+function PlayConfigTree({ play }: { play: CancelPlay }) {
+  const backend = usePlaysBackend()
+  const componentMap = backend.useComponentMap()
+  const open = backend.useOpenChecks(play)
+  const { addSubAudience, setAction, setPlayLive, setSubAudience, updatePlay } = backend.ops
+  const [selected, setSelected] = useState<string | null>(null)
+  const live = play.status === 'live'
+  const mode = modeOf(play) ?? 'show'
+  const total = play.variants.reduce((sum, variant) => sum + variant.weight, 0)
+  return (
+    <div className="h-full min-h-0 overflow-y-auto bg-slate-50 px-[24px] py-[24px]">
+      <div className="mx-auto max-w-[920px] space-y-[16px]">
+        <div className="flex items-end gap-[16px]">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[17px] font-semibold text-slate-900">Review and configure</h2>
+            <p className="mt-[4px] text-[12.5px] text-slate-500">Review the connected audience and experiences. Edit any branch without rebuilding the play.</p>
+          </div>
+          <label className="flex items-center gap-[8px] text-[12px] font-medium text-slate-600">
+            Routing
+            <select value={mode} onChange={(event) => setAction(play.id, event.target.value as Mode)} className="h-[32px] border border-slate-200 bg-white px-[8px] text-[12.5px] text-slate-800">
+              <option value="show">One experience</option>
+              <option value="test">A/B test experiences</option>
+              <option value="segments">Route by audience</option>
+            </select>
+          </label>
+        </div>
+
+        <section className="border border-slate-200 bg-white px-[16px] py-[12px] shadow-sm">
+          <div className="flex items-start">
+            <div className="pt-[2px]">
+              <CanvasMark name={play.name} onClick={() => backend.openCanvas(play)} />
+            </div>
+            <div className="ml-[8px] flex min-w-0 flex-1 flex-col border-l border-slate-200 py-[2px] pl-[12px]">
+              <button type="button" onClick={() => setSelected(selected === 'audience:play' ? null : 'audience:play')} className="flex h-[28px] min-w-0 items-center gap-[8px] text-left text-[13px] text-slate-700 hover:text-slate-900">
+                <SIcon name="users" size={13} className="flex-none text-slate-400" />
+                <span className="truncate">Audience: {audienceName(play.audience, 'Not selected')}</span>
+              </button>
+              {selected === 'audience:play' && <InlineAudience audience={play.audience} onChange={(audience) => updatePlay(play.id, { audience })} />}
+
+              {play.splitBy === 'percent' ? (
+                <ConfigGroup play={play} group={null} label="" depth={1} bare componentMap={componentMap} selected={selected} onSelect={setSelected} />
+              ) : (
+                <>
+                  {play.subAudiences.map((sub, index) => (
+                    <ConfigGroup
+                      key={sub.id}
+                      play={play}
+                      group={sub.id}
+                      depth={1}
+                      label={audienceName(sub.audience, `Sub-audience ${index + 1}`)}
+                      audience={sub.audience}
+                      componentMap={componentMap}
+                      selected={selected}
+                      onSelect={setSelected}
+                      onAudience={(audience) => setSubAudience(play.id, sub.id, audience)}
+                    />
+                  ))}
+                  <div className="py-[4px]" style={{ paddingLeft: 20 }}>
+                    <button type="button" onClick={() => addSubAudience(play.id)} className="text-[12.5px] font-medium text-[#1a56db] hover:underline">
+                      Add sub-audience
+                    </button>
+                  </div>
+                  <ConfigGroup play={play} group={null} label="Fallback" depth={1} fallback componentMap={componentMap} selected={selected} onSelect={setSelected} />
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {play.splitBy === 'percent' && play.variants.length + play.emptyRows.length > 1 && total !== 100 && (
+          <p className="text-[12px] font-medium text-rose-600">Traffic adds up to {total}%. Adjust the variant percentages to total 100%.</p>
+        )}
+
+        <Card>
+          <CardTitle icon="flask-conical">Control group</CardTitle>
+          <div className="flex items-center gap-[10px]">
+            <input type="range" min={0} max={50} step={5} value={play.control} aria-label="Control group" onChange={(event) => updatePlay(play.id, { control: Number(event.target.value) })} className="min-w-0 flex-1 accent-[#1a56db]" />
+            <span className="w-[40px] text-right text-[12.5px] tabular-nums text-slate-600">{play.control === 0 ? 'Off' : `${play.control}%`}</span>
+          </div>
+          <p className="mt-[6px] text-[12px] text-slate-500">{backend.controlLine(play.control)}</p>
+        </Card>
+
+        {open.length > 0 && !live && (
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardTitle icon="circle-alert">Before you publish</CardTitle>
+            <ul className="space-y-[6px]">
+              {open.map((check) => (
+                <li key={check.id} className="flex items-start gap-[8px] text-[12.5px] text-slate-700">
+                  <span className="mt-[6px] h-[5px] w-[5px] flex-none rounded-full bg-amber-500" />
+                  <span><strong className="text-slate-900">{check.label}.</strong> {check.fix}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        <div className="flex justify-end">
+          <SButton
+            size="small"
+            variant={live ? 'neutral-outline' : 'primary'}
+            className="w-auto"
+            disabled={!live && open.length > 0}
+            onClick={() => {
+              setPlayLive(play.id, !live)
+              toast(live ? `Paused ${play.name}` : `${play.name} is live`)
+            }}
+          >
+            {live ? 'Pause play' : 'Publish play'}
+          </SButton>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ReviewStep({ play, goTo }: { play: CancelPlay; goTo: (s: ConfigureStep) => void }) {
   const backend = usePlaysBackend()
   const { setPlayLive, updatePlay } = backend.ops
@@ -779,8 +1087,12 @@ function Stepper({ step, done, goTo }: { step: ConfigureStep; done: Record<Confi
   )
 }
 
-/** A play's Configure tab: set it up one step at a time. */
+/** A play's Configure tab. V10 reviews one connected tree; older layouts keep the wizard. */
 export function PlayConfigure({ play }: { play: CancelPlay }) {
+  return V10 ? <PlayConfigTree play={play} /> : <PlayConfigureWizard play={play} />
+}
+
+function PlayConfigureWizard({ play }: { play: CancelPlay }) {
   const step = useWorkspaceUi((s) => s.configureStep[play.id] ?? 1)
   const goTo = (s: ConfigureStep) => useWorkspaceUi.getState().setConfigureStep(play.id, s)
   const done: Record<ConfigureStep, boolean> = { 1: audienceDone(play), 2: targetingDone(play), 3: play.status === 'live' }

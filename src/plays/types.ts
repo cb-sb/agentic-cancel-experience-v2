@@ -10,6 +10,11 @@ export type SplitBy = 'percent' | 'segments'
 export interface PlayVariant {
   id: string
   experienceId: string
+  /**
+   * Library content replaced only for this play variant. Keys identify slots
+   * in the shared experience; values identify compatible library content.
+   */
+  componentOverrides?: Record<string, string>
   /** Share of traffic, 0 to 100: of the play by percent, or of its sub-audience. */
   weight: number
   /** Saves from before sub-audiences held pages. Read once, then moved to `subAudiences`. */
