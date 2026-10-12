@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { MVP } from '../layout/layoutMode'
 import {
   betaFor,
   CANCEL_ROUTE,
@@ -40,8 +41,8 @@ const initial = routeFromHash(typeof window !== 'undefined' ? window.location.ha
 export const useGrowthShell = create<GrowthShellState>((set, get) => ({
   route: initial,
   beta: betaFor(initial, false),
-  navOpen: !isExperience(initial),
-  openGroups: { ...COLLAPSED_GROUPS },
+  navOpen: MVP ? true : !isExperience(initial),
+  openGroups: { ...COLLAPSED_GROUPS, ...(MVP ? { experiences: true } : {}) },
 
   // The URL follows in navHistory, which records each move as one browser history step.
   go: (route) => {
@@ -50,7 +51,7 @@ export const useGrowthShell = create<GrowthShellState>((set, get) => ({
     set((s) => ({
       route,
       beta: betaFor(route, s.beta),
-      navOpen: experience ? false : leavingExperience ? true : s.navOpen,
+      navOpen: MVP ? true : experience ? false : leavingExperience ? true : s.navOpen,
     }))
   },
 
@@ -68,7 +69,7 @@ if (typeof window !== 'undefined') {
     useGrowthShell.setState((s) => ({
       route,
       beta: betaFor(route, s.beta),
-      navOpen: experience ? false : s.navOpen,
+      navOpen: MVP ? true : experience ? false : s.navOpen,
     }))
   })
 }

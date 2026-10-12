@@ -1,5 +1,5 @@
 import { SIcon, type SIconName } from '@chargebee/sting-react'
-import { V8, V9 } from '../layout/layoutMode'
+import { MVP, V8, V9 } from '../layout/layoutMode'
 import { navItem } from '../layout/navStyle'
 import { BETA_NAV, CANCEL_ROUTE, CLASSIC_HOME, NAV, type NavGroup, type NavLeaf, type NavLeafId } from './nav'
 import { useGrowthShell } from './useGrowthShell'
@@ -21,7 +21,7 @@ function LeafButton({
 }) {
   const go = useGrowthShell((s) => s.go)
 
-  if (V9) {
+  if (V9 || MVP) {
     return (
       <button
         type="button"
@@ -81,7 +81,7 @@ function GroupBlock({ group, route, compact }: { group: NavGroup; route: NavLeaf
     )
   }
 
-  if (V9) {
+  if (V9 || MVP) {
     return (
       <div>
         <button
@@ -154,7 +154,7 @@ function BetaButton({ compact }: { compact: boolean }) {
   const go = useGrowthShell((s) => s.go)
   const label = beta ? 'Exit Retention beta' : 'Retention beta'
 
-  if (V9) {
+  if (V9 || MVP) {
     return (
       <button
         type="button"
@@ -193,7 +193,7 @@ export function GrowthNav() {
   const toggleNav = useGrowthShell((s) => s.toggleNav)
   const beta = useGrowthShell((s) => s.beta)
 
-  if (V9) {
+  if (V9 || MVP) {
     return (
       <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
         <div className={`flex h-[60px] flex-none items-center gap-[8px] border-b border-slate-200 ${navOpen ? 'px-[10px]' : 'justify-center'}`}>
@@ -231,7 +231,7 @@ export function GrowthNav() {
         </nav>
 
         <div className="flex flex-none flex-col gap-[2px] border-t border-slate-200 px-[8px] py-[10px]">
-          <BetaButton compact={!navOpen} />
+          {!MVP && <BetaButton compact={!navOpen} />}
           <button type="button" title="Need help?" className={`${navItem()} flex h-10 w-full items-center ${navOpen ? 'gap-[10px] px-[10px]' : 'justify-center'}`}>
             <SIcon name="circle-help" size={18} className="slg-nav-icon flex-none" />
             {navOpen && <span className="slg-nav-label min-w-0 flex-1 truncate text-left">Need help?</span>}

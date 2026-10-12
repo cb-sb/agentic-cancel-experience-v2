@@ -13,28 +13,31 @@ import { PromptCodeDock } from '../orchestration/PromptCodeDock'
 import { TemplatesModal } from '../orchestration/TemplatesModal'
 import { UploadFlow } from '../upload/UploadFlow'
 import { closeTab, focusTab, openAnotherTab, openTab, tabNumber } from '../workspace/paneTabs'
-import { activeKind, useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
+import { activeKind, newTabId, useWorkspaceUi, type PaneTab, type ThreadTabs } from '../workspace/useWorkspaceUi'
 import { PlanTab } from '../orchestration/PlanTab'
 import { ExperienceTaskList } from '../setup/TaskList'
 import { TargetingTab } from '../orchestration/TargetingTab'
-import { LAYOUT, STUDIO, TABBED, V8, V9 } from './layoutMode'
+import { LAYOUT, MVP, STUDIO, TABBED, V8, V9 } from './layoutMode'
 import { AddTab, AngledTabs, TabRail } from './SlgChrome'
 import { SIDEBAR_FOLDED_W, SIDEBAR_W, ThreadSidebar } from './ThreadSidebar'
 import { BackButton, backToExperiences } from '../shell/BackButton'
+import { useGrowthShell } from '../shell/useGrowthShell'
 
 export const TAB_LABEL: Record<PaneTab, string> = {
   editor: 'Editor',
   canvas: 'Canvas',
   targeting: 'Targeting',
   preview: 'Preview',
-  plan: V8 ? 'Summary' : 'Plan',
+  plan: V8 || MVP ? 'Summary' : 'Plan',
   tasks: 'Task list',
 }
-const TAB_ORDER: PaneTab[] = V8
-  ? ['editor', 'preview', 'plan', 'tasks', 'canvas']
-  : STUDIO
-    ? ['editor', 'preview', 'targeting', 'canvas', 'plan']
-    : ['editor', 'preview', 'canvas']
+const TAB_ORDER: PaneTab[] = MVP
+  ? ['editor', 'preview', 'plan']
+  : V8
+    ? ['editor', 'preview', 'plan', 'tasks', 'canvas']
+    : STUDIO
+      ? ['editor', 'preview', 'targeting', 'canvas', 'plan']
+      : ['editor', 'preview', 'canvas']
 
 const TAB_HINT: Partial<Record<PaneTab, string>> = {
   editor: 'Change screens and copy',
@@ -48,6 +51,7 @@ export function usePaneShown(): boolean {
   const stage = useCopilotStage()
   const paneHidden = useWorkspaceUi((s) => s.paneHidden)
   const tabCount = useWorkspaceUi((s) => s.tabs.open.length)
+  if (MVP) return true
   if (stage !== 'rail') return false
   return TABBED ? tabCount > 0 : !paneHidden
 }
@@ -223,6 +227,15 @@ export function TabbedPane() {
       ) : (
       <div className="flex h-[60px] flex-none items-end gap-1 border-b border-slate-200 bg-slate-50 pl-2 pr-4">
         {V8 && <BackButton fallback={backToExperiences} className="mr-[4px] self-center" />}
+        {MVP && (
+          <button
+            type="button"
+            onClick={() => useGrowthShell.getState().go('experiences.pages')}
+            className="mr-[8px] self-center text-[12.5px] font-medium text-slate-500 hover:text-slate-900"
+          >
+            Pages
+          </button>
+        )}
         <div role="tablist" aria-label="Open views" className="no-scrollbar -mb-px flex min-w-0 items-end gap-1 overflow-x-auto overflow-y-hidden">
           {tabs.open.map((ref) => {
             const active = tabs.active === ref.id
@@ -262,9 +275,11 @@ export function TabbedPane() {
           })}
         </div>
         <AddTabMenu tabs={tabs} />
-        <div className="ml-auto flex min-w-0 items-center gap-[12px] self-center">
-          <PlayActions />
-        </div>
+        {!MVP && (
+          <div className="ml-auto flex min-w-0 items-center gap-[12px] self-center">
+            <PlayActions />
+          </div>
+        )}
       </div>
       )}
       <div data-focus-root className="relative min-h-0 flex-1 bg-white">
@@ -320,9 +335,28 @@ export function ThreadWorkspace() {
   }, [stage, setAssistantOpen])
 
   useEffect(() => {
+    if (!MVP) return
+    const tabs = useWorkspaceUi.getState().tabs
+    const kinds = new Set(tabs.open.map((tab) => tab.kind))
+    if (kinds.has('editor') && kinds.has('preview') && kinds.has('plan')) return
+    const editor = { id: newTabId('editor'), kind: 'editor' as const }
+    const preview = { id: newTabId('preview'), kind: 'preview' as const }
+    const plan = { id: newTabId('plan'), kind: 'plan' as const }
+    useWorkspaceUi.getState().setTabs({ open: [editor, preview, plan], active: plan.id })
+  }, [])
+
+  useEffect(() => {
     if (!editorShown || focusTarget || stepCount === 0) return
     useOrchestration.getState().enterWorkEditor()
   }, [editorShown, focusTarget, stepCount])
+
+  if (MVP) {
+    return (
+      <div className="flex h-full min-h-0 bg-white">
+        <TabbedPane />
+      </div>
+    )
+  }
 
   return (
     <div

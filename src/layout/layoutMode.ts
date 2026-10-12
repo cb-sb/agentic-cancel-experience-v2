@@ -1,6 +1,6 @@
-export type LayoutMode = 'v5' | 'threads' | 'tabs' | 'v7' | 'v8' | 'v9' | 'concierge' | 'v10'
+export type LayoutMode = 'v5' | 'threads' | 'tabs' | 'v7' | 'v8' | 'v9' | 'concierge' | 'v10' | 'mvp'
 
-const MODES: LayoutMode[] = ['v5', 'threads', 'tabs', 'v7', 'v8', 'v9', 'concierge', 'v10']
+const MODES: LayoutMode[] = ['v5', 'threads', 'tabs', 'v7', 'v8', 'v9', 'concierge', 'v10', 'mvp']
 
 function readLayout(): LayoutMode {
   const fromUrl = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('layout')
@@ -13,12 +13,14 @@ export const LAYOUT: LayoutMode = readLayout()
 export const USES_THREADS = LAYOUT !== 'v5'
 /** v10: one screen for Plays, Experiences and Audiences. It runs on Concierge, with its own navigation. */
 export const V10 = LAYOUT === 'v10'
+/** Engineer handover: Growth nav, Pages upload, and the experience studio. Not Concierge. */
+export const MVP = LAYOUT === 'mvp'
 /** Concierge: Home, Acquisition and Expansion around the v9 cancel experience, which is its Retention. v10 shares that shell. */
 export const CONCIERGE = LAYOUT === 'concierge' || V10
 /** v9: v8 with the objective pane cut down to Plays, Experiences, Library and what you're working on. Concierge and v10 run on it. */
 export const V9 = LAYOUT === 'v9' || CONCIERGE
 /** Layouts where the right side is a strip of tabs. */
-export const TABBED = LAYOUT === 'tabs' || LAYOUT === 'v7' || LAYOUT === 'v8' || V9
+export const TABBED = LAYOUT === 'tabs' || LAYOUT === 'v7' || LAYOUT === 'v8' || V9 || MVP
 /** v7, v8, v9 and concierge: the Experiences pane, doors, and the tabbed studio. */
 export const STUDIO = LAYOUT === 'v7' || LAYOUT === 'v8' || V9
 /** v8, v9 and concierge: Copilot only sets up the subscriber experience; the rest is UI. */

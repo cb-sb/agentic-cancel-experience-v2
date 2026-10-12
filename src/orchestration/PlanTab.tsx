@@ -1,5 +1,6 @@
 import { SIcon } from '@chargebee/sting-react'
-import { V8, V9 } from '../layout/layoutMode'
+import { MVP, V8, V9 } from '../layout/layoutMode'
+import { ManifestSummary } from '../upload/ManifestSummary'
 import { useJourney } from '../store/useJourney'
 import { useCancelSettings } from '../workspace/useCancelSettings'
 import { openTab } from '../workspace/paneTabs'
@@ -90,6 +91,7 @@ function PlanPage() {
 }
 
 export function PlanTab() {
+  if (MVP) return <ManifestSummary />
   if (V8) return <PlanPage />
   return <ReadinessPlan />
 }

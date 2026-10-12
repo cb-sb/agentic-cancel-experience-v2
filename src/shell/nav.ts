@@ -1,5 +1,5 @@
 import type { SIconName } from '@chargebee/sting-react'
-import { CONCIERGE, V10, V8 } from '../layout/layoutMode'
+import { CONCIERGE, MVP, V10, V8 } from '../layout/layoutMode'
 
 export type NavLeafId =
   | 'home'
@@ -11,6 +11,8 @@ export type NavLeafId =
   | 'offers.in_app'
   | 'offers.pricing_tables'
   | 'experiences.branding'
+  | 'experiences.pricing_tables'
+  | 'experiences.index'
   | 'experiences.pages'
   | 'experiences.loss_aversion'
   | 'experiences.survey'
@@ -176,6 +178,78 @@ const V10_NAV: NavEntry[] = [
   },
 ]
 
+/** Engineer handover. Matches the live Growth rail. Only Pages is a working destination. */
+const MVP_NAV: NavEntry[] = [
+  {
+    kind: 'group',
+    group: {
+      id: 'plays',
+      label: 'Plays',
+      icon: 'target',
+      children: [
+        { id: 'plays.acquisition', label: 'Acquisition', icon: 'rocket' },
+        { id: 'plays.expansion', label: 'Expansion', icon: 'arrow-up-right' },
+        { id: 'plays.retention', label: 'Retention', icon: 'repeat' },
+      ],
+    },
+  },
+  {
+    kind: 'group',
+    group: {
+      id: 'offers',
+      label: 'Offers',
+      icon: 'gift',
+      children: [{ id: 'offers.in_app', label: 'In-app', icon: 'layout' }],
+    },
+  },
+  {
+    kind: 'group',
+    group: {
+      id: 'experiences',
+      label: 'Experiences',
+      icon: 'layers',
+      children: [
+        { id: 'experiences.pricing_tables', label: 'Pricing Tables', icon: 'table' },
+        { id: 'experiences.index', label: 'Experiences', icon: 'layers' },
+        { id: 'experiences.branding', label: 'Brands', icon: 'palette' },
+        { id: 'experiences.pages', label: 'Pages', icon: 'file-text' },
+        { id: 'experiences.loss_aversion', label: 'Loss aversion cards', icon: 'layout-list' },
+        { id: 'experiences.survey', label: 'Survey reasons', icon: 'message-square' },
+        { id: 'experiences.redirect', label: 'Redirect pages', icon: 'external-link' },
+      ],
+    },
+  },
+  {
+    kind: 'group',
+    group: {
+      id: 'people',
+      label: 'People',
+      icon: 'users',
+      children: [
+        { id: 'people.audiences', label: 'Audiences', icon: 'user-search' },
+        { id: 'people.engaged', label: 'Engaged subscribers', icon: 'users-round' },
+      ],
+    },
+  },
+  { kind: 'leaf', leaf: { id: 'renewal', label: 'Renewal Optimization', icon: 'repeat' } },
+  {
+    kind: 'group',
+    group: {
+      id: 'reports',
+      label: 'Reports',
+      icon: 'bar-chart',
+      children: [
+        { id: 'reports.cancels', label: 'Cancels', icon: 'circle' },
+        { id: 'reports.offer', label: 'Offer Performance', icon: 'percent' },
+        { id: 'reports.experience', label: 'Experience Performance', icon: 'sparkles' },
+        { id: 'reports.cohort', label: 'Retained Revenue Coh.', icon: 'users' },
+        { id: 'reports.lift', label: 'Lift Report', icon: 'bar-chart' },
+      ],
+    },
+  },
+  { kind: 'leaf', leaf: { id: 'settings', label: 'Settings', icon: 'settings' } },
+]
+
 /** Concierge: Home, then one place per objective. Retention is the whole v8 cancel experience. */
 const CONCIERGE_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
@@ -185,9 +259,9 @@ const CONCIERGE_NAV: NavEntry[] = [
   ...ALL_NAV.slice(3),
 ]
 
-export const NAV: NavEntry[] = V10 ? V10_NAV : CONCIERGE ? CONCIERGE_NAV : V8 ? CLASSIC_NAV : ALL_NAV
+export const NAV: NavEntry[] = V10 ? V10_NAV : CONCIERGE ? CONCIERGE_NAV : MVP ? MVP_NAV : V8 ? CLASSIC_NAV : ALL_NAV
 
-export const DEFAULT_ROUTE: NavLeafId = V10 || CONCIERGE ? 'home' : V8 ? 'experiences.cancel' : 'plays.acquisition'
+export const DEFAULT_ROUTE: NavLeafId = MVP ? 'experiences.pages' : V10 || CONCIERGE ? 'home' : V8 ? 'experiences.cancel' : 'plays.acquisition'
 export const CANCEL_ROUTE: NavLeafId = 'experiences.cancel'
 /** Where "Exit Retention beta" lands. */
 export const CLASSIC_HOME: NavLeafId = 'plays.acquisition'
@@ -230,7 +304,7 @@ export function labelOf(id: NavLeafId): string {
   return id
 }
 
-const LEAF_IDS = new Set<NavLeafId>([...leafIds(NAV), ...(V8 ? BETA_IDS : [])])
+const LEAF_IDS = new Set<NavLeafId>([...leafIds(NAV), ...(V8 ? BETA_IDS : []), ...(MVP ? [CANCEL_ROUTE] : [])])
 
 export function hashFor(id: NavLeafId): string {
   return `#/${id.replace(/\./g, '/')}`

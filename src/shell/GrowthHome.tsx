@@ -6,7 +6,8 @@ import { V8 } from '../layout/layoutMode'
 import { labelOf, type NavLeafId } from './nav'
 import { TemplatePages } from '../upload/TemplatePages'
 import { UploadFlow } from '../upload/UploadFlow'
-import { CONCIERGE, V10 } from '../layout/layoutMode'
+import { CONCIERGE, MVP, V10 } from '../layout/layoutMode'
+import { MvpPages } from '../upload/MvpPages'
 import { EngagedPage } from '../v10/EngagedPage'
 import { V10Screen } from '../v10/V10Screen'
 import { ConciergeHome } from '../concierge/Home'
@@ -28,6 +29,8 @@ function Placeholder({ route }: { route: NavLeafId }) {
         <p className="max-w-sm text-[13px] text-slate-500">
           {CONCIERGE
             ? 'This page is not in the prototype. Ask Copilot on Home about it and it will answer with sample data.'
+            : MVP
+            ? 'This page is not in the MVP. Open Experiences → Pages to upload a cancel page.'
             : V8
             ? 'This surface is not in the prototype. Open Retention beta at the bottom left to build the cancel journey.'
             : 'This surface is not in the prototype. Open Experiences → Cancel experience to build the cancel journey.'}
@@ -76,6 +79,7 @@ function ConciergeRoute({ route }: { route: NavLeafId }) {
 }
 
 export function GrowthHome({ route }: { route: NavLeafId }) {
+  if (MVP) return route === 'experiences.pages' ? <MvpPages /> : <Placeholder route={route} />
   if (CONCIERGE) return <ConciergeRoute route={route} />
   if (route === 'plays.acquisition') return <AcquisitionPlays />
   if (route === 'experiences.branding') return <BrandingStudio />
