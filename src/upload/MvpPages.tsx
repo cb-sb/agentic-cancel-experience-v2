@@ -10,6 +10,7 @@ import { useGrowthShell } from '../shell/useGrowthShell'
 import { newTabId, useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { journeyFromUpload } from './apply'
 import { composedDemoArtifact } from './kit'
+import { demoSettings, reasonBinds } from './manifestSettings'
 import { bumpArtifactVersion, filesToArtifact, scanArtifact } from './scan'
 import type { TemplateManifest } from './types'
 import { contractErrors, formatContractIssue } from './validate'
@@ -191,7 +192,8 @@ export function MvpPages() {
     try {
       const prev = useJourney.getState().file.artifact
       const artifact = bumpArtifactVersion(prev, composedDemoArtifact())
-      const manifest = scanArtifact(artifact)
+      const settings = demoSettings()
+      const manifest = { ...scanArtifact(artifact), settings, surveyReasons: reasonBinds(settings) }
       const problems = contractErrors(manifest)
       if (problems.length > 0) {
         setIssues(problems.map(formatContractIssue))

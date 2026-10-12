@@ -50,6 +50,7 @@ function emitStep(s: JourneyStepFile): string {
   if (s.sharedOfferId) lines.push(`    shared_offer: ${yamlStr(s.sharedOfferId)}`)
   if (s.sharedCardId) lines.push(`    shared_card: ${yamlStr(s.sharedCardId)}`)
   if (s.chrome) lines.push(`    chrome: ${JSON.stringify(s.chrome)}`)
+  if (s.content) lines.push(`    content: ${JSON.stringify(s.content)}`)
   return lines.join('\n')
 }
 
@@ -90,6 +91,7 @@ export function stringifyJourney(file: JourneyFile): string {
         confirmed: file.manifest.confirmed,
         subscriberContext: file.manifest.subscriberContext,
         surveyReasons: file.manifest.surveyReasons,
+        settings: file.manifest.settings,
       }
       head.push(`manifest: ${JSON.stringify(compact)}`)
     }
@@ -280,6 +282,12 @@ export function parseJourney(text: string): { file?: JourneyFile; error?: string
         current.chrome = JSON.parse(String(field[2].trim() || parsed)) as JourneyStepFile['chrome']
       } catch {
         return { error: `Line ${n}: chrome must be JSON` }
+      }
+    } else if (key === 'content') {
+      try {
+        current.content = JSON.parse(String(field[2].trim() || parsed)) as JourneyStepFile['content']
+      } catch {
+        return { error: `Line ${n}: content must be JSON` }
       }
     } else return { error: `Line ${n}: unknown step field ${key}` }
   }

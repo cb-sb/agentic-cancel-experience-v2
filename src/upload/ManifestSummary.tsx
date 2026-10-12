@@ -2,6 +2,7 @@ import { SButton } from '@chargebee/sting-react'
 import { OFFER_VARIANTS } from '../lib/offerVariants'
 import { useJourney } from '../store/useJourney'
 import { CB_KIND_LABELS, type CbKind } from './contract'
+import { approveManifest, ManifestReview } from './ManifestReview'
 import type { ManifestSlot, ManifestStep } from './types'
 
 function kindLabel(kind: ManifestStep['kind']): string {
@@ -22,9 +23,7 @@ const SLOT_LABEL: Record<ManifestSlot['type'], string> = {
 }
 
 function approveSummary() {
-  const file = useJourney.getState().file
-  if (!file.manifest || file.manifest.confirmed) return
-  useJourney.getState().patchFile({ manifest: { ...file.manifest, confirmed: true } })
+  approveManifest()
 }
 
 /** Summary of an uploaded page: only the steps, slots, and bindings the scan produced. */
@@ -32,17 +31,10 @@ export function ManifestSummary() {
   const file = useJourney((s) => s.file)
   const manifest = file.manifest
   const approved = !!manifest?.confirmed
-  const offers = [
-    ...new Set(
-      (manifest?.steps ?? []).flatMap((step) =>
-        step.slots.filter((slot) => slot.type === 'offer').map((slot) => bindLabel(slot)),
-      ),
-    ),
-  ]
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[720px] space-y-[20px] px-[28px] py-[28px]">
+      <div className="mx-auto max-w-[840px] space-y-[20px] px-[28px] py-[28px]">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
           <h2 className="mt-[4px] text-[20px] font-semibold text-slate-900">{file.name}</h2>
@@ -55,7 +47,7 @@ export function ManifestSummary() {
 
         {manifest && !approved && (
           <div className="flex items-center justify-between gap-[16px] border border-slate-200 bg-white px-[16px] py-[14px]">
-            <p className="text-[13px] text-slate-600">Check the steps, offers, and survey reasons before this summary is saved.</p>
+            <p className="text-[13px] text-slate-600">Check survey reasons, the loss-aversion card, and offers before this summary is saved.</p>
             <SButton size="small" variant="primary" className="w-auto flex-none" onClick={approveSummary}>
               Approve
             </SButton>
@@ -66,6 +58,7 @@ export function ManifestSummary() {
           <p className="text-[13px] text-slate-500">Upload a page from Pages to see its manifest.</p>
         ) : (
           <>
+            <ManifestReview readOnly={approved} />
             <section className="border border-slate-200 bg-white">
               <header className="border-b border-slate-100 px-[16px] py-[12px]">
                 <h3 className="text-[14px] font-semibold text-slate-900">Steps</h3>
@@ -102,25 +95,6 @@ export function ManifestSummary() {
               </ol>
             </section>
 
-            <section className="border border-slate-200 bg-white px-[16px] py-[14px]">
-              <h3 className="text-[14px] font-semibold text-slate-900">Offers placed</h3>
-              <p className="mt-[4px] text-[13px] text-slate-700">{offers.length ? offers.join(', ') : 'None'}</p>
-            </section>
-
-            <section className="border border-slate-200 bg-white px-[16px] py-[14px]">
-              <h3 className="text-[14px] font-semibold text-slate-900">Survey reasons</h3>
-              {(manifest.surveyReasons ?? []).length === 0 ? (
-                <p className="mt-[4px] text-[13px] text-slate-500">None</p>
-              ) : (
-                <ul className="mt-[8px] space-y-[4px]">
-                  {manifest.surveyReasons?.map((reason) => (
-                    <li key={reason.id} className="text-[13px] text-slate-700">
-                      {reason.label}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
           </>
         )}
       </div>

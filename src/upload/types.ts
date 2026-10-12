@@ -1,4 +1,5 @@
 import type { JourneyStepKind, OfferKey } from '../journey/types'
+import type { ManifestSettings } from './manifestSettings'
 
 /** How the cancel UI was authored. Default is Copilot / canvas (Chargebee-drawn). */
 export type JourneySource = 'authored' | 'uploaded'
@@ -70,6 +71,8 @@ export interface SurveyReasonBind {
   label: string
 }
 
+export type { ManifestSettings }
+
 export interface ContractIssue {
   level: 'error' | 'warning'
   message: string
@@ -91,6 +94,7 @@ export interface TemplateManifest {
   confirmed?: boolean
   subscriberContext?: Record<string, string>
   surveyReasons?: SurveyReasonBind[]
+  settings?: ManifestSettings
 }
 
 export const DEFAULT_SUBSCRIBER_CONTEXT: Record<string, string> = {

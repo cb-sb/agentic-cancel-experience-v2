@@ -72,6 +72,9 @@ function compileStep(s: JourneyStepFile): Step {
             ...la,
             keepItems: mergeLabeled(la.keepItems ?? [], shared?.keepItems ?? s.content?.keepItems, () => uid('kp')),
             loseItems: mergeLabeled(la.loseItems ?? [], shared?.loseItems ?? s.content?.loseItems, () => uid('ls')),
+            ...(s.content?.stats
+              ? { stats: s.content.stats.map((row) => ({ id: row.id, value: row.value, label: row.label })) }
+              : {}),
           },
         ],
       }
@@ -81,17 +84,26 @@ function compileStep(s: JourneyStepFile): Step {
         ? useMerchantLibrary.getState().cards.find((card) => card.id === s.sharedCardId)
         : undefined
       const sv = makeSurvey({ id: cid })
+      const details = s.content?.surveyDetails
       const reasons = shared?.surveyReasons ?? s.content?.surveyReasons
-      const options = reasons
-        ? reasons
-            .map((label) => label.trim())
-            .filter(Boolean)
-            .map((label, i) =>
-              sv.options[i]
-                ? { ...sv.options[i], label }
-                : { id: uid('rs'), label, code: slugCode(label), followUp: null, linkedOfferId: null },
-            )
-        : sv.options
+      const options = details?.length
+        ? details.map((row) => ({
+            id: row.id,
+            label: row.label,
+            code: slugCode(row.label),
+            followUp: row.feedback ? { enabled: true, prompt: 'Tell us more', optional: true } : null,
+            linkedOfferId: row.linkedOfferId ?? null,
+          }))
+        : reasons
+          ? reasons
+              .map((label) => label.trim())
+              .filter(Boolean)
+              .map((label, i) =>
+                sv.options[i]
+                  ? { ...sv.options[i], label }
+                  : { id: uid('rs'), label, code: slugCode(label), followUp: null, linkedOfferId: null },
+              )
+          : sv.options
       return {
         ...base,
         stage: 'route_detection',
@@ -101,6 +113,7 @@ function compileStep(s: JourneyStepFile): Step {
           {
             ...sv,
             options,
+            randomize: s.content?.surveyRandomize ?? sv.randomize,
             ...((shared?.surveyPrompt || s.content?.surveyPrompt)
               ? { freeTextPrompt: shared?.surveyPrompt || s.content?.surveyPrompt }
               : {}),
@@ -133,6 +146,7 @@ function compileStep(s: JourneyStepFile): Step {
                   ...offerPatch(s.offer),
                   ...(s.headline ? { title: s.headline } : {}),
                   ...(s.body ? { description: s.body } : {}),
+                  ...(s.content?.offerCta ? { primaryCta: s.content.offerCta } : {}),
                 }),
           }),
         ],

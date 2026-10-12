@@ -21,7 +21,11 @@ export function ChromeStepPlayer({
   return (
     <ArtifactPlayer
       artifact={pack.artifact}
-      manifest={pack.manifest}
+      manifest={{
+        ...pack.manifest,
+        settings: file.manifest?.settings,
+        surveyReasons: file.manifest?.surveyReasons,
+      }}
       stepId={stepId}
       interactive={interactive}
       className={className}

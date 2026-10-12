@@ -81,15 +81,30 @@ export interface JourneyStepChrome {
  * overrides layered on top of the factory defaults at compile time, so the
  * JourneyFile stays the source of truth for what the subscriber actually sees.
  */
+export interface JourneySurveyDetail {
+  id: string
+  label: string
+  linkedOfferId?: string | null
+  feedback?: boolean
+}
+
 export interface JourneyStepContent {
   /** Loss aversion — "what you'll keep" bullet labels, in order. */
   keepItems?: string[]
   /** Loss aversion — "what you'll lose" bullet labels, in order. */
   loseItems?: string[]
+  /** Loss aversion — stat rows shown with the card. */
+  stats?: { id: string; value: string; label: string }[]
   /** Survey — reason option labels, in order. */
   surveyReasons?: string[]
+  /** Survey — reason rows, including the offer each reason points at. */
+  surveyDetails?: JourneySurveyDetail[]
   /** Survey — free-text prompt under the reasons. */
   surveyPrompt?: string
+  /** Survey — show reasons in a random order. */
+  surveyRandomize?: boolean
+  /** Offer — subscriber-facing button label. */
+  offerCta?: string
 }
 
 export interface JourneyStepFile {

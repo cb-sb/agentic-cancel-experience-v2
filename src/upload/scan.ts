@@ -15,6 +15,7 @@ import type {
   TemplateArtifactFile,
   TemplateManifest,
 } from './types'
+import { settingsForManifest } from './manifestSettings'
 import { DEFAULT_SUBSCRIBER_CONTEXT, isCbAction } from './types'
 
 function parseHtml(html: string): Document {
@@ -243,7 +244,7 @@ export function scanArtifact(artifact: TemplateArtifact): TemplateManifest {
     }
   }
 
-  return {
+  const manifest: TemplateManifest = {
     steps,
     warnings,
     issues,
@@ -251,6 +252,7 @@ export function scanArtifact(artifact: TemplateArtifact): TemplateManifest {
     subscriberContext: ctx,
     surveyReasons: reasons,
   }
+  return { ...manifest, settings: settingsForManifest(manifest) }
 }
 
 function isHtmlFile(file: File): boolean {

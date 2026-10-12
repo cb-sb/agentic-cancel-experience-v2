@@ -137,20 +137,70 @@ export function ArtifactPlayer({
       if (name && ctx[name] != null) el.textContent = ctx[name]
     })
 
+    const configuredOffer = manifest.settings?.offers[0]
     const offerSlot = manifestStep?.slots.find((s) => s.type === 'offer')
     const offerKey = offerSlot?.bind && isOfferBind(offerSlot.bind) ? offerSlot.bind : 'discount'
     const variant = OFFER_VARIANTS.find((v) => v.category === offerKey)
-    if (variant) {
+    const offerCopy = configuredOffer
+      ? {
+          title: configuredOffer.headline,
+          body: configuredOffer.body,
+          cta: configuredOffer.buttons[0]?.buttonLabel ?? '',
+          eyebrow: configuredOffer.name,
+        }
+      : variant
+        ? { title: variant.title, body: variant.description, cta: variant.primaryCta, eyebrow: variant.eyebrow }
+        : null
+    if (offerCopy) {
       doc.querySelectorAll(`[${CB.bind}]`).forEach((el) => {
         const bind = el.getAttribute(CB.bind)
-        if (bind === 'title') el.textContent = variant.title
-        if (bind === 'cta') el.textContent = variant.primaryCta
-        if (bind === 'body') el.textContent = variant.description
-        if (bind === 'eyebrow') el.textContent = variant.eyebrow
+        if (bind === 'title') el.textContent = offerCopy.title
+        if (bind === 'cta') el.textContent = offerCopy.cta
+        if (bind === 'body') el.textContent = offerCopy.body
+        if (bind === 'eyebrow') el.textContent = offerCopy.eyebrow
       })
     }
 
-    const reasons = manifest.surveyReasons ?? []
+    const selectedCard = manifest.settings?.lossAversion.enabled
+      ? manifest.settings.lossAversion.cards.find((card) => card.id === manifest.settings?.lossAversion.selectedId)
+      : undefined
+    if (manifestStep?.kind === 'loss_aversion' && selectedCard) {
+      const heading = doc.querySelector('h1')
+      if (heading && selectedCard.title) heading.textContent = selectedCard.title
+      let copy = doc.getElementById('cb-loss-copy')
+      if (!copy) {
+        copy = doc.createElement('div')
+        copy.id = 'cb-loss-copy'
+        const stats = doc.querySelector(`[${CB.slot}="la_stats"]`)
+        stats?.insertAdjacentElement('afterend', copy)
+      }
+      const text = (value: string) => value.replace(/[&<>]/g, (ch) => (ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : '&gt;'))
+      const items = (title: string, rows: string[]) =>
+        rows.length ? `<p class="slot-label">${text(title)}</p><ul>${rows.map((row) => `<li>${text(row)}</li>`).join('')}</ul>` : ''
+      copy.innerHTML = `${items("What you'll keep", selectedCard.keep)}${items("What you'll lose", selectedCard.lose)}`
+    }
+
+    if (manifestStep?.kind === 'survey' && manifest.settings?.survey.label) {
+      const heading = doc.querySelector('h1')
+      if (heading) heading.textContent = manifest.settings.survey.label
+    }
+
+    const surveySlot = doc.querySelector(`[${CB.slot}="survey"]`)
+    const reasonTemplate = surveySlot?.querySelector('label')
+    const reasons =
+      manifest.settings?.survey.reasons.filter((row) => row.selected).map((row) => ({ id: row.id, label: row.label })) ??
+      manifest.surveyReasons ??
+      []
+    if (surveySlot && reasonTemplate && reasons.length > 0) {
+      const current = [...surveySlot.querySelectorAll('label')]
+      if (current.length !== reasons.length) {
+        current.slice(1).forEach((label) => label.remove())
+        while (surveySlot.querySelectorAll('label').length < reasons.length) {
+          surveySlot.appendChild(reasonTemplate.cloneNode(true))
+        }
+      }
+    }
+
     const radios = [...doc.querySelectorAll<HTMLInputElement>(`[${CB.slot}="survey"] input[type="radio"]`)]
     radios.forEach((input, i) => {
       const reason = reasons[i]
