@@ -1,3 +1,4 @@
+import { SButton } from '@chargebee/sting-react'
 import { OFFER_VARIANTS } from '../lib/offerVariants'
 import { useJourney } from '../store/useJourney'
 import { CB_KIND_LABELS, type CbKind } from './contract'
@@ -20,10 +21,17 @@ const SLOT_LABEL: Record<ManifestSlot['type'], string> = {
   action: 'Action',
 }
 
+function approveSummary() {
+  const file = useJourney.getState().file
+  if (!file.manifest || file.manifest.confirmed) return
+  useJourney.getState().patchFile({ manifest: { ...file.manifest, confirmed: true } })
+}
+
 /** Summary of an uploaded page: only the steps, slots, and bindings the scan produced. */
 export function ManifestSummary() {
   const file = useJourney((s) => s.file)
   const manifest = file.manifest
+  const approved = !!manifest?.confirmed
   const offers = [
     ...new Set(
       (manifest?.steps ?? []).flatMap((step) =>
@@ -39,9 +47,20 @@ export function ManifestSummary() {
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
           <h2 className="mt-[4px] text-[20px] font-semibold text-slate-900">{file.name}</h2>
           <p className="mt-[4px] text-[13px] text-slate-500">
-            What Chargebee read from this page. Editor and Preview use the same upload.
+            {approved
+              ? 'Approved. Editor and Preview use this summary.'
+              : 'Review what Chargebee read. Approving it saves this as the summary.'}
           </p>
         </div>
+
+        {manifest && !approved && (
+          <div className="flex items-center justify-between gap-[16px] border border-slate-200 bg-white px-[16px] py-[14px]">
+            <p className="text-[13px] text-slate-600">Check the steps, offers, and survey reasons before this summary is saved.</p>
+            <SButton size="small" variant="primary" className="w-auto flex-none" onClick={approveSummary}>
+              Approve
+            </SButton>
+          </div>
+        )}
 
         {!manifest ? (
           <p className="text-[13px] text-slate-500">Upload a page from Pages to see its manifest.</p>

@@ -53,7 +53,7 @@ export function journeyFromUpload(
   manifest: TemplateManifest,
   components?: MerchantComponent[],
 ): JourneyFile {
-  const confirmed: TemplateManifest = { ...manifest, confirmed: true }
+  const confirmed: TemplateManifest = { ...manifest, confirmed: manifest.confirmed !== false }
   const name = !base.name || base.name === EMPTY_JOURNEY.name ? 'Uploaded template' : base.name
   const acquire =
     confirmed.steps.some((s) => s.kind === 'pricing_table') &&
