@@ -1,7 +1,10 @@
 import { SAccordion } from '@chargebee/sting-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { MVP } from '../layout/layoutMode'
 import { uid } from '../lib/id'
+import { useMerchantLibrary } from '../store/useMerchantLibrary'
 import { useJourney } from '../store/useJourney'
+import { useWorkspace } from '../workspace/useWorkspace'
 import { stepsWithSettings } from './apply'
 import {
   OFFER_KIND_LABELS,
@@ -15,6 +18,7 @@ import {
   offerGaps,
   reasonBinds,
   settingsForManifest,
+  settingsFromJourney,
   type DiscountBasis,
   type LossCard,
   type ManifestOffer,
@@ -47,11 +51,30 @@ function move<T>(list: T[], index: number, dir: -1 | 1): T[] {
 
 function commitSettings(settings: ManifestSettings) {
   const file = useJourney.getState().file
-  if (!file.manifest || file.manifest.confirmed) return
+  if (!file.manifest || (MVP && file.manifest.confirmed)) return
   useJourney.getState().patchFile({
     manifest: { ...file.manifest, settings, surveyReasons: reasonBinds(settings) },
     steps: stepsWithSettings(file.steps, settings),
   })
+}
+
+/** Give a template experience the MVP configuration, taken from the screens it already has. */
+export function useSummarySettings() {
+  const activeId = useWorkspace((state) => state.activeId)
+  const offers = useMerchantLibrary((state) => state.offers)
+  const cards = useMerchantLibrary((state) => state.cards)
+  useEffect(() => {
+    const file = useJourney.getState().file
+    if (file.manifest?.settings || file.steps.length === 0) return
+    const settings = settingsFromJourney(file, { offers, cards })
+    useJourney.getState().patchFile({
+      manifest: {
+        ...(file.manifest ?? { steps: file.steps.map((step) => ({ id: step.id, kind: step.kind, slots: [], fields: [] })), warnings: [] }),
+        settings,
+        surveyReasons: reasonBinds(settings),
+      },
+    })
+  }, [activeId, offers, cards])
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -556,7 +579,7 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
       <Group
         value="survey"
         title="Survey reasons"
-        summary={`${selectedCount} of ${survey.reasons.length} selected · Random · ${survey.offerStrategy === 'page' ? 'Page based offer' : 'Reason based offer'}`}
+        summary={`${selectedCount} of ${survey.reasons.length} selected · ${survey.order === 'random' ? 'Random' : 'Listed'} · ${survey.offerStrategy === 'page' ? 'Page based offer' : 'Reason based offer'}`}
         readOnly={readOnly}
         onOpen={() => setOpen('survey')}
       >

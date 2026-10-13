@@ -6,14 +6,12 @@ import { useCancelSettings } from '../workspace/useCancelSettings'
 import { openTab } from '../workspace/paneTabs'
 import { useWorkspace } from '../workspace/useWorkspace'
 import { useWorkspaceUi, type PaneTab } from '../workspace/useWorkspaceUi'
+import { ManifestReview, useSummarySettings } from '../upload/ManifestReview'
 import { ContextEditor } from './ContextEditor'
 import { PlanSummary } from './JourneyPlan'
 import { useSetupProgress } from './JourneySetupChrome'
 import { jumpSetupItem } from './setupActions'
 import type { SetupItemId } from './setupTracker'
-import { useCopilotThread } from './copilotThread'
-import { experienceRows, useSetupInputs, workspaceRows } from '../setup/progress'
-import { SettingsSection } from '../setup/SettingsSection'
 import { FRAME_FORM } from '../layout/frames'
 
 /** Where each setup row is fixed. Rows without a tab are answered in the chat. */
@@ -57,18 +55,11 @@ function rowAction(id: SetupItemId): string {
   return tab ? TAB_NAME[tab] : 'Chat'
 }
 
-/** Summary edits leave a small line in the chat, so it knows what changed. */
-function noteInChat(text: string) {
-  useCopilotThread.getState().say('bot', text, { note: true })
-}
-
 /** v8: every decision for this experience, editable in place. */
 function PlanPage() {
   const file = useJourney((s) => s.file)
-  const activeId = useWorkspace((s) => s.activeId)
   const title = useWorkspace((s) => s.threads.find((t) => t.id === s.activeId)?.title)
-  const inputs = useSetupInputs()
-  const rows = experienceRows(activeId, inputs).filter((r) => r.entry.id !== 'layout' && r.entry.id !== 'brand')
+  useSummarySettings()
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
       <div className={`space-y-[28px] px-[28px] pb-[40px] pt-[28px] ${V9 ? FRAME_FORM : 'mx-auto max-w-[720px]'}`}>
@@ -80,10 +71,12 @@ function PlanPage() {
         </div>
         <ContextEditor confirmEdits page />
         {file.steps.length > 0 && (
-          <>
-            <SettingsSection title="Setup" hint="Offers, links and how the cancel is handled" rows={rows} onNote={noteInChat} />
-            <SettingsSection title="Workspace" hint="Set once, used by every play" rows={workspaceRows(inputs)} onNote={noteInChat} />
-          </>
+          <section>
+            <h3 className="mb-[10px] px-[2px] text-[14px] font-semibold text-slate-900">Configuration</h3>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <ManifestReview readOnly={false} />
+            </div>
+          </section>
         )}
       </div>
     </div>

@@ -1,4 +1,7 @@
-import type { OfferKey } from '../journey/types'
+import type { JourneyFile, JourneyStepFile, OfferKey } from '../journey/types'
+import type { SharedCard, SharedOffer } from '../library/types'
+import { makeLossAversion, makeSurvey } from '../lib/factories'
+import { offerVariantPatch } from '../lib/offerVariants'
 import type { SurveyReasonBind, TemplateManifest } from './types'
 
 export type ReasonOrder = 'random' | 'listed'
@@ -321,6 +324,95 @@ function blankLoss(present: boolean): LossAversionConfiguration {
           },
         ]
       : [],
+  }
+}
+
+function manifestOfferKind(key: OfferKey | undefined): OfferKind {
+  if (key === 'pause' || key === 'skip') return 'pause_skip'
+  if (key === 'extension') return 'extension'
+  if (key === 'plan_change') return 'subscription_change'
+  if (key === 'addon') return 'gifts'
+  return 'discount'
+}
+
+function journeyOffer(step: JourneyStepFile, index: number, offers: SharedOffer[]): ManifestOffer {
+  const key = step.offer ?? 'discount'
+  const variant = offerVariantPatch(key)
+  const shared = step.sharedOfferId ? offers.find((item) => item.id === step.sharedOfferId) : undefined
+  const offer = blankOffer(manifestOfferKind(key), index)
+  const button = offer.buttons[0]
+  offer.id = `offer_${step.id}`
+  offer.shared = Boolean(shared)
+  offer.name = shared?.name ?? offer.name
+  offer.headline = shared?.title || step.headline || variant.title || offer.headline
+  offer.body = shared?.description || step.body || variant.description || ''
+  offer.cardName = shared?.name ?? offer.cardName
+  offer.offerName = shared?.name ?? offer.offerName
+  if (button) {
+    offer.buttons = [
+      {
+        ...button,
+        buttonLabel: shared?.primaryCta || step.content?.offerCta || variant.primaryCta || button.buttonLabel,
+        action: {
+          ...button.action,
+          processing: 'billing',
+          discountBasis: key === 'discount' ? 'percent' : button.action.discountBasis,
+          pauseMode: key === 'skip' ? 'skip_cycles' : key === 'pause' ? 'indefinite' : button.action.pauseMode,
+        },
+      },
+    ]
+  }
+  return offer
+}
+
+/** The MVP configuration, filled from the screens this experience already has. */
+export function settingsFromJourney(file: JourneyFile, library: { offers: SharedOffer[]; cards: SharedCard[] } = { offers: [], cards: [] }): ManifestSettings {
+  const lossStep = file.steps.find((step) => step.kind === 'loss_aversion')
+  const surveyStep = file.steps.find((step) => step.kind === 'survey')
+  const loss = blankLoss(Boolean(lossStep))
+  if (lossStep && loss.cards[0]) {
+    const defaults = makeLossAversion()
+    const shared = lossStep.sharedCardId ? library.cards.find((item) => item.id === lossStep.sharedCardId) : undefined
+    const stats = lossStep.content?.stats ?? defaults.stats ?? []
+    loss.cards[0] = {
+      ...loss.cards[0],
+      shared: Boolean(shared),
+      name: shared?.name || loss.cards[0].name,
+      title: shared?.title || lossStep.headline || 'Before you go',
+      keep: shared?.keepItems?.length ? shared.keepItems : lossStep.content?.keepItems ?? (defaults.keepItems ?? []).map((item) => item.label),
+      lose: shared?.loseItems?.length ? shared.loseItems : lossStep.content?.loseItems ?? (defaults.loseItems ?? []).map((item) => item.label),
+      stats: stats.map((row) => ({ id: row.id, label: row.label, value: row.value, enabled: true })),
+    }
+  }
+  const details = surveyStep?.content?.surveyDetails
+  const labels = surveyStep?.content?.surveyReasons?.map((label) => label.trim()).filter(Boolean)
+  const reasons: ManifestReason[] = details?.length
+    ? details.map((row) => ({
+        id: row.id,
+        label: row.label,
+        selected: true,
+        shared: false,
+        feedbackEnabled: Boolean(row.feedback),
+        offerId: row.linkedOfferId ?? null,
+        active: Boolean(row.linkedOfferId),
+      }))
+    : labels?.length
+      ? labels.map((label, index) => ({ id: `reason_${index}`, label, selected: true, shared: false, feedbackEnabled: false, offerId: null, active: false }))
+      : file.manifest?.surveyReasons?.length
+        ? file.manifest.surveyReasons.map((row) => ({ id: row.id, label: row.label, selected: true, shared: false, feedbackEnabled: false, offerId: null, active: false }))
+        : surveyStep
+          ? makeSurvey().options.map((option) => ({ id: option.id, label: option.label, selected: true, shared: false, feedbackEnabled: false, offerId: null, active: false }))
+          : []
+  const survey = blankSurvey(reasons)
+  if (!surveyStep) survey.reasonsEnabled = false
+  else {
+    survey.label = surveyStep.headline || 'Why are you cancelling?'
+    survey.order = surveyStep.content?.surveyRandomize ? 'random' : 'listed'
+  }
+  return {
+    survey,
+    lossAversion: loss,
+    offers: file.steps.filter((step) => step.kind === 'offer').map((step, index) => journeyOffer(step, index, library.offers)),
   }
 }
 

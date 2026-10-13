@@ -739,7 +739,9 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
     )
   }
 
-  const editableSteps = uploaded ? file.steps.filter((s) => s.kind === 'offer') : file.steps
+  const editableSteps = (uploaded ? file.steps.filter((s) => s.kind === 'offer') : file.steps).filter(
+    (step) => !(page && (step.kind === 'survey' || step.kind === 'loss_aversion' || step.kind === 'offer')),
+  )
   const audienceLabel = (id: AudienceKey) => AUDIENCE_OPTIONS.find((o) => o.id === id)?.label ?? id
   const shellLabel = (id: ShellLayout) => SHELL_OPTIONS.find((o) => o.id === id)?.label ?? id
 
@@ -836,11 +838,13 @@ export function ContextEditor({ confirmEdits = false, page = false }: { confirmE
                 <p className="mt-[2px] text-[13px] leading-snug text-slate-800">{flow}</p>
               </div>
             </div>
-            <section>
-              <PageHeading title="Steps" />
-              {uploadedNote && <div className="mb-[8px]">{uploadedNote}</div>}
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">{steps}</div>
-            </section>
+            {steps.length > 0 && (
+              <section>
+                <PageHeading title="Steps" />
+                {uploadedNote && <div className="mb-[8px]">{uploadedNote}</div>}
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">{steps}</div>
+              </section>
+            )}
             <section>
               <PageHeading title="Look and layout" />
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
