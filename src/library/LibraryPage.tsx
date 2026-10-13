@@ -349,7 +349,7 @@ function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id
 let consumedBump = 0
 
 /** Cancel components the merchant reuses across experiences. */
-export function LibraryPage() {
+export function LibraryPage({ embedded = false }: { embedded?: boolean } = {}) {
   const kind = useWorkspaceUi((s) => s.libraryKind)
   const bump = useWorkspaceUi((s) => s.libraryNew)
   const focus = useWorkspaceUi((s) => s.libraryFocus)
@@ -423,8 +423,10 @@ export function LibraryPage() {
   return (
     <div className={`flex h-full min-w-0 flex-1 ${V9 ? 'bg-white' : 'bg-slate-50'}`}>
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div className={`space-y-[14px] px-[28px] py-[24px] ${V9 ? FRAME_WIDE : 'mx-auto max-w-[760px]'}`}>
-          {V9 ? (
+        <div className={embedded ? 'space-y-[14px] px-[28px] pb-[48px] pt-[16px] min-[1440px]:px-[40px] min-[1800px]:px-[64px]' : `space-y-[14px] px-[28px] py-[24px] ${V9 ? FRAME_WIDE : 'mx-auto max-w-[760px]'}`}>
+          {embedded ? (
+            <p className="text-[13px] text-slate-500">{meta.hint}</p>
+          ) : V9 ? (
             <div>
               <PageHeader
                 title={meta.label}

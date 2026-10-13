@@ -47,6 +47,7 @@ export function PageShell({
   actions,
   children,
   wide = false,
+  embedded = false,
 }: {
   objective: GrowthObjective
   title: string
@@ -54,7 +55,19 @@ export function PageShell({
   actions?: ReactNode
   children: ReactNode
   wide?: boolean
+  /** Inside a page that already has its own title and New button. */
+  embedded?: boolean
 }) {
+  if (embedded) {
+    return (
+      <div className="h-full overflow-y-auto bg-white">
+        <div className="px-[28px] pb-[48px] pt-[16px] min-[1440px]:px-[40px] min-[1800px]:px-[64px]">
+          {blurb && <p className="mb-[16px] text-[13px] text-slate-500">{blurb}</p>}
+          {children}
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="h-full overflow-y-auto bg-white">
       <div className={`mx-auto px-[32px] pb-[48px] pt-[24px] ${wide ? 'max-w-[1120px]' : 'max-w-[960px]'}`}>

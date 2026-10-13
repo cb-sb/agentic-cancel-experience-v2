@@ -558,6 +558,15 @@ export function startFromLibrary(id: Exclude<JourneyTemplate, 'none'>) {
   useOrchestration.getState().applyLibraryTemplate(id)
 }
 
+/** Concierge has no Copilot to land a template, so the template becomes the journey straight away. */
+export function startFromLibraryNow(id: Exclude<JourneyTemplate, 'none'>) {
+  if (!isEmptyNow()) newThread()
+  useOrchestration.getState().closeTemplates()
+  const file = startFromTemplate({ ...EMPTY_JOURNEY, brand: blankBrand() }, id)
+  useJourney.getState().replaceFile({ ...file, steps: withLive(file.steps, true) })
+  useOrchestration.getState().enterWorkEditor()
+}
+
 /** v8: upload runs as its own page in a new experience, unless the open one is still empty. */
 export function startUploadPage() {
   if (!isEmptyNow()) newThread()

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { SButton, SIcon } from '@chargebee/sting-react'
 import { DropdownButton } from '../plays/ui'
 import { uniqueName } from '../plays/names'
@@ -155,36 +155,61 @@ function OfferDetail({ offer, onBack }: { offer: LibOffer; onBack: () => void })
   )
 }
 
-export function OffersPage({ objective }: { objective: GrowthObjective }) {
+export function createGrowthOffer(objective: GrowthObjective): string {
+  const lib = useGrowthLibrary.getState()
+  return lib.addOffer({
+    name: uniqueName('New offer', lib.offers.map((x) => x.name)),
+    objective,
+    widget: 'modal',
+    category: objective === 'expansion' ? 'annual_upgrade' : 'trial_conversion',
+    title: '',
+    description: '',
+    cta: 'Accept',
+    processing: 'billing_update',
+    acceptStep: 'confirmation',
+    value: '',
+    languages: ['English'],
+    status: 'draft',
+  }).id
+}
+
+export function createPricingTable(objective: GrowthObjective): string {
+  const lib = useGrowthLibrary.getState()
+  return lib.addPricingTable({
+    name: uniqueName('New pricing table', lib.pricingTables.map((x) => x.name)),
+    objective,
+    plans: CATALOG_PLANS.filter((p) => p.period === 'month'),
+    frequency: 'monthly',
+    hideCurrentPlan: objective === 'expansion',
+    cta: 'checkout',
+    status: 'draft',
+  }).id
+}
+
+/** Opens `focusId` whenever it changes, so a caller outside the page can jump to one item. */
+function useFocusedId(focusId: string | null | undefined) {
+  const [openId, setOpenId] = useState<string | null>(focusId ?? null)
+  useEffect(() => {
+    if (focusId) setOpenId(focusId)
+  }, [focusId])
+  return [openId, setOpenId] as const
+}
+
+export function OffersPage({ objective, embedded = false, focusId }: { objective: GrowthObjective; embedded?: boolean; focusId?: string | null }) {
   const offers = useGrowthLibrary((s) => s.offers)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useFocusedId(focusId)
   const open = offers.find((o) => o.id === openId)
   if (open) return <OfferDetail offer={open} onBack={() => setOpenId(null)} />
 
   const rows = forTabs(offers.filter((o) => o.status !== 'archived'), objective)
-  const create = () => {
-    const o = useGrowthLibrary.getState().addOffer({
-      name: uniqueName('New offer', offers.map((x) => x.name)),
-      objective,
-      widget: 'modal',
-      category: objective === 'expansion' ? 'annual_upgrade' : 'trial_conversion',
-      title: '',
-      description: '',
-      cta: 'Accept',
-      processing: 'billing_update',
-      acceptStep: 'confirmation',
-      value: '',
-      languages: ['English'],
-      status: 'draft',
-    })
-    setOpenId(o.id)
-  }
+  const create = () => setOpenId(createGrowthOffer(objective))
   return (
     <PageShell
       objective={objective}
       title="Offers"
       blurb="The value you give and how it is fulfilled. Acquisition and Expansion share these, so one offer can sit in experiences in both."
       wide
+      embedded={embedded}
       actions={
         <DropdownButton
           label="New"
@@ -328,30 +353,20 @@ function TableDetail({ table, onBack }: { table: LibPricingTable; onBack: () => 
   )
 }
 
-export function PricingTablesPage({ objective }: { objective: GrowthObjective }) {
+export function PricingTablesPage({ objective, embedded = false, focusId }: { objective: GrowthObjective; embedded?: boolean; focusId?: string | null }) {
   const tables = useGrowthLibrary((s) => s.pricingTables)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useFocusedId(focusId)
   const open = tables.find((t) => t.id === openId)
   if (open) return <TableDetail table={open} onBack={() => setOpenId(null)} />
   const rows = forTabs(tables.filter((t) => t.status !== 'archived'), objective)
-  const create = () => {
-    const t = useGrowthLibrary.getState().addPricingTable({
-      name: uniqueName('New pricing table', tables.map((x) => x.name)),
-      objective,
-      plans: CATALOG_PLANS.filter((p) => p.period === 'month'),
-      frequency: 'monthly',
-      hideCurrentPlan: objective === 'expansion',
-      cta: 'checkout',
-      status: 'draft',
-    })
-    setOpenId(t.id)
-  }
+  const create = () => setOpenId(createPricingTable(objective))
   return (
     <PageShell
       objective={objective}
       title="Pricing tables"
       blurb="Plans from your catalog, shared by Acquisition and Expansion. Show one in an experience, share it as a link or embed it."
       wide
+      embedded={embedded}
       actions={
         <DropdownButton
           label="New"

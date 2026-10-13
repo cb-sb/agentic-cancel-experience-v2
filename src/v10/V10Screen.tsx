@@ -13,6 +13,7 @@ import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { DropdownButton, ToastHost, useOutside, type MenuItem } from '../plays/ui'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { rowsFor, titleOf, useV10Rows, type V10Row } from './rows'
+import { ExperienceSectionBody, SECTIONS, SectionFilters, sectionNewItems } from './ExperienceSections'
 import { ObjectivePlays } from './ObjectivePlays'
 import { V10_GUTTER, V10Table } from './V10Table'
 import { updateAudience, useAudiences } from './useAudiences'
@@ -25,6 +26,7 @@ import {
   createV10RetentionPlay,
   syncV10FromHash,
   useV10,
+  type ExperienceSection,
   type ExperienceSlice,
   type Filters,
   type PlayMode,
@@ -41,7 +43,6 @@ const TAGS: { id: Tag; label: string }[] = [
   { id: 'retention', label: 'Retention' },
 ]
 const KIND: Record<V10Tab, V10Row['kind']> = { plays: 'play', experiences: 'experience', audiences: 'audience' }
-const VIEWS: V10Tab[] = ['plays', 'experiences', 'audiences']
 const PLAY_SCOPES: { id: V10Scope; label: string }[] = [
   { id: 'portfolio', label: 'All' },
   { id: 'acquisition', label: 'Acquisition' },
@@ -146,7 +147,9 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
   const route = useGrowthShell((state) => state.route)
   const playMode = useV10((state) => state.playMode)
   const { view, filters } = useCurrentView(tab)
+  const section = useV10((state) => state.section)
   const detail = open !== null && open.kind === KIND[tab]
+  const inSection = tab === 'experiences' && !detail && !view && section !== 'all'
   const objectiveMode = tab === 'plays' && !detail && !view && filters.scope !== 'portfolio' ? playMode : 'list'
   useEffect(() => {
     const sync = () => syncV10FromHash(route, window.location.hash)
@@ -161,6 +164,8 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
         <div className="min-h-0 flex-1">
           <Detail row={open} />
         </div>
+      ) : inSection ? (
+        <ExperienceSectionBody section={section} />
       ) : objectiveMode === 'list' ? (
         <List tab={tab} />
       ) : (
@@ -173,24 +178,48 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
 
 function ViewBar({ tab, detail, mode }: { tab: V10Tab; detail: boolean; mode: PlayMode }) {
   const { view, filters } = useCurrentView(tab)
+  const section = useV10((state) => state.section)
   if (detail) return <DetailBreadcrumb tab={tab} viewName={view?.name ?? null} filters={filters} />
+  const inSection = tab === 'experiences' && !view && section !== 'all'
   return (
     <div className={`flex-none ${V10_GUTTER} pt-[20px]`}>
       <div className="flex min-h-[43px] items-end gap-[12px] border-b border-[#1b1a2e]">
-        <div role="tablist" aria-label="Views" className="flex min-w-0 flex-1 items-end overflow-x-auto pl-[6px] pt-[7px]">
-          {VIEWS.map((id, index) => (
-            <ViewTab key={id} tab={id} label={TAB_TITLE[id]} on={!view && id === tab} first={index === 0} />
-          ))}
+        <div role="tablist" aria-label={TAB_TITLE[tab]} className="flex min-w-0 flex-1 items-end overflow-x-auto pl-[6px] pt-[7px]">
+          {tab === 'experiences' ? (
+            SECTIONS.map((item, index) => <SectionTab key={item.id} section={item.id} label={item.label} on={!view && section === item.id} first={index === 0} />)
+          ) : (
+            <ViewTab tab={tab} label={TAB_TITLE[tab]} on={!view} first />
+          )}
         </div>
         <div className="self-center">
           <NewButton tab={tab} />
         </div>
       </div>
       <div className="flex h-[40px] items-center justify-between gap-[12px] border-b border-[#e5e7eb]">
-        <SystemViews tab={tab} filters={filters} />
-        <Tools tab={tab} mode={mode} />
+        {inSection ? (
+          <SectionFilters section={section} />
+        ) : (
+          <>
+            <SystemViews tab={tab} filters={filters} />
+            <Tools tab={tab} mode={mode} />
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+function SectionTab({ section, label, on, first }: { section: ExperienceSection; label: string; on: boolean; first: boolean }) {
+  return (
+    <SlantedTab
+      label={label}
+      active={on}
+      first={first}
+      rounded
+      role="tab"
+      aria-selected={on}
+      onClick={() => (section === 'all' ? useV10.getState().selectSystemView('experiences', 'portfolio', 'all') : useV10.getState().setSection({ section }))}
+    />
   )
 }
 
@@ -284,7 +313,14 @@ function ViewTab({ tab, label, on, first }: { tab: V10Tab; label: string; on: bo
 }
 
 function NewButton({ tab }: { tab: V10Tab }) {
-  const { filters } = useCurrentView(tab)
+  const { view, filters } = useCurrentView(tab)
+  const section = useV10((state) => state.section)
+  const part = useV10((state) => state.part)
+  const objective = useV10((state) => state.libraryObjective)
+  if (tab === 'experiences' && !view && section !== 'all') {
+    const items = sectionNewItems(section, part, objective)
+    return items ? <DropdownButton label="New" items={items} width={260} /> : null
+  }
   return <DropdownButton label="New" items={newItemsFor(tab, filters)} width={240} />
 }
 

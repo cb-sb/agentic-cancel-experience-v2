@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { SIcon } from '@chargebee/sting-react'
+import { SIcon, type SIconName } from '@chargebee/sting-react'
 import { TYPE_LABEL, type GrowthExperience } from '../concierge/model'
 import { GrowthLooseRow, GrowthPlayRow } from '../concierge/objective/GrowthPane'
 import { useGrowthUi } from '../concierge/objective/useGrowthUi'
@@ -31,15 +31,12 @@ import {
   type V10Ref,
 } from './useV10'
 
-const DESTINATIONS: { id: string; label: string; route: NavLeafId; match: (route: NavLeafId) => boolean }[] = [
-  { id: 'home', label: 'Home', route: 'home', match: (route) => route === 'home' },
-  { id: 'renewal', label: 'Revenue optimization', route: 'renewal', match: (route) => route === 'renewal' },
-]
-
-const VIEWS: { label: string; route: NavLeafId }[] = [
-  { label: 'Plays', route: 'work.plays' },
-  { label: 'Experiences', route: 'work.experiences' },
-  { label: 'Audiences', route: 'work.audiences' },
+const DESTINATIONS: { id: string; label: string; icon: SIconName; route: NavLeafId; match: (route: NavLeafId) => boolean }[] = [
+  { id: 'home', label: 'Home', icon: 'home', route: 'home', match: (route) => route === 'home' },
+  { id: 'plays', label: 'Plays', icon: 'workflow', route: 'work.plays', match: (route) => route === 'work.plays' },
+  { id: 'experiences', label: 'Experiences', icon: 'layers', route: 'work.experiences', match: (route) => route === 'work.experiences' },
+  { id: 'audiences', label: 'Audiences', icon: 'users', route: 'work.audiences', match: (route) => route === 'work.audiences' },
+  { id: 'renewal', label: 'Revenue optimization', icon: 'repeat', route: 'renewal', match: (route) => route === 'renewal' },
 ]
 
 function visit(route: NavLeafId) {
@@ -87,10 +84,6 @@ const NEW_ITEMS = [
   { label: 'Audience', icon: 'users' as const, onClick: createV10Audience },
 ]
 
-function inBuild(route: NavLeafId) {
-  return VIEWS.some((view) => view.route === route)
-}
-
 /** Destinations stay put. What you open is grouped underneath, and the rail can fold to icons. */
 export function V10Nav() {
   const route = useGrowthShell((s) => s.route)
@@ -102,7 +95,6 @@ export function V10Nav() {
   const reportsCurrent = route.startsWith('reports')
   const reportsShown = reportsOpen && reportsCurrent && sidebarOpen
   const folded = !sidebarOpen
-  const buildRoute = inBuild(route) ? route : 'work.plays'
   const tree = useV10((state) => state.tree)
   const treeAt = useV10((state) => state.treeAt)
   const treeKey = tree ? `${tree.kind}:${tree.source}:${tree.id}` : ''
@@ -127,26 +119,15 @@ export function V10Nav() {
           <div className="flex h-10 items-center justify-center">
             <RowMenu label="New" icon="plus" align="beside" width={220} items={NEW_ITEMS} />
           </div>
-          <SettingRow icon="home" label="Home" folded active={route === 'home'} onClick={() => visit('home')} />
-          <SettingRow icon="layers" label="Build" folded active={inBuild(route)} onClick={() => visit(buildRoute)} />
-          <SettingRow icon="repeat" label="Revenue optimization" folded active={route === 'renewal'} onClick={() => visit('renewal')} />
+          {DESTINATIONS.map((item) => (
+            <SettingRow key={item.id} icon={item.icon} label={item.label} folded active={item.match(route)} onClick={() => visit(item.route)} />
+          ))}
           <SettingRow icon="bar-chart" label="Reports" folded active={reportsCurrent} onClick={() => visit('reports.cancels')} />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <nav className="flex flex-col gap-[2px] px-[8px] py-[12px]" aria-label="Growth">
-            {DESTINATIONS.filter((item) => item.id === 'home').map((item) => (
-              <NavDestination key={item.id} item={item} route={route} />
-            ))}
-            <NavDestination
-              item={{
-                label: 'Build',
-                route: buildRoute,
-                match: inBuild,
-              }}
-              route={route}
-            />
-            {DESTINATIONS.filter((item) => item.id === 'renewal').map((item) => (
+            {DESTINATIONS.map((item) => (
               <NavDestination key={item.id} item={item} route={route} />
             ))}
             <button

@@ -9,9 +9,9 @@ import { PageShell } from './ui'
 import { setGrowthView, useGrowthView } from './useGrowthUi'
 
 /** Starting points for in-app offers and pricing tables. Each one opens as an experience. */
-export function TemplatesPage({ objective }: { objective: GrowthObjective }) {
+export function TemplatesPage({ objective, embedded = false }: { objective: GrowthObjective; embedded?: boolean }) {
   const view = useGrowthView(objective)
-  const fill = view.fillId ? growthExperience(view.fillId) : undefined
+  const fill = !embedded && view.fillId ? growthExperience(view.fillId) : undefined
   const type = fill ? fill.type : view.templateType
   const list = templatesFor(objective, type)
 
@@ -21,6 +21,7 @@ export function TemplatesPage({ objective }: { objective: GrowthObjective }) {
       title="Templates"
       blurb={fill ? `Pick one for ${fill.name}.` : 'Starting points for in-app offers and pricing tables. Using one adds it to your Library.'}
       wide
+      embedded={embedded}
     >
       {!fill && (
         <div className="mb-[16px] flex gap-[4px] text-[12.5px]">

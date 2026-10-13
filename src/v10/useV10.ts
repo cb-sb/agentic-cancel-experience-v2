@@ -20,6 +20,14 @@ export type V10Source = 'growth' | 'retention' | 'audience'
 export type V10Scope = 'portfolio' | 'acquisition' | 'expansion' | 'retention'
 export type PlayMode = 'list' | 'priority' | 'canvas'
 export type ExperienceSlice = 'all' | 'in_app_offer' | 'pricing_table' | 'cancel_page'
+/** Experiences page tabs. `all` is the experiences table. */
+export type ExperienceSection = 'all' | 'templates' | 'components' | 'offers'
+export type ComponentPart = 'reasons' | 'cards' | 'confirmations' | 'redirects' | 'pricing_tables'
+export type LibraryObjective = 'all' | 'acquisition' | 'expansion' | 'retention'
+
+const SECTIONS: ExperienceSection[] = ['all', 'templates', 'components', 'offers']
+const PARTS: ComponentPart[] = ['reasons', 'cards', 'confirmations', 'redirects', 'pricing_tables']
+const OBJECTIVES: LibraryObjective[] = ['all', 'acquisition', 'expansion', 'retention']
 
 export interface V10Ref {
   kind: V10Kind
@@ -62,6 +70,11 @@ interface V10State {
   active: string | null
   /** Extra tags a merchant added. Absent means the item keeps the tag it already has. */
   tags: Record<string, Tag[]>
+  section: ExperienceSection
+  part: ComponentPart
+  /** Objective filter for templates, offers, and pricing tables. */
+  libraryObjective: LibraryObjective
+  setSection: (patch: Partial<Pick<V10State, 'section' | 'part' | 'libraryObjective'>>) => void
   close: () => void
   setTree: (ref: V10Ref | null) => void
   togglePin: (ref: V10Ref) => void
@@ -105,10 +118,17 @@ export interface V10Location {
   scope: V10Scope
   slice: ExperienceSlice
   mode: PlayMode
+  section?: ExperienceSection
+  part?: ComponentPart
+  objective?: LibraryObjective
 }
 
 function modeOf(value: string | null): PlayMode | undefined {
   return value === 'list' || value === 'priority' || value === 'canvas' ? value : undefined
+}
+
+function oneOf<T extends string>(list: T[], value: string | null): T | undefined {
+  return list.find((item) => item === value)
 }
 
 function locationFromHash(hash: string): Partial<V10Location> {
@@ -118,8 +138,14 @@ function locationFromHash(hash: string): Partial<V10Location> {
   const scope = params.get('scope')
   const slice = params.get('slice')
   const mode = modeOf(params.get('mode'))
+  const section = oneOf(SECTIONS, params.get('section'))
+  const part = oneOf(PARTS, params.get('part'))
+  const objective = oneOf(OBJECTIVES, params.get('objective'))
   return {
     active: params.get('view'),
+    ...(section ? { section } : {}),
+    ...(part ? { part } : {}),
+    ...(objective ? { objective } : {}),
     ...(scope === 'portfolio' || scope === 'acquisition' || scope === 'expansion' || scope === 'retention' ? { scope } : {}),
     ...(slice === 'all' || slice === 'in_app_offer' || slice === 'pricing_table' || slice === 'cancel_page' ? { slice } : {}),
     ...(mode ? { mode } : {}),
@@ -211,12 +237,19 @@ function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'activ
   }
 }
 
+function initialSection(): Pick<V10State, 'section' | 'part' | 'libraryObjective'> {
+  const location = typeof window === 'undefined' ? {} : locationFromHash(window.location.hash)
+  return { section: location.section ?? 'all', part: location.part ?? 'reasons', libraryObjective: location.objective ?? 'all' }
+}
+
 export const useV10 = create<V10State>((set, get) => ({
   open: null,
   tree: null,
   treeAt: 0,
   playMode: typeof window === 'undefined' ? 'list' : (locationFromHash(window.location.hash).mode ?? 'list'),
   ...load(),
+  ...initialSection(),
+  setSection: (patch) => set({ open: null, active: null, ...patch }),
   close: () => set({ open: null, tree: null }),
   setTree: (tree) => set({ tree, treeAt: Date.now() }),
   setPlayMode: (playMode) => set({ playMode, active: playMode === 'list' ? get().active : null }),
@@ -230,6 +263,7 @@ export const useV10 = create<V10State>((set, get) => ({
       open: null,
       active: null,
       playMode: 'list',
+      section: tab === 'experiences' ? 'all' : state.section,
       filters: {
         ...state.filters,
         [tab]: {
@@ -242,7 +276,7 @@ export const useV10 = create<V10State>((set, get) => ({
     if (useGrowthShell.getState().route !== TAB_ROUTE[tab]) useGrowthShell.getState().go(TAB_ROUTE[tab])
   },
   selectView: (tab, id) => {
-    set({ open: null, active: id, playMode: 'list' })
+    set((state) => ({ open: null, active: id, playMode: 'list', section: tab === 'experiences' ? 'all' : state.section }))
     if (useGrowthShell.getState().route !== TAB_ROUTE[tab]) useGrowthShell.getState().go(TAB_ROUTE[tab])
   },
   addView: (tab, name, from) => {
@@ -266,7 +300,18 @@ export function v10Location(route = useGrowthShell.getState().route): V10Locatio
   const view = state.saved.find((item) => item.id === state.active && item.tab === tab)
   const filters = view ?? state.filters[tab]
   const mode = tab === 'plays' && !view && filters.scope !== 'portfolio' ? state.playMode : 'list'
-  return { active: view?.id ?? null, scope: filters.scope, slice: filters.slice, mode }
+  const location: V10Location = { active: view?.id ?? null, scope: filters.scope, slice: filters.slice, mode }
+  if (tab === 'experiences') Object.assign(location, { section: state.section, part: state.part, objective: state.libraryObjective })
+  return location
+}
+
+/** The Experiences tab params, shared by the hash and browser history. */
+export function setSectionParams(params: URLSearchParams, location: Pick<V10Location, 'section' | 'part' | 'objective'>) {
+  const section = location.section ?? 'all'
+  if (section === 'all') return
+  params.set('section', section)
+  if (section === 'components' && location.part) params.set('part', location.part)
+  if (location.objective && location.objective !== 'all') params.set('objective', location.objective)
 }
 
 export function v10HashFor(route: NavLeafId, location = v10Location(route)): string {
@@ -277,6 +322,7 @@ export function v10HashFor(route: NavLeafId, location = v10Location(route)): str
   if (location.scope !== 'portfolio') params.set('scope', location.scope)
   if (route === 'work.plays' && location.scope !== 'portfolio' && location.mode !== 'list') params.set('mode', location.mode)
   if (route === 'work.experiences' && location.slice !== 'all') params.set('slice', location.slice)
+  if (route === 'work.experiences') setSectionParams(params, location)
   const query = params.toString()
   return query ? `${base}?${query}` : base
 }
@@ -285,6 +331,9 @@ export function restoreV10Location(route: NavLeafId, location?: V10Location) {
   const tab = ROUTE_TAB[route]
   if (!tab || !location) return
   const state = useV10.getState()
+  if (tab === 'experiences') {
+    useV10.setState({ section: location.section ?? 'all', part: location.part ?? state.part, libraryObjective: location.objective ?? 'all' })
+  }
   if (location.active && state.saved.some((view) => view.id === location.active && view.tab === tab)) {
     useV10.setState({ active: location.active })
     return
@@ -309,6 +358,9 @@ export function syncV10FromHash(route: NavLeafId, hash: string) {
     scope: parsed.scope ?? current.scope,
     slice: parsed.slice ?? (tab === 'experiences' ? current.slice : 'all'),
     mode: parsed.mode ?? 'list',
+    section: parsed.section ?? current.section,
+    part: parsed.part ?? current.part,
+    objective: parsed.objective ?? current.objective,
   })
 }
 
@@ -345,7 +397,7 @@ export function openRef(ref: V10Ref) {
   if (ref.source === 'retention' && ref.kind === 'play') openConfigure(ref.id, 1)
   if (ref.source === 'retention' && ref.kind === 'experience') openExperience(ref.id, playsUsing(ref.id)[0]?.id ?? null)
   remember(ref)
-  useV10.setState({ open: ref, tree: ref, treeAt: Date.now() })
+  useV10.setState({ open: ref, tree: ref, treeAt: Date.now(), ...(ref.kind === 'experience' ? { section: 'all' as const } : {}) })
   const route = TAB_ROUTE[tabOf(ref)]
   if (useGrowthShell.getState().route !== route) useGrowthShell.getState().go(route)
 }

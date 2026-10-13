@@ -15,12 +15,16 @@ interface V10Location {
   scope: 'portfolio' | 'acquisition' | 'expansion' | 'retention'
   slice: 'all' | 'in_app_offer' | 'pricing_table' | 'cancel_page'
   mode: 'list' | 'priority' | 'canvas'
+  section?: 'all' | 'templates' | 'components' | 'offers'
+  part?: 'reasons' | 'cards' | 'confirmations' | 'redirects' | 'pricing_tables'
+  objective?: 'all' | 'acquisition' | 'expansion' | 'retention'
 }
 
 let v10Api:
   | {
       location: (route?: NavLeafId) => V10Location
       restore: (route: NavLeafId, location?: V10Location) => void
+      sectionParams: (params: URLSearchParams, location: V10Location) => void
     }
   | undefined
 
@@ -84,7 +88,7 @@ function keyOf(p: Place): string {
     p.page === 'library' ? (p.libraryKind ?? '') : '',
     p.page === 'soon' ? (p.soon?.id ?? '') : '',
     growthKey(p.growth),
-    p.v10 ? `${p.v10.active ?? ''}:${p.v10.scope}:${p.v10.slice}:${p.v10.mode ?? 'list'}` : '',
+    p.v10 ? `${p.v10.active ?? ''}:${p.v10.scope}:${p.v10.slice}:${p.v10.mode ?? 'list'}:${p.v10.section ?? ''}:${p.v10.part ?? ''}:${p.v10.objective ?? ''}` : '',
   ].join('|')
 }
 
@@ -95,9 +99,12 @@ function urlFor(place: Place): string {
     if (place.route === 'work.plays' && place.v10.scope !== 'portfolio') params.set('scope', place.v10.scope)
     if (place.route === 'work.plays' && place.v10.scope !== 'portfolio' && place.v10.mode && place.v10.mode !== 'list') params.set('mode', place.v10.mode)
     if (place.route === 'work.experiences' && place.v10.slice !== 'all') params.set('slice', place.v10.slice)
+    if (place.route === 'work.experiences') v10Api?.sectionParams(params, place.v10)
     if (place.v10.active) params.set('view', place.v10.active)
     const query = params.toString()
     if (query) hash += `?${query}`
+  } else if (place.route.startsWith('work.') && !v10Api && window.location.hash.split('?')[0] === hash) {
+    hash = window.location.hash
   }
   return `${window.location.pathname}${window.location.search}${hash}`
 }
@@ -186,8 +193,8 @@ export function startNavHistory() {
   useUpload.subscribe(schedule)
   useGrowthUi.subscribe(schedule)
   useRetentionSoon.subscribe(schedule)
-  void import('../v10/useV10').then(({ restoreV10Location, useV10, v10Location }) => {
-    v10Api = { location: v10Location, restore: restoreV10Location }
+  void import('../v10/useV10').then(({ restoreV10Location, setSectionParams, useV10, v10Location }) => {
+    v10Api = { location: v10Location, restore: restoreV10Location, sectionParams: setSectionParams }
     write('replace', useNavHistory.getState().idx)
     useV10.subscribe(schedule)
   })
