@@ -287,7 +287,7 @@ function DataRow({
               event.stopPropagation()
               onExpand()
             }}
-            className="flex h-[20px] w-[16px] flex-none items-center justify-center text-slate-400"
+            className="-mx-[2px] flex h-[20px] w-[20px] flex-none cursor-pointer items-center justify-center rounded text-slate-400 transition-colors duration-150 hover:bg-slate-200 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--slg-color-action-primary)]"
           >
             <SIcon name="chevron-right" size={13} className={`transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
           </button>
@@ -433,8 +433,13 @@ function CanvasOverlay({ play, onClose }: { play: CancelPlay; onClose: () => voi
 
 function MapNode({ icon, label, depth = 0, onClick }: { icon: SIconName; label: string; depth?: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="flex h-[28px] min-w-0 items-center gap-[8px] text-left text-[13px] text-slate-700 hover:text-slate-900" style={{ paddingLeft: depth * 20 }}>
-      <SIcon name={icon} size={13} className="flex-none text-slate-400" />
+    <button
+      type="button"
+      onClick={onClick}
+      className="group/node flex h-[28px] min-w-0 cursor-pointer items-center gap-[8px] self-start rounded-md px-[6px] text-left text-[13px] text-slate-700 transition-colors duration-150 hover:bg-slate-200/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--slg-color-action-primary)]"
+      style={{ marginLeft: depth * 20 - 6 }}
+    >
+      <SIcon name={icon} size={13} className="flex-none text-slate-400 transition-colors group-hover/node:text-slate-600" />
       <span className="truncate">{label}</span>
     </button>
   )
