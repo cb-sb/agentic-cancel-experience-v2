@@ -57,16 +57,14 @@ export function ManifestSummary() {
         {!manifest ? (
           <p className="text-[13px] text-slate-500">Upload a page from Pages to see its manifest.</p>
         ) : (
-          <>
-            <ManifestReview readOnly={approved} />
-            <section className="border border-slate-200 bg-white">
-              <header className="border-b border-slate-100 px-[16px] py-[12px]">
-                <h3 className="text-[14px] font-semibold text-slate-900">Steps</h3>
-                <p className="mt-[2px] text-[12.5px] text-slate-500">{manifest.steps.map((step) => kindLabel(step.kind)).join(' → ') || 'No steps'}</p>
-              </header>
-              <ol>
+          <ManifestReview
+            readOnly={approved}
+            steps={{
+              summary: manifest.steps.map((step) => kindLabel(step.kind)).join(' → ') || 'No steps',
+              content: (
+              <ol className="divide-y divide-slate-100">
                 {manifest.steps.map((step, index) => (
-                  <li key={step.id} className="border-b border-slate-100 px-[16px] py-[14px] last:border-b-0">
+                  <li key={step.id} className="py-[12px] first:pt-0 last:pb-0">
                     <div className="flex items-baseline gap-[8px]">
                       <span className="text-[12px] tabular-nums text-slate-400">{index + 1}</span>
                       <p className="text-[13.5px] font-semibold text-slate-900">{kindLabel(step.kind)}</p>
@@ -93,9 +91,9 @@ export function ManifestSummary() {
                   </li>
                 ))}
               </ol>
-            </section>
-
-          </>
+              ),
+            }}
+          />
         )}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { SAccordion } from '@chargebee/sting-react'
 import { useState, type ReactNode } from 'react'
 import { uid } from '../lib/id'
 import { useJourney } from '../store/useJourney'
@@ -217,7 +218,7 @@ function ActionFields({
   const showDuration = action.kind === 'extension' || (action.kind === 'pause_skip' && action.pauseMode !== '')
   return (
     <div className="space-y-[10px]">
-      <p className="text-[12.5px] font-semibold text-slate-800">{title}</p>
+      {title && <p className="text-[12.5px] font-semibold text-slate-800">{title}</p>}
       {lockedKind ? (
         <p className="text-[13px] text-slate-700">Button action: {OFFER_KIND_LABELS[action.kind]}</p>
       ) : (
@@ -323,13 +324,12 @@ function ButtonFields({
 }) {
   const prefix = named ? `Button ${index + 1}` : 'Button'
   return (
-    <div className="space-y-[12px] border border-slate-100 px-[12px] py-[12px]">
+    <Section title={prefix}>
       <TextField label={`${prefix} label`} value={button.buttonLabel} disabled={disabled} onChange={(buttonLabel) => onChange({ ...button, buttonLabel })} />
-      <div>
-        <p className="mb-[8px] text-[12px] font-bold uppercase tracking-wide text-slate-400">Settings</p>
+      <div className="border-t border-slate-100 pt-[10px]">
         <ActionFields
           action={button.action}
-          title={prefix}
+          title="Action"
           lockedKind={lockedKind}
           disabled={disabled}
           onChange={(action) =>
@@ -341,8 +341,8 @@ function ButtonFields({
           }
         />
       </div>
-      <div className="space-y-[8px]">
-        <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">Accept step</p>
+      <div className="space-y-[8px] border-t border-slate-100 pt-[10px]">
+        <p className="text-[12.5px] font-semibold text-slate-800">Accept step</p>
         <p className="text-[13px] text-slate-700">Success action: {button.successAction === 'nevermind' ? 'Nevermind' : 'Link'}</p>
         <p className="text-[13px] text-slate-700">Link destination: URL</p>
         <TextField
@@ -352,12 +352,21 @@ function ButtonFields({
           onChange={(destinationUrl) => onChange({ ...button, destinationUrl })}
         />
       </div>
-    </div>
+    </Section>
   )
 }
 
 function copyText(value: string) {
   void navigator.clipboard?.writeText(value)
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-[10px] px-[12px] py-[12px]">
+      <p className="text-[12px] font-semibold text-slate-500">{title}</p>
+      {children}
+    </div>
+  )
 }
 
 function OfferCard({
@@ -374,144 +383,161 @@ function OfferCard({
   const gaps = offerGaps(offer)
   const lockedKind = offer.kind !== 'multi_offer' && offer.kind !== 'multi_action'
   return (
-    <article className="space-y-[12px] border border-slate-200 px-[12px] py-[12px]">
-      <div className="flex items-start justify-between gap-[12px]">
-        <div className="min-w-0 flex-1 space-y-[8px]">
-          <TextField label="Offer name" value={offer.name} disabled={disabled} onChange={(name) => onChange({ ...offer, name })} />
-          <TextField label="Variant" value={offer.variantLabel} disabled={disabled} onChange={(variantLabel) => onChange({ ...offer, variantLabel })} />
+    <article className="border border-slate-200">
+      <header className="flex items-center justify-between gap-[12px] bg-slate-50 px-[12px] py-[10px]">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-semibold text-slate-900">{offer.name || 'Untitled offer'}</p>
+          <p className="mt-[2px] truncate text-[12px] text-slate-500">
+            {OFFER_KIND_LABELS[offer.kind]}
+            {offer.variantLabel ? ` · ${offer.variantLabel}` : ''}
+          </p>
         </div>
-        <button type="button" className="text-[12px] text-slate-500" disabled={disabled} onClick={onRemove}>
+        <button type="button" className="flex-none text-[12.5px] font-semibold text-slate-600 disabled:opacity-50" disabled={disabled} onClick={onRemove}>
           Remove
         </button>
-      </div>
-      {gaps.length > 0 && <p className="text-[12.5px] text-amber-800">Incomplete. Finish {gaps.join(', ')}.</p>}
-      <SelectField
-        label="Type"
-        value={offer.kind}
-        disabled={disabled}
-        options={(Object.keys(OFFER_KIND_LABELS) as OfferKind[]).map((kind) => ({ value: kind, label: OFFER_KIND_LABELS[kind] }))}
-        onChange={(kind) => {
-          const next = blankOffer(kind as OfferKind, 1)
-          onChange({ ...next, id: offer.id, name: offer.name })
-        }}
-      />
-      <div>
-        <p className="mb-[8px] text-[12px] font-bold uppercase tracking-wide text-slate-400">Layout</p>
-        <SelectField
-          label="Preview layout"
-          value={offer.layout}
-          disabled={disabled}
-          options={[
-            { value: 'regular', label: 'Regular' },
-            { value: 'horizontal', label: 'Horizontal' },
-          ]}
-          onChange={(layout) => onChange({ ...offer, layout: layout as ManifestOffer['layout'] })}
-        />
-        <div className="mt-[8px] space-y-[8px]">
+      </header>
+      {gaps.length > 0 && (
+        <p className="border-t border-amber-100 bg-amber-50 px-[12px] py-[8px] text-[12.5px] text-amber-800">Incomplete. Finish {gaps.join(', ')}.</p>
+      )}
+      <div className="divide-y divide-slate-100">
+        <Section title="Details">
+          <div className="grid grid-cols-2 gap-[10px]">
+            <TextField label="Offer name" value={offer.name} disabled={disabled} onChange={(name) => onChange({ ...offer, name })} />
+            <TextField label="Variant" value={offer.variantLabel} disabled={disabled} onChange={(variantLabel) => onChange({ ...offer, variantLabel })} />
+          </div>
+          <SelectField
+            label="Type"
+            value={offer.kind}
+            disabled={disabled}
+            options={(Object.keys(OFFER_KIND_LABELS) as OfferKind[]).map((kind) => ({ value: kind, label: OFFER_KIND_LABELS[kind] }))}
+            onChange={(kind) => {
+              const next = blankOffer(kind as OfferKind, 1)
+              onChange({ ...next, id: offer.id, name: offer.name })
+            }}
+          />
+          <SelectField
+            label="Brand scope"
+            value={offer.brandScope}
+            disabled={disabled}
+            options={[
+              { value: 'this_brand', label: 'Only this brand' },
+              { value: 'all_brands', label: 'All brands' },
+            ]}
+            onChange={(brandScope) => onChange({ ...offer, brandScope: brandScope as ManifestOffer['brandScope'] })}
+          />
+        </Section>
+        <Section title="Preview">
+          <SelectField
+            label="Preview layout"
+            value={offer.layout}
+            disabled={disabled}
+            options={[
+              { value: 'regular', label: 'Regular' },
+              { value: 'horizontal', label: 'Horizontal' },
+            ]}
+            onChange={(layout) => onChange({ ...offer, layout: layout as ManifestOffer['layout'] })}
+          />
           <TextField label="Preview headline" value={offer.headline} disabled={disabled} onChange={(headline) => onChange({ ...offer, headline })} />
           <TextField label="Preview body" value={offer.body} disabled={disabled} onChange={(body) => onChange({ ...offer, body })} />
-        </div>
-      </div>
-      <SelectField
-        label="Brand scope"
-        value={offer.brandScope}
-        disabled={disabled}
-        options={[
-          { value: 'this_brand', label: 'Only this brand' },
-          { value: 'all_brands', label: 'All brands' },
-        ]}
-        onChange={(brandScope) => onChange({ ...offer, brandScope: brandScope as ManifestOffer['brandScope'] })}
-      />
-      {offer.buttons.map((button, index) => (
-        <ButtonFields
-          key={`${offer.id}-button-${index}`}
-          button={button}
-          index={index}
-          named={offer.kind === 'multi_offer'}
-          lockedKind={lockedKind}
-          disabled={disabled}
-          onChange={(next) => onChange({ ...offer, buttons: offer.buttons.map((item, i) => (i === index ? next : item)) })}
-        />
-      ))}
-      {offer.kind === 'multi_action' && offer.secondAction && (
-        <div className="border border-slate-100 px-[12px] py-[12px]">
-          <ActionFields
-            action={offer.secondAction}
-            title="Button action 2"
-            lockedKind={false}
+        </Section>
+        {offer.buttons.map((button, index) => (
+          <ButtonFields
+            key={`${offer.id}-button-${index}`}
+            button={button}
+            index={index}
+            named={offer.kind === 'multi_offer'}
+            lockedKind={lockedKind}
             disabled={disabled}
-            onChange={(secondAction) => onChange({ ...offer, secondAction })}
+            onChange={(next) => onChange({ ...offer, buttons: offer.buttons.map((item, i) => (i === index ? next : item)) })}
           />
-        </div>
-      )}
-      <div className="space-y-[8px]">
-        <p className="text-[12px] font-bold uppercase tracking-wide text-slate-400">Card</p>
-        <div className="flex items-end gap-[8px]">
-          <div className="flex-1">
-            <TextField label="Card name" value={offer.cardName} disabled={disabled} onChange={(cardName) => onChange({ ...offer, cardName })} />
+        ))}
+        {offer.kind === 'multi_action' && offer.secondAction && (
+          <Section title="Button action 2">
+            <ActionFields
+              action={offer.secondAction}
+              title=""
+              lockedKind={false}
+              disabled={disabled}
+              onChange={(secondAction) => onChange({ ...offer, secondAction })}
+            />
+          </Section>
+        )}
+        <Section title="Card">
+          <div className="flex items-end gap-[8px]">
+            <div className="min-w-0 flex-1">
+              <TextField label="Card name" value={offer.cardName} disabled={disabled} onChange={(cardName) => onChange({ ...offer, cardName })} />
+            </div>
+            <button type="button" className="mb-[6px] flex-none text-[12px] font-semibold text-slate-600" onClick={() => copyText(offer.cardName)}>
+              Copy
+            </button>
           </div>
-          <button type="button" className="mb-[2px] text-[12px] font-semibold text-slate-600" onClick={() => copyText(offer.cardName)}>
-            Copy
-          </button>
-        </div>
-        <div className="flex items-end gap-[8px]">
-          <div className="flex-1">
-            <TextField label="Offer name" value={offer.offerName} disabled={disabled} onChange={(offerName) => onChange({ ...offer, offerName })} />
+          <div className="flex items-end gap-[8px]">
+            <div className="min-w-0 flex-1">
+              <TextField label="Offer name" value={offer.offerName} disabled={disabled} onChange={(offerName) => onChange({ ...offer, offerName })} />
+            </div>
+            <button type="button" className="mb-[6px] flex-none text-[12px] font-semibold text-slate-600" onClick={() => copyText(offer.offerName)}>
+              Copy
+            </button>
           </div>
-          <button type="button" className="mb-[2px] text-[12px] font-semibold text-slate-600" onClick={() => copyText(offer.offerName)}>
-            Copy
-          </button>
-        </div>
-        <SelectField
-          label="Max redemptions"
-          value={offer.maxRedemptions}
-          disabled={disabled}
-          options={(['unlimited', '1', '2', '3', '4', '5'] as MaxRedemptions[]).map((value) => ({
-            value,
-            label: value === 'unlimited' ? 'Unlimited' : value,
-          }))}
-          onChange={(maxRedemptions) => onChange({ ...offer, maxRedemptions: maxRedemptions as MaxRedemptions })}
-        />
+          <SelectField
+            label="Max redemptions"
+            value={offer.maxRedemptions}
+            disabled={disabled}
+            options={(['unlimited', '1', '2', '3', '4', '5'] as MaxRedemptions[]).map((value) => ({
+              value,
+              label: value === 'unlimited' ? 'Unlimited' : value,
+            }))}
+            onChange={(maxRedemptions) => onChange({ ...offer, maxRedemptions: maxRedemptions as MaxRedemptions })}
+          />
+        </Section>
       </div>
     </article>
   )
 }
 
 function Group({
+  value,
   title,
   summary,
-  open,
   readOnly,
-  onToggle,
+  onOpen,
   children,
 }: {
+  value: string
   title: string
   summary: string
-  open: boolean
   readOnly: boolean
-  onToggle: () => void
+  onOpen: () => void
   children: ReactNode
 }) {
   return (
-    <section className="border border-slate-200 bg-white">
-      <header className="flex items-center justify-between gap-[12px] px-[16px] py-[12px]">
-        <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold text-slate-900">{title}</h3>
-          {!open && <p className="mt-[2px] truncate text-[12.5px] text-slate-500">{summary}</p>}
-        </div>
-        <button type="button" className="flex-none text-[12.5px] font-semibold text-slate-700" onClick={onToggle}>
-          {open ? 'Close' : readOnly ? 'View' : 'Edit'}
+    <SAccordion.Item value={value}>
+      <div className="relative">
+        <SAccordion.Trigger className="!gap-[24px] !p-[16px]">
+          <span className="flex min-w-0 flex-1 flex-col items-start pr-[56px] text-left">
+            <span className="text-[14px] font-semibold leading-[21px] text-[#1a1d21]">{title}</span>
+            <span className="max-w-full truncate text-[12.5px] font-normal text-slate-500">{summary}</span>
+          </span>
+        </SAccordion.Trigger>
+        <button
+          type="button"
+          className="absolute right-[44px] top-1/2 z-10 -translate-y-1/2 text-[12.5px] font-semibold text-slate-700"
+          onClick={onOpen}
+        >
+          {readOnly ? 'View' : 'Edit'}
         </button>
-      </header>
-      {open && <div className="space-y-[14px] border-t border-slate-100 px-[16px] py-[14px]">{children}</div>}
-    </section>
+      </div>
+      <SAccordion.Content className="bg-white [&_.s-accordion-content-inner]:border-t [&_.s-accordion-content-inner]:border-[#e1e2e6] [&_.s-accordion-content-inner]:!px-[16px] [&_.s-accordion-content-inner]:!pb-[32px] [&_.s-accordion-content-inner]:!pt-[24px]">
+        <div className="space-y-[14px]">{children}</div>
+      </SAccordion.Content>
+    </SAccordion.Item>
   )
 }
 
 /** Collapsed review of every survey, loss-aversion, and offer setting on the manifesto. */
-export function ManifestReview({ readOnly }: { readOnly: boolean }) {
+export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?: { summary: string; content: ReactNode } }) {
   const manifest = useJourney((s) => s.file.manifest)
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState('')
   if (!manifest) return null
   const settings = manifest.settings ?? settingsForManifest(manifest)
   const disabled = readOnly
@@ -524,23 +550,23 @@ export function ManifestReview({ readOnly }: { readOnly: boolean }) {
   const loss = settings.lossAversion
   const card = loss.cards.find((item) => item.id === loss.selectedId)
   return (
-    <div className="space-y-[12px]">
+    <SAccordion type="single" collapsible value={open} onValueChange={setOpen}>
       <Group
+        value="survey"
         title="Survey reasons"
         summary={`${selectedCount} of ${survey.reasons.length} selected · Random · ${survey.offerStrategy === 'page' ? 'Page based offer' : 'Reason based offer'}`}
-        open={open === 'survey'}
         readOnly={readOnly}
-        onToggle={() => setOpen(open === 'survey' ? null : 'survey')}
+        onOpen={() => setOpen('survey')}
       >
         <SurveyReasonsEditor settings={settings} disabled={disabled} update={update} />
       </Group>
 
       <Group
+        value="questions"
         title="Additional survey questions"
         summary={survey.sectionOrder.map((block) => QUESTION_LABELS[block]).join(' · ')}
-        open={open === 'questions'}
         readOnly={readOnly}
-        onToggle={() => setOpen(open === 'questions' ? null : 'questions')}
+        onOpen={() => setOpen('questions')}
       >
         {survey.sectionOrder.map((block, index) => (
           <div key={block} className="border border-slate-100 px-[10px] py-[10px]">
@@ -630,11 +656,11 @@ export function ManifestReview({ readOnly }: { readOnly: boolean }) {
       </Group>
 
       <Group
+        value="loss"
         title="Loss aversion card"
         summary={loss.enabled && card ? `${card.name}${card.shared ? ' · Shared' : ' · Local'}` : 'Not on this page'}
-        open={open === 'loss'}
         readOnly={readOnly}
-        onToggle={() => setOpen(open === 'loss' ? null : 'loss')}
+        onOpen={() => setOpen('loss')}
       >
         <Check label="Show loss-aversion card" checked={loss.enabled} disabled={disabled} onChange={(enabled) => update({ ...settings, lossAversion: { ...loss, enabled } })} />
         <SelectField
@@ -782,15 +808,15 @@ export function ManifestReview({ readOnly }: { readOnly: boolean }) {
       </Group>
 
       <Group
+        value="offers"
         title="Offers"
         summary={
           settings.offers.length
             ? `${settings.offers.length} ${settings.offers.length === 1 ? 'offer' : 'offers'} · ${settings.offers.filter((item) => offerGaps(item).length > 0).length} incomplete`
             : 'No offers'
         }
-        open={open === 'offers'}
         readOnly={readOnly}
-        onToggle={() => setOpen(open === 'offers' ? null : 'offers')}
+        onOpen={() => setOpen('offers')}
       >
         <div className="space-y-[12px]">
           {settings.offers.map((offer) => (
@@ -814,7 +840,13 @@ export function ManifestReview({ readOnly }: { readOnly: boolean }) {
           }}
         />
       </Group>
-    </div>
+
+      {steps && (
+        <Group value="steps" title="Steps" summary={steps.summary} readOnly={readOnly} onOpen={() => setOpen('steps')}>
+          {steps.content}
+        </Group>
+      )}
+    </SAccordion>
   )
 }
 
