@@ -681,14 +681,6 @@ function CanvasMark({ name, onClick }: { name: string; onClick: () => void }) {
   )
 }
 
-function Branch({ depth = 0, children }: { depth?: number; children: ReactNode }) {
-  return (
-    <div className="flex min-h-[32px] min-w-0 items-center gap-[8px] py-[2px]" style={{ paddingLeft: depth * 20 }}>
-      {children}
-    </div>
-  )
-}
-
 function InlineAudience({
   audience,
   onChange,
@@ -710,30 +702,55 @@ function InlineAudience({
   )
 }
 
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+function VariantBadge({ index }: { index: number }) {
+  return (
+    <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-md bg-slate-100 text-[11px] font-semibold text-slate-600">
+      {LETTERS[index] ?? index + 1}
+    </span>
+  )
+}
+
+function TextAction({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex flex-none cursor-pointer items-center gap-[4px] rounded-md px-[6px] py-[4px] text-[12px] font-medium text-[#1a56db] hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
+  )
+}
+
 function VariantTreeRow({
   play,
   variant,
   group,
+  index,
   rowCount,
-  depth,
   slots,
 }: {
   play: CancelPlay
   variant: PlayVariant
   group: string | null
+  index: number
   rowCount: number
-  depth: number
   slots: ReturnType<ReturnType<typeof usePlaysBackend>['useComponentMap']>[string]
 }) {
   const backend = usePlaysBackend()
   const { addComponentTestVariant, removeRow, setComponentOverride, setRowWeight } = backend.ops
   const title = usePageTitle()
+  const testing = rowCount > 1
   return (
-    <div>
-      <Branch depth={depth}>
-        <PageSelect play={play} group={group} rowId={variant.id} value={variant.experienceId} className="min-w-[180px] max-w-[320px] flex-1" />
-        {rowCount > 1 && (
-          <label className="flex h-[32px] w-[68px] flex-none items-center border border-slate-200 bg-white px-[6px] text-[12.5px]">
+    <div className="px-[16px] py-[12px]">
+      <div className="flex min-w-0 items-center gap-[10px]">
+        {testing && <VariantBadge index={index} />}
+        <PageSelect play={play} group={group} rowId={variant.id} value={variant.experienceId} className="min-w-[200px] max-w-[360px] flex-1" />
+        {testing && (
+          <label className="flex h-[32px] w-[72px] flex-none items-center rounded-lg border border-slate-200 bg-white px-[8px] text-[12.5px] focus-within:border-slate-400">
             <input
               type="number"
               min={0}
@@ -746,49 +763,52 @@ function VariantTreeRow({
             <span className="pl-[2px] text-slate-400">%</span>
           </label>
         )}
-        <IconButton icon="x" label="Remove experience from this test" disabled={rowCount <= 1} onClick={() => removeRow(play.id, variant.id)} />
-      </Branch>
-      {slots?.map((slot) => {
-        const overrideId = variant.componentOverrides?.[slot.id]
-        const effectiveId = overrideId ?? slot.baseId
-        const alternative = slot.choices.find((choice) => choice.id !== effectiveId)
-        return (
-          <Branch key={slot.id} depth={depth + 1}>
-            <span className="w-[88px] flex-none text-[12.5px] text-slate-500">{slot.label}</span>
-            <select
-              value={overrideId ?? ''}
-              aria-label={`${slot.label} for ${title(variant.experienceId)}`}
-              onChange={(event) => setComponentOverride(play.id, variant.id, slot.id, event.target.value || null)}
-              className="h-[32px] min-w-[180px] max-w-[360px] flex-1 border border-slate-200 bg-white px-[8px] text-[12.5px] outline-none focus:border-slate-400"
-            >
-              <option value="">Shared: {slot.baseLabel}</option>
-              {slot.choices.filter((choice) => choice.id !== slot.baseId).map((choice) => (
-                <option key={choice.id} value={choice.id}>{choice.label}</option>
-              ))}
-            </select>
-            {overrideId && (
-              <>
-                <span className="flex-none bg-indigo-50 px-[6px] py-[2px] text-[10.5px] font-semibold text-indigo-700">Override in this play</span>
-                <button type="button" onClick={() => setComponentOverride(play.id, variant.id, slot.id, null)} className="text-[12px] font-medium text-slate-500 hover:text-slate-900">
-                  Reset
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              disabled={!alternative}
-              onClick={() => {
-                if (!alternative) return
-                const created = addComponentTestVariant(play.id, variant.id, slot.id, alternative.id)
-                toast(created ? `Added a ${slot.label.toLowerCase()} test variant` : 'That component configuration is already in this test')
-              }}
-              className="ml-auto flex-none text-[12px] font-medium text-[#1a56db] hover:underline disabled:cursor-not-allowed disabled:text-slate-300 disabled:no-underline"
-            >
-              Test another {slot.label.toLowerCase()}
-            </button>
-          </Branch>
-        )
-      })}
+        <span className="ml-auto" />
+        {testing && <IconButton icon="x" label="Remove experience from this test" onClick={() => removeRow(play.id, variant.id)} />}
+      </div>
+      {slots && slots.length > 0 && (
+        <div className={`mt-[10px] space-y-[8px] border-l-2 border-slate-100 pl-[14px] ${testing ? 'ml-[32px]' : 'ml-[2px]'}`}>
+          {slots.map((slot) => {
+            const overrideId = variant.componentOverrides?.[slot.id]
+            const effectiveId = overrideId ?? slot.baseId
+            const alternative = slot.choices.find((choice) => choice.id !== effectiveId)
+            return (
+              <div key={slot.id} className="flex min-w-0 flex-wrap items-center gap-x-[10px] gap-y-[6px]">
+                <span className="w-[52px] flex-none text-[12px] font-medium text-slate-500">{slot.label}</span>
+                <select
+                  value={overrideId ?? ''}
+                  aria-label={`${slot.label} for ${title(variant.experienceId)}`}
+                  onChange={(event) => setComponentOverride(play.id, variant.id, slot.id, event.target.value || null)}
+                  className="h-[30px] min-w-[200px] max-w-[300px] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-[8px] text-[12.5px] text-slate-700 outline-none focus:border-slate-400"
+                >
+                  <option value="">Shared: {slot.baseLabel}</option>
+                  {slot.choices.filter((choice) => choice.id !== slot.baseId).map((choice) => (
+                    <option key={choice.id} value={choice.id}>{choice.label}</option>
+                  ))}
+                </select>
+                {overrideId && (
+                  <>
+                    <span className="flex-none rounded bg-indigo-50 px-[6px] py-[2px] text-[10.5px] font-semibold text-indigo-700">Override</span>
+                    <button type="button" onClick={() => setComponentOverride(play.id, variant.id, slot.id, null)} className="cursor-pointer text-[12px] font-medium text-slate-500 hover:text-slate-900">
+                      Reset
+                    </button>
+                  </>
+                )}
+                <TextAction
+                  disabled={!alternative}
+                  onClick={() => {
+                    if (!alternative) return
+                    const created = addComponentTestVariant(play.id, variant.id, slot.id, alternative.id)
+                    toast(created ? `Added a ${slot.label.toLowerCase()} test variant` : 'That component configuration is already in this test')
+                  }}
+                >
+                  <SIcon name="flask-conical" size={12} /> Test another {slot.label.toLowerCase()}
+                </TextAction>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -797,7 +817,7 @@ function ConfigGroup({
   play,
   group,
   label,
-  depth,
+  hint,
   audience,
   componentMap,
   selected,
@@ -809,7 +829,7 @@ function ConfigGroup({
   play: CancelPlay
   group: string | null
   label: string
-  depth: number
+  hint?: string
   audience?: Audience
   componentMap: ReturnType<ReturnType<typeof usePlaysBackend>['useComponentMap']>
   selected: string | null
@@ -821,37 +841,57 @@ function ConfigGroup({
   const backend = usePlaysBackend()
   const rows = rowsOf(play, group)
   const variants = rows.filter((row): row is Extract<Row, { kind: 'page' }> => row.kind === 'page')
+  const empties = rows.filter((row): row is Extract<Row, { kind: 'empty' }> => row.kind === 'empty')
   const groupKey = group ?? (fallback ? 'fallback' : 'root')
   const editing = selected === `audience:${groupKey}`
-  const childDepth = bare ? depth : depth + 1
+  const testing = rows.length > 1
+  const total = variants.reduce((sum, { v }) => sum + v.weight, 0)
+  const meta = rows.length === 0 ? `No ${backend.noun} yet` : testing ? `A/B test · ${rows.length} ${backend.noun}s` : `1 ${backend.noun}`
   return (
-    <>
+    <div className={`overflow-hidden rounded-xl border bg-white ${fallback ? 'border-dashed border-slate-300' : 'border-slate-200'}`}>
       {!bare && (
-        <button type="button" className="block w-full text-left" onClick={() => onSelect(editing ? null : `audience:${groupKey}`)}>
-          <Branch depth={depth}>
-            <SIcon name={fallback ? 'shield' : 'users'} size={13} className="flex-none text-slate-400" />
-            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-700">{label}</span>
-          </Branch>
-        </button>
-      )}
-      {editing && audience && onAudience && <InlineAudience audience={audience} onChange={onAudience} />}
-      {variants.map(({ v }) => (
-        <VariantTreeRow key={v.id} play={play} variant={v} group={group} rowCount={rows.length} depth={childDepth} slots={componentMap[v.experienceId] ?? []} />
-      ))}
-      {rows.filter((row): row is Extract<Row, { kind: 'empty' }> => row.kind === 'empty').map(({ r }) => (
-        <Branch key={r.id} depth={childDepth}>
-          <PageSelect play={play} group={group} rowId={r.id} value={null} className="max-w-[320px] flex-1" />
-          <IconButton icon="x" label="Remove empty test row" onClick={() => backend.ops.removeRow(play.id, r.id)} />
-        </Branch>
-      ))}
-      {!fallback && (
-        <div className="py-[4px]" style={{ paddingLeft: childDepth * 20 }}>
-          <button type="button" onClick={() => backend.ops.addRow(play.id, group)} className="text-[12.5px] font-medium text-[#1a56db] hover:underline">
-            Test another {backend.noun}
-          </button>
+        <div className={`flex min-h-[48px] items-center gap-[10px] border-b px-[16px] py-[10px] ${fallback ? 'border-slate-200 bg-slate-50/70' : 'border-slate-100 bg-slate-50/40'}`}>
+          <SIcon name={fallback ? 'shield' : 'users'} size={15} className="flex-none text-slate-500" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13.5px] font-semibold text-slate-900">{label}</p>
+            <p className="truncate text-[12px] text-slate-500">{hint ? `${hint} · ${meta}` : meta}</p>
+          </div>
+          {testing && (
+            <span className={`flex-none text-[12px] tabular-nums ${total === 100 ? 'text-slate-500' : 'font-medium text-rose-600'}`}>
+              {total}% of traffic
+            </span>
+          )}
+          {audience && onAudience && (
+            <TextAction onClick={() => onSelect(editing ? null : `audience:${groupKey}`)}>{editing ? 'Done' : 'Edit rules'}</TextAction>
+          )}
         </div>
       )}
-    </>
+      {editing && audience && onAudience && (
+        <div className="border-b border-slate-100 px-[16px]">
+          <InlineAudience audience={audience} onChange={onAudience} />
+        </div>
+      )}
+      <div className="[&>*+*]:border-t [&>*+*]:border-slate-100">
+        {variants.map(({ v }, index) => (
+          <VariantTreeRow key={v.id} play={play} variant={v} group={group} index={index} rowCount={rows.length} slots={componentMap[v.experienceId] ?? []} />
+        ))}
+        {empties.map(({ r }, index) => (
+          <div key={r.id} className="flex items-center gap-[10px] px-[16px] py-[12px]">
+            {testing && <VariantBadge index={variants.length + index} />}
+            <PageSelect play={play} group={group} rowId={r.id} value={null} className="min-w-[200px] max-w-[360px] flex-1" />
+            <span className="ml-auto" />
+            <IconButton icon="x" label="Remove empty test row" onClick={() => backend.ops.removeRow(play.id, r.id)} />
+          </div>
+        ))}
+      </div>
+      {!fallback && (
+        <div className="border-t border-slate-100 px-[10px] py-[6px]">
+          <TextAction onClick={() => backend.ops.addRow(play.id, group)}>
+            <SIcon name="plus" size={12} /> Test another {backend.noun}
+          </TextAction>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -883,45 +923,63 @@ function PlayConfigTree({ play }: { play: CancelPlay }) {
           </label>
         </div>
 
-        <section className="border border-slate-200 bg-white px-[16px] py-[12px] shadow-sm">
-          <div className="flex items-start">
-            <div className="pt-[2px]">
-              <CanvasMark name={play.name} onClick={() => backend.openCanvas(play)} />
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center gap-[12px] border-b border-slate-100 px-[20px] py-[14px]">
+            <SIcon name="users" size={16} className="flex-none text-slate-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Who sees this play</p>
+              <p className="truncate text-[14px] font-semibold text-slate-900">{audienceName(play.audience, 'No audience selected')}</p>
             </div>
-            <div className="ml-[8px] flex min-w-0 flex-1 flex-col border-l border-slate-200 py-[2px] pl-[12px]">
-              <button type="button" onClick={() => setSelected(selected === 'audience:play' ? null : 'audience:play')} className="flex h-[28px] min-w-0 items-center gap-[8px] text-left text-[13px] text-slate-700 hover:text-slate-900">
-                <SIcon name="users" size={13} className="flex-none text-slate-400" />
-                <span className="truncate">Audience: {audienceName(play.audience, 'Not selected')}</span>
-              </button>
-              {selected === 'audience:play' && <InlineAudience audience={play.audience} onChange={(audience) => updatePlay(play.id, { audience })} />}
+            <TextAction onClick={() => setSelected(selected === 'audience:play' ? null : 'audience:play')}>
+              {selected === 'audience:play' ? 'Done' : 'Edit rules'}
+            </TextAction>
+            <span className="h-[20px] w-px bg-slate-200" aria-hidden />
+            <CanvasMark name={play.name} onClick={() => backend.openCanvas(play)} />
+          </div>
+          {selected === 'audience:play' && (
+            <div className="border-b border-slate-100 px-[20px]">
+              <InlineAudience audience={play.audience} onChange={(audience) => updatePlay(play.id, { audience })} />
+            </div>
+          )}
 
-              {play.splitBy === 'percent' ? (
-                <ConfigGroup play={play} group={null} label="" depth={1} bare componentMap={componentMap} selected={selected} onSelect={setSelected} />
-              ) : (
-                <>
-                  {play.subAudiences.map((sub, index) => (
-                    <ConfigGroup
-                      key={sub.id}
-                      play={play}
-                      group={sub.id}
-                      depth={1}
-                      label={audienceName(sub.audience, `Sub-audience ${index + 1}`)}
-                      audience={sub.audience}
-                      componentMap={componentMap}
-                      selected={selected}
-                      onSelect={setSelected}
-                      onAudience={(audience) => setSubAudience(play.id, sub.id, audience)}
-                    />
-                  ))}
-                  <div className="py-[4px]" style={{ paddingLeft: 20 }}>
-                    <button type="button" onClick={() => addSubAudience(play.id)} className="text-[12.5px] font-medium text-[#1a56db] hover:underline">
-                      Add sub-audience
-                    </button>
-                  </div>
-                  <ConfigGroup play={play} group={null} label="Fallback" depth={1} fallback componentMap={componentMap} selected={selected} onSelect={setSelected} />
-                </>
-              )}
-            </div>
+          <div className="space-y-[12px] bg-slate-50/60 p-[16px]">
+            {play.splitBy === 'percent' ? (
+              <ConfigGroup
+                play={play}
+                group={null}
+                label={mode === 'test' ? 'Experiences under test' : 'Experience'}
+                hint="Everyone in this audience"
+                componentMap={componentMap}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            ) : (
+              <>
+                <p className="px-[2px] text-[12px] text-slate-500">Each sub-audience is checked in order. Anyone who matches none of them gets the fallback.</p>
+                {play.subAudiences.map((sub, index) => (
+                  <ConfigGroup
+                    key={sub.id}
+                    play={play}
+                    group={sub.id}
+                    label={audienceName(sub.audience, `Sub-audience ${index + 1}`)}
+                    hint={`Sub-audience ${index + 1}`}
+                    audience={sub.audience}
+                    componentMap={componentMap}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onAudience={(audience) => setSubAudience(play.id, sub.id, audience)}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addSubAudience(play.id)}
+                  className="flex h-[40px] w-full cursor-pointer items-center justify-center gap-[6px] rounded-xl border border-dashed border-slate-300 text-[12.5px] font-medium text-slate-600 transition-colors hover:border-[#1a56db] hover:bg-blue-50/50 hover:text-[#1a56db]"
+                >
+                  <SIcon name="plus" size={13} /> Add sub-audience
+                </button>
+                <ConfigGroup play={play} group={null} label="Fallback" hint="Everyone else" fallback componentMap={componentMap} selected={selected} onSelect={setSelected} />
+              </>
+            )}
           </div>
         </section>
 
