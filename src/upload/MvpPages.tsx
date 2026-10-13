@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
+import { useRef, useState, type ReactNode } from 'react'
+import { SBadge, SButton, SCard, SDropdown, SIcon, SIndexPage, SInput, SModal, STable, type SIconName } from '@chargebee/sting-react'
+
+/** SModal's published props omit the Radix open state this build actually accepts. */
+const UploadModal = SModal as unknown as (props: { open: boolean; onOpenChange: (open: boolean) => void; children: ReactNode }) => ReactNode
+const UploadModalContent = SModal.Content as unknown as (props: { children: ReactNode }) => ReactNode
 import { OFFER_VARIANTS } from '../lib/offerVariants'
 import { useOrchestration } from '../store/useOrchestration'
 import { useJourney } from '../store/useJourney'
@@ -73,22 +77,48 @@ function openStudio(active: StudioTab = 'plan') {
   useGrowthShell.getState().go(CANCEL_ROUTE)
 }
 
-function PageMenuButton({ open, onClick }: { open: boolean; onClick: (anchor: HTMLButtonElement) => void }) {
-  const ref = useRef<HTMLButtonElement>(null)
+function PageActions({ onAction }: { onAction: (tab?: StudioTab) => void }) {
   return (
-    <button
-      ref={ref}
-      type="button"
-      aria-label="Page actions"
-      aria-expanded={open}
-      aria-haspopup="menu"
-      onClick={() => {
-        if (ref.current) onClick(ref.current)
-      }}
-      className={`flex h-[28px] w-[28px] items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-900 ${open ? 'bg-slate-100 text-slate-900' : ''}`}
-    >
-      <SIcon name="ellipsis-vertical" size={16} />
-    </button>
+    <SDropdown>
+      <SDropdown.Trigger asChild>
+        <button
+          type="button"
+          aria-label="Page actions"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-[#62676d] hover:bg-[#f7f7f8] hover:text-[#1a1d21]"
+        >
+          <SIcon name="ellipsis-vertical" size={16} />
+        </button>
+      </SDropdown.Trigger>
+      <SDropdown.Content position={{ side: 'bottom', align: 'end' }} width="medium">
+        {ROW_ACTIONS.map((action) => (
+          <SDropdown.Item key={action.label} onSelect={() => onAction(action.tab)}>
+            <span className="flex items-center gap-[10px]">
+              <SIcon name={action.icon} size={15} className="text-[#62676d]" />
+              {action.label}
+            </span>
+          </SDropdown.Item>
+        ))}
+      </SDropdown.Content>
+    </SDropdown>
+  )
+}
+
+function PageName({ name, draft, onOpen }: { name: string; draft?: boolean; onOpen?: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-[8px]">
+      {onOpen ? (
+        <button type="button" onClick={onOpen} className="font-medium text-[#0472e1] hover:underline">
+          {name}
+        </button>
+      ) : (
+        <span className="font-medium text-[#0472e1]">{name}</span>
+      )}
+      {draft && (
+        <SBadge variant="warning" size="regular">
+          Draft
+        </SBadge>
+      )}
+    </span>
   )
 }
 
@@ -101,39 +131,7 @@ export function MvpPages() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [issues, setIssues] = useState<string[]>([])
-  const [menu, setMenu] = useState<{ id: string; top: number; left: number } | null>(null)
   const input = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const anchorRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (!menu) return
-    const onDown = (event: MouseEvent) => {
-      const target = event.target as Node
-      if (menuRef.current?.contains(target) || anchorRef.current?.contains(target)) return
-      setMenu(null)
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenu(null)
-    }
-    window.addEventListener('mousedown', onDown)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [menu])
-
-  const toggleMenu = (id: string, anchor: HTMLButtonElement) => {
-    if (menu?.id === id) {
-      setMenu(null)
-      return
-    }
-    anchorRef.current = anchor
-    const rect = anchor.getBoundingClientRect()
-    const width = 220
-    setMenu({ id, top: rect.bottom + 4, left: Math.max(8, rect.right - width) })
-  }
 
   const close = () => {
     if (busy) return
@@ -211,210 +209,177 @@ export function MvpPages() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="flex flex-none items-start justify-between gap-[16px] border-b border-slate-200 px-[24px] py-[16px]">
-        <div>
-          <h1 className="text-[20px] font-semibold text-slate-900">Pages</h1>
-          <p className="mt-[2px] text-[13px] text-slate-500">Manage traffic routing on Targeting.</p>
-        </div>
-        <div className="flex flex-none items-center gap-[8px]">
-          <SButton size="small" variant="primary" className="w-auto">
-            New test page
-          </SButton>
-          <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => setOpen(true)}>
-            Upload custom page
-          </SButton>
-          <SButton size="small" variant="neutral-outline" className="w-auto">
-            Manage branding
-          </SButton>
-        </div>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-[24px] py-[20px]">
-        <section className="mb-[20px] flex items-start gap-[14px] rounded-lg border border-slate-200 px-[16px] py-[14px]">
-          <span className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-md bg-slate-100 text-slate-500">
-            <SIcon name="layout-template" size={18} />
-          </span>
-          <div>
-            <p className="text-[13.5px] font-semibold text-slate-900">
-              Control page <span className="ml-[6px] text-[11px] font-medium text-slate-500">Control</span>
-              <span className="ml-[6px] text-[11px] font-medium text-slate-500">Default</span>
-              <span className="ml-[6px] text-[11px] font-medium text-amber-700">Draft</span>
-            </p>
-            <p className="mt-[2px] text-[13px] text-slate-500">
-              A no-offer Chargebee Growth cancel page that is used to maintain a baseline to track changes in your deflect rate over time.
-            </p>
-          </div>
-        </section>
-
-        <table className="w-full border-collapse text-left text-[13px]">
-          <thead>
-            <tr className="border-b border-slate-200 text-[12px] font-medium text-slate-500">
-              <th className="py-[8px] pr-[12px] font-medium">Test pages</th>
-              <th className="py-[8px] pr-[12px] font-medium">Status</th>
-              <th className="py-[8px] pr-[12px] font-medium">Languages</th>
-              <th className="py-[8px] pr-[12px] font-medium">Placements</th>
-              <th className="py-[8px] pr-[12px] font-medium">Offer(s) placed</th>
-              <th className="py-[8px] font-medium">Last modified</th>
-              <th className="w-[40px] py-[8px]" />
-            </tr>
-          </thead>
-          <tbody>
-            {uploaded && (
-              <tr className="border-b border-slate-100">
-                <td className="py-[10px] pr-[12px]">
-                  <button type="button" onClick={() => openStudio()} className="font-medium text-[#1a56db] hover:underline">
-                    {file.name}
-                  </button>
-                  <span className="ml-[8px] text-[11px] font-medium text-amber-700">Draft</span>
-                </td>
-                <td className="py-[10px] pr-[12px] text-slate-600">No traffic</td>
-                <td className="py-[10px] pr-[12px] text-slate-600">EN</td>
-                <td className="py-[10px] pr-[12px] text-slate-600">None</td>
-                <td className="py-[10px] pr-[12px] text-slate-700">{offersPlaced(file.manifest)}</td>
-                <td className="py-[10px] text-slate-600">Today</td>
-                <td className="py-[6px] text-right">
-                  <PageMenuButton open={menu?.id === file.name} onClick={(anchor) => toggleMenu(file.name, anchor)} />
-                </td>
-              </tr>
-            )}
-            {SEED.map((row) => (
-              <tr key={row.name} className="border-b border-slate-100">
-                <td className="py-[10px] pr-[12px]">
-                  {row.studio ? (
-                    <button type="button" onClick={() => openStudio()} className="font-medium text-[#1a56db] hover:underline">
-                      {row.name}
-                    </button>
-                  ) : (
-                    <span className="font-medium text-[#1a56db]">{row.name}</span>
-                  )}
-                  {row.draft && <span className="ml-[8px] text-[11px] font-medium text-amber-700">Draft</span>}
-                </td>
-                <td className="py-[10px] pr-[12px] text-slate-600">No traffic</td>
-                <td className="py-[10px] pr-[12px] text-slate-600">{row.languages}</td>
-                <td className="py-[10px] pr-[12px] text-slate-600">{row.placements}</td>
-                <td className="py-[10px] pr-[12px] text-slate-600">{row.offers}</td>
-                <td className="py-[10px] text-slate-600">{row.modified}</td>
-                <td className="py-[6px] text-right">
-                  <PageMenuButton open={menu?.id === row.name} onClick={(anchor) => toggleMenu(row.name, anchor)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {menu && (
-        <div
-          ref={menuRef}
-          role="menu"
-          style={{ top: menu.top, left: menu.left }}
-          className="fixed z-[70] w-[220px] border border-slate-200 bg-white py-[4px] shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
-        >
-          {ROW_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenu(null)
-                if (action.tab) openStudio(action.tab)
-              }}
-              className="flex w-full items-center gap-[10px] px-[12px] py-[8px] text-left text-[13px] text-slate-800 hover:bg-slate-50"
-            >
-              <SIcon name={action.icon} size={15} className="flex-none text-slate-500" />
-              {action.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {open && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 p-[24px]" onClick={close}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="upload-page-title"
-            className="w-full max-w-[480px] bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="flex items-start justify-between gap-[12px] px-[20px] pt-[18px]">
-              <h2 id="upload-page-title" className="text-[16px] font-semibold text-slate-900">
-                Upload a custom page
-              </h2>
-              <button type="button" aria-label="Close" onClick={close} className="flex h-[28px] w-[28px] items-center justify-center text-slate-500 hover:text-slate-900">
-                <SIcon name="x" size={16} />
-              </button>
-            </header>
-            <div className="px-[20px] py-[12px]">
-              <p className="text-[13px] leading-[1.5] text-slate-600">
-                Upload your built cancel page as a zip. It needs a manifest.json and its entry document at the top level, with relative asset URLs.
-              </p>
-              <label className="mt-[14px] block text-[12.5px] font-medium text-slate-700" htmlFor="upload-page-name">
-                Page name
-              </label>
-              <input
-                id="upload-page-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Custom cancel page"
-                className="mt-[6px] h-[36px] w-full border border-slate-300 px-[10px] text-[13px] outline-none focus:border-slate-500"
-              />
-              <button
-                type="button"
-                onClick={() => input.current?.click()}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault()
-                  takeFile(event.dataTransfer.files[0])
-                }}
-                className="mt-[14px] flex w-full flex-col items-center justify-center border border-dashed border-slate-300 bg-slate-50 px-[16px] py-[28px] text-center"
-              >
-                <SIcon name="cloud-upload" size={22} className="text-slate-400" />
-                <p className="mt-[8px] text-[13px] text-slate-600">
-                  {zip ? zip.name : 'Drag and drop your build zip here or browse file'}
-                </p>
-                <p className="mt-[4px] text-[12px] text-slate-400">Supported file type: ZIP</p>
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={runDemo}
-                className="mt-[12px] text-[13px] font-medium text-[#1a56db] hover:underline disabled:opacity-50"
-              >
-                Run a demo upload
-              </button>
-              <p className="mt-[2px] text-[12px] text-slate-400">Opens a summary to review. Approving it saves the summary.</p>
-              <input
-                ref={input}
-                type="file"
-                accept=".zip,application/zip"
-                className="hidden"
-                onChange={(event) => {
-                  takeFile(event.target.files?.[0])
-                  event.target.value = ''
-                }}
-              />
-              {error && <p className="mt-[10px] text-[12.5px] text-rose-600">{error}</p>}
-              {issues.length > 0 && (
-                <ul className="mt-[10px] space-y-[4px] text-[12.5px] text-rose-600">
-                  {issues.map((issue) => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-              )}
+    <div className="h-full min-h-0 overflow-y-auto bg-white">
+      <SIndexPage>
+        <SIndexPage.Header
+          variant="full"
+          title="Pages"
+          description="Manage traffic routing on Targeting."
+          actions={
+            <div className="flex items-center gap-[8px]">
+              <SButton size="small" variant="primary" className="w-auto">
+                New test page
+              </SButton>
+              <SButton size="small" variant="neutral-outline" className="w-auto" onClick={() => setOpen(true)}>
+                Upload custom page
+              </SButton>
+              <SButton size="small" variant="neutral-outline" className="w-auto">
+                Manage branding
+              </SButton>
             </div>
-            <footer className="flex justify-end gap-[8px] px-[20px] pb-[16px]">
-              <SButton size="small" variant="neutral-outline" className="w-auto" onClick={close}>
-                Cancel
-              </SButton>
-              <SButton size="small" variant="primary" className="w-auto" disabled={busy || !zip || !name.trim()} onClick={() => void publish()}>
-                {busy ? 'Uploading…' : 'Upload and publish'}
-              </SButton>
-            </footer>
-          </div>
-        </div>
-      )}
+          }
+        />
+        <SIndexPage.Body>
+          <SIndexPage.Content>
+            <div className="space-y-[16px]">
+              <SCard>
+                <SCard.Content>
+                  <div className="flex items-start gap-[14px]">
+                    <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md bg-[#f4f5f7] text-[#62676d]">
+                      <SIcon name="layout-template" size={18} />
+                    </span>
+                    <div>
+                      <p className="flex flex-wrap items-center gap-[8px] text-[14px] font-semibold text-[#1a1d21]">
+                        Control page
+                        <SBadge variant="neutral" size="regular">
+                          Control
+                        </SBadge>
+                        <SBadge variant="neutral" size="regular">
+                          Default
+                        </SBadge>
+                        <SBadge variant="warning" size="regular">
+                          Draft
+                        </SBadge>
+                      </p>
+                      <p className="mt-[4px] text-[13px] leading-5 text-[#62676d]">
+                        A no-offer Chargebee Growth cancel page that is used to maintain a baseline to track changes in your deflect rate over time.
+                      </p>
+                    </div>
+                  </div>
+                </SCard.Content>
+              </SCard>
+
+              <STable border="horizontal">
+                <STable.Head>
+                  <STable.Row>
+                    <STable.HeaderCell>Test pages</STable.HeaderCell>
+                    <STable.HeaderCell>Status</STable.HeaderCell>
+                    <STable.HeaderCell>Languages</STable.HeaderCell>
+                    <STable.HeaderCell>Placements</STable.HeaderCell>
+                    <STable.HeaderCell>Offer(s) placed</STable.HeaderCell>
+                    <STable.HeaderCell>Last modified</STable.HeaderCell>
+                    <STable.HeaderCell />
+                  </STable.Row>
+                </STable.Head>
+                <STable.Body>
+                  {uploaded && (
+                    <STable.Row>
+                      <STable.Cell>
+                        <PageName name={file.name} draft onOpen={() => openStudio()} />
+                      </STable.Cell>
+                      <STable.Cell>No traffic</STable.Cell>
+                      <STable.Cell>EN</STable.Cell>
+                      <STable.Cell>None</STable.Cell>
+                      <STable.Cell>{offersPlaced(file.manifest)}</STable.Cell>
+                      <STable.Cell>Today</STable.Cell>
+                      <STable.Cell>
+                        <PageActions onAction={(tab) => openStudio(tab)} />
+                      </STable.Cell>
+                    </STable.Row>
+                  )}
+                  {SEED.map((row) => (
+                    <STable.Row key={row.name}>
+                      <STable.Cell>
+                        <PageName name={row.name} draft={row.draft} onOpen={row.studio ? () => openStudio() : undefined} />
+                      </STable.Cell>
+                      <STable.Cell>No traffic</STable.Cell>
+                      <STable.Cell>{row.languages}</STable.Cell>
+                      <STable.Cell>{row.placements}</STable.Cell>
+                      <STable.Cell>{row.offers}</STable.Cell>
+                      <STable.Cell>{row.modified}</STable.Cell>
+                      <STable.Cell>
+                        <PageActions onAction={(tab) => tab && openStudio(tab)} />
+                      </STable.Cell>
+                    </STable.Row>
+                  ))}
+                </STable.Body>
+              </STable>
+            </div>
+          </SIndexPage.Content>
+        </SIndexPage.Body>
+      </SIndexPage>
+
+      <UploadModal open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
+        <UploadModalContent>
+          <SModal.Header>
+            <SModal.Title>Upload a custom page</SModal.Title>
+            <SModal.Description>
+              Upload your built cancel page as a zip. It needs a manifest.json and its entry document at the top level, with relative asset URLs.
+            </SModal.Description>
+          </SModal.Header>
+          <SModal.Body>
+            <label className="block text-[13px] font-medium text-[#1a1d21]" htmlFor="upload-page-name">
+              Page name
+            </label>
+            <SInput
+              id="upload-page-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Custom cancel page"
+              className="mt-[6px]"
+            />
+            <button
+              type="button"
+              onClick={() => input.current?.click()}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault()
+                takeFile(event.dataTransfer.files[0])
+              }}
+              className="mt-[14px] flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-[#e1e2e6] bg-[#f7f7f8] px-[16px] py-[28px] text-center"
+            >
+              <SIcon name="cloud-upload" size={22} className="text-[#62676d]" />
+              <p className="mt-[8px] text-[13px] text-[#3e4247]">{zip ? zip.name : 'Drag and drop your build zip here or browse file'}</p>
+              <p className="mt-[4px] text-[12px] text-[#62676d]">Supported file type: ZIP</p>
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={runDemo}
+              className="mt-[12px] text-[13px] font-medium text-[#0472e1] hover:underline disabled:opacity-50"
+            >
+              Run a demo upload
+            </button>
+            <p className="mt-[2px] text-[12px] text-[#62676d]">Opens a summary to review. Approving it saves the summary.</p>
+            <input
+              ref={input}
+              type="file"
+              accept=".zip,application/zip"
+              className="hidden"
+              onChange={(event) => {
+                takeFile(event.target.files?.[0])
+                event.target.value = ''
+              }}
+            />
+            {error && <p className="mt-[10px] text-[12.5px] text-[#de1827]">{error}</p>}
+            {issues.length > 0 && (
+              <ul className="mt-[10px] space-y-[4px] text-[12.5px] text-[#de1827]">
+                {issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            )}
+          </SModal.Body>
+          <SModal.Footer>
+            <SButton size="small" variant="neutral-outline" className="w-auto" onClick={close}>
+              Cancel
+            </SButton>
+            <SButton size="small" variant="primary" className="w-auto" disabled={busy || !zip || !name.trim()} onClick={() => void publish()}>
+              {busy ? 'Uploading…' : 'Upload and publish'}
+            </SButton>
+          </SModal.Footer>
+        </UploadModalContent>
+      </UploadModal>
     </div>
   )
 }

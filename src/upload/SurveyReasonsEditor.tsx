@@ -141,7 +141,7 @@ export function SurveyReasonsEditor({
     setSurvey({ reasons: survey.reasons.map((row) => (row.id === id ? { ...row, ...patch } : row)) })
 
   return (
-    <div className="space-y-[14px]">
+    <div className="space-y-[20px]">
       <div>
         <label className="flex items-center gap-[10px] text-[13px] font-semibold text-slate-900">
           <Switch
@@ -166,9 +166,9 @@ export function SurveyReasonsEditor({
       </div>
 
       <label className="block">
-        <span className="mb-[4px] block text-[12px] text-slate-500">Label</span>
+        <span className="mb-[8px] block text-[12px] font-medium leading-[16px] text-[#62676d]">Label</span>
         <input
-          className="w-full border border-slate-200 bg-white px-[8px] py-[6px] text-[13px] text-slate-800 outline-none focus:border-slate-400 disabled:bg-slate-50"
+          className="w-full border border-[#e1e2e6] bg-white px-[10px] py-[8px] text-[13px] leading-[20px] text-[#1a1d21] outline-none focus:border-[#0472e1] disabled:bg-[#f7f7f8]"
           value={survey.label}
           disabled={off}
           onChange={(event) => setSurvey({ label: event.target.value })}
@@ -176,9 +176,9 @@ export function SurveyReasonsEditor({
       </label>
 
       <label className="block">
-        <span className="mb-[4px] block text-[12px] text-slate-500">Reasons order</span>
+        <span className="mb-[8px] block text-[12px] font-medium leading-[16px] text-[#62676d]">Reasons order</span>
         <select
-          className="w-full border border-slate-200 bg-white px-[8px] py-[6px] text-[13px] text-slate-800 outline-none disabled:bg-slate-50"
+          className="w-full border border-[#e1e2e6] bg-white px-[10px] py-[8px] text-[13px] leading-[20px] text-[#1a1d21] outline-none disabled:bg-[#f7f7f8]"
           value="random"
           disabled={off}
           onChange={() => setSurvey({ order: 'random' })}

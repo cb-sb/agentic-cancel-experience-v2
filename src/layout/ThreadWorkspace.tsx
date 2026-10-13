@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { SIcon } from '@chargebee/sting-react'
+import { SBadge, SButton, SIcon, SPageHeader, STabs } from '@chargebee/sting-react'
 import { EASE_ENTER, PANEL_MS } from '../lib/motion'
 import { PRIMARY_EXPERIENCE_ID } from '../lib/orchestrationSeed'
 import { useExperience } from '../store/useExperience'
+import { useJourney } from '../store/useJourney'
 import { useOrchestration } from '../store/useOrchestration'
+import { approveManifest } from '../upload/ManifestReview'
 import { useCopilotStage } from '../orchestration/copilotStage'
 import { FlowCanvas } from '../orchestration/flow/FlowCanvas'
 import { EditorPane } from '../orchestration/OrchestrationCanvas'
@@ -190,10 +192,74 @@ export function tabLabel(tabs: ThreadTabs, id: string): string {
   return n > 1 ? `${TAB_LABEL[ref.kind]} ${n}` : TAB_LABEL[ref.kind]
 }
 
+function MvpStudioHeader({ kind, onChange }: { kind: string; onChange: (kind: string) => void }) {
+  const file = useJourney((s) => s.file)
+  const manifest = file.manifest
+  const approved = !!manifest?.confirmed
+  const tabs = useWorkspaceUi((s) => s.tabs)
+  return (
+    <SPageHeader
+      variant="full"
+      className="!pb-0"
+      title={file.name}
+      description={
+        !manifest
+          ? 'Upload a page from Pages to see its summary.'
+          : approved
+            ? 'Approved. Editor and Preview use this summary.'
+            : 'Review what Chargebee read. Check survey reasons, the loss-aversion card, and offers before this summary is saved.'
+      }
+      actions={
+        manifest && !approved ? (
+          <SButton size="small" variant="primary" className="w-auto" onClick={() => approveManifest()}>
+            Approve
+          </SButton>
+        ) : approved ? (
+          <SBadge variant="success" size="regular">
+            Approved
+          </SBadge>
+        ) : undefined
+      }
+    >
+      <STabs value={kind} onValueChange={onChange} className="mt-[12px] [&_.s-tab-list-horizontal]:mb-0">
+        <STabs.List>
+          {tabs.open.map((ref) => (
+            <STabs.Trigger key={ref.id} value={ref.kind}>
+              {tabLabel(tabs, ref.id)}
+            </STabs.Trigger>
+          ))}
+        </STabs.List>
+      </STabs>
+    </SPageHeader>
+  )
+}
+
+function MvpTabbedPane() {
+  const tabs = useWorkspaceUi((s) => s.tabs)
+  const kind = activeKind(tabs) ?? 'plan'
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white">
+      <MvpStudioHeader
+        kind={kind}
+        onChange={(next) => {
+          const tab = tabs.open.find((item) => item.kind === next)
+          if (tab) focusTab(tab.id)
+        }}
+      />
+      <div data-focus-root className="relative min-h-0 flex-1 bg-white">
+        {kind === 'editor' && <EditorPane />}
+        {kind === 'preview' && <PreviewOverlay variant="tab" />}
+        {kind === 'plan' && <PlanTab key={tabs.active} />}
+      </div>
+    </div>
+  )
+}
+
 /** Tabs layout: opened by Copilot or the + menu. v8 can hold more than one of a kind. */
 export function TabbedPane() {
   const tabs = useWorkspaceUi((s) => s.tabs)
   const kind = activeKind(tabs)
+  if (MVP) return <MvpTabbedPane />
   const openKinds = tabs.open.map((t) => t.kind)
   const addable = STUDIO ? TAB_ORDER : TAB_ORDER.filter((id) => !openKinds.includes(id))
   return (

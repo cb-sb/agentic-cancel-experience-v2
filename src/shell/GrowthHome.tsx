@@ -1,4 +1,4 @@
-import { SIcon } from '@chargebee/sting-react'
+import { SIcon, SPageHeader } from '@chargebee/sting-react'
 import { BrandingStudio } from '../composer/BrandingStudio'
 import { AcquisitionPlays } from './AcquisitionPlays'
 import { BackButton, backToHome } from './BackButton'
@@ -17,6 +17,17 @@ import { SIDEBAR_W } from '../layout/ThreadSidebar'
 
 function Placeholder({ route }: { route: NavLeafId }) {
   const title = labelOf(route)
+  if (MVP) {
+    return (
+      <div className="h-full min-h-0 bg-white">
+        <SPageHeader
+          variant="full"
+          title={title}
+          description="This page is not in the MVP. Open Experiences → Pages to upload a cancel page."
+        />
+      </div>
+    )
+  }
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <header className="flex flex-none items-center gap-2 border-b border-slate-100 px-6 py-4">

@@ -30,8 +30,8 @@ import {
 import { SurveyReasonsEditor } from './SurveyReasonsEditor'
 
 const inputClass =
-  'w-full border border-slate-200 bg-white px-[8px] py-[6px] text-[13px] text-slate-800 outline-none focus:border-slate-400 disabled:bg-slate-50'
-const labelClass = 'mb-[4px] block text-[12px] font-semibold text-slate-600'
+  'w-full border border-[#e1e2e6] bg-white px-[10px] py-[8px] text-[13px] leading-[20px] text-[#1a1d21] outline-none focus:border-[#0472e1] disabled:bg-[#f7f7f8]'
+const labelClass = 'mb-[8px] block text-[12px] font-medium leading-[16px] text-[#62676d]'
 const SIMPLE_KINDS = (Object.keys(OFFER_KIND_LABELS) as OfferKind[]).filter(
   (kind): kind is SimpleOfferKind => kind !== 'multi_offer' && kind !== 'multi_action',
 )
@@ -149,32 +149,34 @@ function Lines({
   onChange: (items: string[]) => void
 }) {
   return (
-    <div className="space-y-[6px]">
-      {items.map((item, index) => (
-        <div key={`${index}-${item}`} className="flex gap-[6px]">
-          <input
-            className={inputClass}
-            value={item}
-            disabled={disabled}
-            onChange={(event) => onChange(items.map((row, i) => (i === index ? event.target.value : row)))}
-          />
-          <button type="button" className="text-[12px] text-slate-500" disabled={disabled || index === 0} onClick={() => onChange(move(items, index, -1))}>
-            Up
-          </button>
-          <button
-            type="button"
-            className="text-[12px] text-slate-500"
-            disabled={disabled || index === items.length - 1}
-            onClick={() => onChange(move(items, index, 1))}
-          >
-            Down
-          </button>
-          <button type="button" className="text-[12px] text-slate-500" disabled={disabled} onClick={() => onChange(items.filter((_, i) => i !== index))}>
-            Remove
-          </button>
-        </div>
-      ))}
-      <button type="button" className="text-[12.5px] font-semibold text-slate-700" disabled={disabled} onClick={() => onChange([...items, ''])}>
+    <div>
+      <div className="space-y-[8px]">
+        {items.map((item, index) => (
+          <div key={`${index}-${item}`} className="flex items-center gap-[8px]">
+            <input
+              className={inputClass}
+              value={item}
+              disabled={disabled}
+              onChange={(event) => onChange(items.map((row, i) => (i === index ? event.target.value : row)))}
+            />
+            <button type="button" className="text-[12px] text-[#62676d]" disabled={disabled || index === 0} onClick={() => onChange(move(items, index, -1))}>
+              Up
+            </button>
+            <button
+              type="button"
+              className="text-[12px] text-[#62676d]"
+              disabled={disabled || index === items.length - 1}
+              onClick={() => onChange(move(items, index, 1))}
+            >
+              Down
+            </button>
+            <button type="button" className="text-[12px] text-[#62676d]" disabled={disabled} onClick={() => onChange(items.filter((_, i) => i !== index))}>
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="mt-[12px] text-[13px] font-medium text-[#0472e1] disabled:opacity-50" disabled={disabled} onClick={() => onChange([...items, ''])}>
         Add
       </button>
     </div>
@@ -217,8 +219,8 @@ function ActionFields({
 }) {
   const showDuration = action.kind === 'extension' || (action.kind === 'pause_skip' && action.pauseMode !== '')
   return (
-    <div className="space-y-[10px]">
-      {title && <p className="text-[12.5px] font-semibold text-slate-800">{title}</p>}
+    <div className="space-y-[16px]">
+      {title && <p className="text-[13px] font-semibold text-[#1a1d21]">{title}</p>}
       {lockedKind ? (
         <p className="text-[13px] text-slate-700">Button action: {OFFER_KIND_LABELS[action.kind]}</p>
       ) : (
@@ -267,7 +269,7 @@ function ActionFields({
       )}
       {actionNeedsSubcategory(action.kind) && <ClosedList label="Subcategory" required emptyLabel="None" />}
       {action.kind === 'subscription_change' && (
-        <div className="space-y-[8px]">
+        <div className="space-y-[16px]">
           <Check
             label="Add discount"
             checked={action.addDiscount}
@@ -326,7 +328,7 @@ function ButtonFields({
   return (
     <Section title={prefix}>
       <TextField label={`${prefix} label`} value={button.buttonLabel} disabled={disabled} onChange={(buttonLabel) => onChange({ ...button, buttonLabel })} />
-      <div className="border-t border-slate-100 pt-[10px]">
+      <div className="border-t border-[#e1e2e6] pt-[16px]">
         <ActionFields
           action={button.action}
           title="Action"
@@ -341,8 +343,8 @@ function ButtonFields({
           }
         />
       </div>
-      <div className="space-y-[8px] border-t border-slate-100 pt-[10px]">
-        <p className="text-[12.5px] font-semibold text-slate-800">Accept step</p>
+      <div className="space-y-[16px] border-t border-[#e1e2e6] pt-[16px]">
+        <p className="text-[13px] font-semibold text-[#1a1d21]">Accept step</p>
         <p className="text-[13px] text-slate-700">Success action: {button.successAction === 'nevermind' ? 'Nevermind' : 'Link'}</p>
         <p className="text-[13px] text-slate-700">Link destination: URL</p>
         <TextField
@@ -362,9 +364,9 @@ function copyText(value: string) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-[10px] px-[12px] py-[12px]">
-      <p className="text-[12px] font-semibold text-slate-500">{title}</p>
-      {children}
+    <div className="px-[16px] py-[16px]">
+      <p className="mb-[16px] border-b border-[#e1e2e6] pb-[10px] text-[13px] font-semibold text-[#1a1d21]">{title}</p>
+      <div className="space-y-[16px]">{children}</div>
     </div>
   )
 }
@@ -528,7 +530,7 @@ function Group({
         </button>
       </div>
       <SAccordion.Content className="bg-white [&_.s-accordion-content-inner]:border-t [&_.s-accordion-content-inner]:border-[#e1e2e6] [&_.s-accordion-content-inner]:!px-[16px] [&_.s-accordion-content-inner]:!pb-[32px] [&_.s-accordion-content-inner]:!pt-[24px]">
-        <div className="space-y-[14px]">{children}</div>
+        <div className="space-y-[20px]">{children}</div>
       </SAccordion.Content>
     </SAccordion.Item>
   )
@@ -569,9 +571,9 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
         onOpen={() => setOpen('questions')}
       >
         {survey.sectionOrder.map((block, index) => (
-          <div key={block} className="border border-slate-100 px-[10px] py-[10px]">
-            <div className="mb-[8px] flex items-center justify-between">
-              <p className="text-[13px] font-semibold text-slate-800">{QUESTION_LABELS[block]}</p>
+          <div key={block} className="border border-[#e1e2e6] px-[16px] py-[16px]">
+            <div className="mb-[16px] flex items-center justify-between border-b border-[#e1e2e6] pb-[10px]">
+              <p className="text-[14px] font-semibold text-[#1a1d21]">{QUESTION_LABELS[block]}</p>
               <span className="flex gap-[8px]">
                 <button type="button" className="text-[12px] text-slate-500" disabled={disabled || index === 0} onClick={() => update({ ...settings, survey: { ...survey, sectionOrder: move(survey.sectionOrder, index, -1) } })}>
                   Up
@@ -588,23 +590,13 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
             </div>
             {block === 'reasons' && <p className="text-[12.5px] text-slate-500">Reason catalog is edited in Survey reasons.</p>}
             {block === 'competitors' && (
-              <div className="space-y-[8px]">
+              <div className="space-y-[16px]">
                 <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
                   <Check label="Enabled" checked={survey.competitors.enabled} disabled={disabled} onChange={(enabled) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, enabled } } })} />
                   <Check label="Required" checked={survey.competitors.required} disabled={disabled} onChange={(required) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, required } } })} />
                   <Check label="Freeform entry" checked={survey.competitors.freeform} disabled={disabled} onChange={(freeform) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, freeform } } })} />
                 </div>
                 <TextField label="Label" value={survey.competitors.label} disabled={disabled} onChange={(label) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, label } } })} />
-                <SelectField
-                  label="Competitor ordering"
-                  value={survey.competitors.order}
-                  disabled={disabled}
-                  options={[
-                    { value: 'list', label: 'Same order as in the list' },
-                    { value: 'random', label: 'Random' },
-                  ]}
-                  onChange={(order) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, order: order as 'list' | 'random' } } })}
-                />
                 <Field label="Competitor options">
                   <Lines
                     items={survey.competitors.options.map((option) => option.label)}
@@ -623,12 +615,22 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
                     }
                   />
                 </Field>
+                <SelectField
+                  label="Competitor ordering"
+                  value={survey.competitors.order}
+                  disabled={disabled}
+                  options={[
+                    { value: 'list', label: 'Same order as in the list' },
+                    { value: 'random', label: 'Random' },
+                  ]}
+                  onChange={(order) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, order: order as 'list' | 'random' } } })}
+                />
                 <TextField label="Select placeholder" value={survey.competitors.inputPlaceholder} disabled={disabled} onChange={(inputPlaceholder) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, inputPlaceholder } } })} />
                 <TextField label="Other placeholder" value={survey.competitors.otherPlaceholder} disabled={disabled} onChange={(otherPlaceholder) => update({ ...settings, survey: { ...survey, competitors: { ...survey.competitors, otherPlaceholder } } })} />
               </div>
             )}
             {block === 'return' && (
-              <div className="space-y-[8px]">
+              <div className="space-y-[16px]">
                 <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
                   <Check label="Enabled" checked={survey.returnLikelihood.enabled} disabled={disabled} onChange={(enabled) => update({ ...settings, survey: { ...survey, returnLikelihood: { ...survey.returnLikelihood, enabled } } })} />
                   <Check label="Required" checked={survey.returnLikelihood.required} disabled={disabled} onChange={(required) => update({ ...settings, survey: { ...survey, returnLikelihood: { ...survey.returnLikelihood, required } } })} />
@@ -642,7 +644,7 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
               </div>
             )}
             {block === 'feedback' && (
-              <div className="space-y-[8px]">
+              <div className="space-y-[16px]">
                 <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
                   <Check label="Enabled" checked={survey.feedback.enabled} disabled={disabled} onChange={(enabled) => update({ ...settings, survey: { ...survey, feedback: { ...survey.feedback, enabled } } })} />
                   <Check label="Required" checked={survey.feedback.required} disabled={disabled} onChange={(required) => update({ ...settings, survey: { ...survey, feedback: { ...survey.feedback, required } } })} />
@@ -728,7 +730,7 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
           </button>
         </div>
         {card && (
-          <div className="space-y-[10px]">
+          <div className="space-y-[16px]">
             {card.shared && <p className="text-[12.5px] text-slate-500">Shared library card. Editing copies it onto this page.</p>}
             <TextField
               label="Internal name"
@@ -748,7 +750,7 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
             <Field label="Lose">
               <Lines items={card.lose} disabled={disabled} onChange={(lose) => update(editSelectedCard(settings, (current) => ({ ...current, lose })))} />
             </Field>
-            <div className="space-y-[8px]">
+            <div className="space-y-[12px]">
               <p className={labelClass}>Stats</p>
               {card.stats.map((stat, index) => (
                 <div key={stat.id} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-[6px]">
@@ -818,7 +820,7 @@ export function ManifestReview({ readOnly, steps }: { readOnly: boolean; steps?:
         readOnly={readOnly}
         onOpen={() => setOpen('offers')}
       >
-        <div className="space-y-[12px]">
+        <div className="space-y-[20px]">
           {settings.offers.map((offer) => (
             <OfferCard
               key={offer.id}

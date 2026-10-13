@@ -1,8 +1,7 @@
-import { SButton } from '@chargebee/sting-react'
 import { OFFER_VARIANTS } from '../lib/offerVariants'
 import { useJourney } from '../store/useJourney'
 import { CB_KIND_LABELS, type CbKind } from './contract'
-import { approveManifest, ManifestReview } from './ManifestReview'
+import { ManifestReview } from './ManifestReview'
 import type { ManifestSlot, ManifestStep } from './types'
 
 function kindLabel(kind: ManifestStep['kind']): string {
@@ -22,10 +21,6 @@ const SLOT_LABEL: Record<ManifestSlot['type'], string> = {
   action: 'Action',
 }
 
-function approveSummary() {
-  approveManifest()
-}
-
 /** Summary of an uploaded page: only the steps, slots, and bindings the scan produced. */
 export function ManifestSummary() {
   const file = useJourney((s) => s.file)
@@ -33,27 +28,8 @@ export function ManifestSummary() {
   const approved = !!manifest?.confirmed
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto max-w-[840px] space-y-[20px] px-[28px] py-[28px]">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</p>
-          <h2 className="mt-[4px] text-[20px] font-semibold text-slate-900">{file.name}</h2>
-          <p className="mt-[4px] text-[13px] text-slate-500">
-            {approved
-              ? 'Approved. Editor and Preview use this summary.'
-              : 'Review what Chargebee read. Approving it saves this as the summary.'}
-          </p>
-        </div>
-
-        {manifest && !approved && (
-          <div className="flex items-center justify-between gap-[16px] border border-slate-200 bg-white px-[16px] py-[14px]">
-            <p className="text-[13px] text-slate-600">Check survey reasons, the loss-aversion card, and offers before this summary is saved.</p>
-            <SButton size="small" variant="primary" className="w-auto flex-none" onClick={approveSummary}>
-              Approve
-            </SButton>
-          </div>
-        )}
-
+    <div className="h-full overflow-y-auto bg-white">
+      <div className="mx-auto max-w-[840px] space-y-[20px] px-[28px] pb-[40px] pt-[24px]">
         {!manifest ? (
           <p className="text-[13px] text-slate-500">Upload a page from Pages to see its manifest.</p>
         ) : (

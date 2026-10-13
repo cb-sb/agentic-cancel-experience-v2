@@ -5,7 +5,9 @@ import { SIDEBAR_FOLDED_W, SIDEBAR_W } from '../layout/ThreadSidebar'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { OrchestrationCanvas } from '../orchestration/OrchestrationCanvas'
 import { Composer } from '../composer/Composer'
-import { CONCIERGE, STUDIO, USES_THREADS, V10 } from '../layout/layoutMode'
+import { CONCIERGE, MVP, STUDIO, USES_THREADS, V10 } from '../layout/layoutMode'
+import { SPageLayout } from '@chargebee/sting-react'
+import { MvpNav } from './MvpNav'
 import { StudioWorkspace } from '../layout/StudioWorkspace'
 import { ThreadWorkspace } from '../layout/ThreadWorkspace'
 import { useOrchestration } from '../store/useOrchestration'
@@ -46,6 +48,16 @@ export function GrowthShell({ children }: { children: React.ReactNode }) {
         {growth && <GrowthTopNav />}
         <div className="min-h-0 flex-1">{page}</div>
       </div>
+    )
+  }
+
+  if (MVP) {
+    return (
+      <SPageLayout showLeftNav leftNavigation={<MvpNav />}>
+        <SPageLayout.Content className="overflow-hidden bg-white">
+          {inExperience ? children : <GrowthHome route={route} />}
+        </SPageLayout.Content>
+      </SPageLayout>
     )
   }
 
