@@ -15,6 +15,7 @@ import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { rowsFor, titleOf, useV10Rows, type V10Row } from './rows'
 import { ExperienceSectionBody, SECTIONS, SectionFilters, sectionNewItems } from './ExperienceSections'
 import { ObjectivePlays } from './ObjectivePlays'
+import { closePreviewDock, PreviewDock } from './PreviewDock'
 import { V10_GUTTER, V10Table } from './V10Table'
 import { updateAudience, useAudiences } from './useAudiences'
 import {
@@ -152,6 +153,9 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
   const inSection = tab === 'experiences' && !detail && !view && section !== 'all'
   const objectiveMode = tab === 'plays' && !detail && !view && filters.scope !== 'portfolio' ? playMode : 'list'
   useEffect(() => {
+    closePreviewDock()
+  }, [tab, inSection])
+  useEffect(() => {
     const sync = () => syncV10FromHash(route, window.location.hash)
     sync()
     window.addEventListener('hashchange', sync)
@@ -171,6 +175,7 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
       ) : (
         <ObjectivePlays objective={filters.scope as Exclude<V10Scope, 'portfolio'>} mode={objectiveMode} query={filters.query} status={filters.status} />
       )}
+      {!detail && !inSection && <PreviewDock />}
       <ToastHost />
     </div>
   )

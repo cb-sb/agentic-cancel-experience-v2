@@ -16,6 +16,7 @@ import { audienceUnset, duplicatePlay, playsUsing, usePlays, useRankedPlays } fr
 import { audienceSummary } from '../types/orchestration'
 import { duplicateThread, useWorkspace } from '../workspace/useWorkspace'
 import { useAudiences } from './useAudiences'
+import { cancelHoverPreview, previewOnHover } from './PreviewDock'
 import type { V10Row } from './rows'
 import { openRef, useV10, type V10Scope, type V10Source, type V10Tab } from './useV10'
 
@@ -271,8 +272,9 @@ function DataRow({
   onExpand?: () => void
 }) {
   const items = menuOf(row, pinned)
+  const preview = () => previewOnHover({ kind: row.kind, source: row.source, id: row.id, objective: row.objective })
   return (
-    <>
+    <div onMouseEnter={preview} onFocus={preview} onMouseLeave={cancelHoverPreview}>
     <TableRow cols={cols} style={style} onOpen={() => (onExpand ? onExpand() : openRef(row))} className={`group ${picked ? 'is-picked' : ''} ${expanded ? 'bg-slate-50' : ''}`}>
       <Check on={picked} onChange={onToggle} label={`Select ${row.title}`} />
       <div className="flex min-w-0 items-center gap-[8px]">
@@ -326,7 +328,7 @@ function DataRow({
       </span>
     </TableRow>
     {expanded && <PlayMap row={row} />}
-    </>
+    </div>
   )
 }
 
@@ -349,8 +351,11 @@ function PlayMap({ row }: { row: V10Row }) {
     openRef(row.source === 'growth' ? { kind: 'experience', source: 'growth', id, objective: row.objective } : { kind: 'experience', source: 'retention', id })
   }
   const audienceLine = play.audience.targetAll ? 'All subscribers' : audienceUnset(play.audience) ? 'No audience yet' : audienceText(play.audience)
+  const previewExperience = (id: string) => previewOnHover({ kind: 'experience', source: row.source, id, objective: row.objective })
   const experienceNode = (variant: PlayVariant, depth: number) => (
-    <MapNode key={variant.id} icon={iconOf(variant.experienceId)} label={nameOf(variant.experienceId)} depth={depth} onClick={() => openExperience(variant.experienceId)} />
+    <div key={variant.id} onMouseEnter={(event) => { event.stopPropagation(); previewExperience(variant.experienceId) }}>
+      <MapNode icon={iconOf(variant.experienceId)} label={nameOf(variant.experienceId)} depth={depth} onClick={() => openExperience(variant.experienceId)} />
+    </div>
   )
   return (
     <div className="flex items-center border-b border-[var(--slg-color-border-default)] bg-slate-50 py-[8px] pl-[40px] pr-[16px]">
