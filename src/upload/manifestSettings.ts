@@ -120,6 +120,8 @@ export interface OfferButton {
 
 export interface ManifestOffer {
   id: string
+  /** Library-backed offer; shown with the Shared badge in pickers. */
+  shared?: boolean
   name: string
   variantLabel: string
   layout: OfferLayout
@@ -203,7 +205,7 @@ function actionGaps(action: OfferAction, name: string): string[] {
 }
 
 function reason(id: string, label: string, selected: boolean, feedbackEnabled = false): ManifestReason {
-  return { id, label, selected, shared: true, feedbackEnabled, offerId: null, active: selected }
+  return { id, label, selected, shared: true, feedbackEnabled, offerId: null, active: false }
 }
 
 function stat(id: string, label: string, value: string): LossStat {
@@ -339,6 +341,7 @@ export function settingsForManifest(manifest: TemplateManifest): ManifestSetting
 export function demoSettings(): ManifestSettings {
   const discount = blankOffer('discount', 1)
   discount.id = 'offer_loyalty'
+  discount.shared = true
   discount.name = '50% Loyalty Discount v4 (1)'
   discount.headline = 'Chat with a Growth Expert'
   discount.body = 'Get a personalized plan to grow your business.'

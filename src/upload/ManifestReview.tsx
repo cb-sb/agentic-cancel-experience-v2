@@ -26,6 +26,7 @@ import {
   type PauseMode,
   type SimpleOfferKind,
 } from './manifestSettings'
+import { SurveyReasonsEditor } from './SurveyReasonsEditor'
 
 const inputClass =
   'w-full border border-slate-200 bg-white px-[8px] py-[6px] text-[13px] text-slate-800 outline-none focus:border-slate-400 disabled:bg-slate-50'
@@ -511,7 +512,6 @@ function Group({
 export function ManifestReview({ readOnly }: { readOnly: boolean }) {
   const manifest = useJourney((s) => s.file.manifest)
   const [open, setOpen] = useState<string | null>(null)
-  const [menuId, setMenuId] = useState<string | null>(null)
   if (!manifest) return null
   const settings = manifest.settings ?? settingsForManifest(manifest)
   const disabled = readOnly
@@ -523,196 +523,16 @@ export function ManifestReview({ readOnly }: { readOnly: boolean }) {
   const selectedCount = survey.reasons.filter((row) => row.selected).length
   const loss = settings.lossAversion
   const card = loss.cards.find((item) => item.id === loss.selectedId)
-  const offerChoices = [{ value: '', label: 'None' }, ...settings.offers.map((item) => ({ value: item.id, label: item.name }))]
-
   return (
     <div className="space-y-[12px]">
       <Group
         title="Survey reasons"
-        summary={`${selectedCount} of ${survey.reasons.length} selected · ${survey.order === 'random' ? 'Random' : 'List order'} · ${survey.offerStrategy === 'page' ? 'Page-based offer' : 'Reason-based offer'}`}
+        summary={`${selectedCount} of ${survey.reasons.length} selected · Random · ${survey.offerStrategy === 'page' ? 'Page based offer' : 'Reason based offer'}`}
         open={open === 'survey'}
         readOnly={readOnly}
         onToggle={() => setOpen(open === 'survey' ? null : 'survey')}
       >
-        <div className="flex flex-wrap gap-x-[16px] gap-y-[8px]">
-          <Check label="Enable survey reasons" checked={survey.reasonsEnabled} disabled={disabled} onChange={(reasonsEnabled) => update({ ...settings, survey: { ...survey, reasonsEnabled } })} />
-          <Check label="Survey reason is required" checked={survey.reasonRequired} disabled={disabled} onChange={(reasonRequired) => update({ ...settings, survey: { ...survey, reasonRequired } })} />
-        </div>
-        <TextField label="Survey label" value={survey.label} disabled={disabled} onChange={(label) => update({ ...settings, survey: { ...survey, label } })} />
-        <div className="grid grid-cols-2 gap-[10px]">
-          <SelectField
-            label="Reason ordering"
-            value={survey.order}
-            disabled={disabled}
-            options={[
-              { value: 'random', label: 'Random' },
-              { value: 'listed', label: 'List order' },
-            ]}
-            onChange={(order) => update({ ...settings, survey: { ...survey, order: order as ManifestSettings['survey']['order'] } })}
-          />
-          <SelectField
-            label="Offer strategy"
-            value={survey.offerStrategy}
-            disabled={disabled}
-            options={[
-              { value: 'page', label: 'Page-based offer' },
-              { value: 'reason', label: 'Reason-based offer' },
-            ]}
-            onChange={(offerStrategy) => update({ ...settings, survey: { ...survey, offerStrategy: offerStrategy as ManifestSettings['survey']['offerStrategy'] } })}
-          />
-        </div>
-        {survey.offerStrategy === 'page' && (
-          <div className="flex items-end gap-[8px]">
-            <div className="flex-1">
-              <SelectField
-                label="Page offer"
-                value={survey.pageOfferId ?? ''}
-                disabled={disabled}
-                options={offerChoices}
-                onChange={(pageOfferId) => update({ ...settings, survey: { ...survey, pageOfferId: pageOfferId || null } })}
-              />
-            </div>
-            <button
-              type="button"
-              className="mb-[2px] text-[12.5px] font-semibold text-slate-700"
-              disabled={disabled}
-              onClick={() =>
-                update({
-                  ...settings,
-                  survey: { ...survey, reasons: survey.reasons.map((row) => ({ ...row, offerId: survey.pageOfferId, active: true })) },
-                })
-              }
-            >
-              Apply to all
-            </button>
-          </div>
-        )}
-        <div className="space-y-[8px]">
-          {survey.reasons.map((row, index) => (
-            <div key={row.id} className="relative border border-slate-100 px-[10px] py-[10px]">
-              <div className="flex items-center gap-[8px]">
-                <input
-                  type="checkbox"
-                  checked={row.selected}
-                  disabled={disabled || !survey.reasonsEnabled}
-                  onChange={(event) =>
-                    update({
-                      ...settings,
-                      survey: {
-                        ...survey,
-                        reasons: survey.reasons.map((item) => (item.id === row.id ? { ...item, selected: event.target.checked } : item)),
-                      },
-                    })
-                  }
-                />
-                <input
-                  className={inputClass}
-                  value={row.label}
-                  disabled={disabled}
-                  onChange={(event) =>
-                    update({
-                      ...settings,
-                      survey: {
-                        ...survey,
-                        reasons: survey.reasons.map((item) => (item.id === row.id ? { ...item, label: event.target.value } : item)),
-                      },
-                    })
-                  }
-                />
-                {row.shared && <span className="flex-none text-[11px] font-semibold uppercase text-slate-400">Shared</span>}
-                <button type="button" className="text-[12px] text-slate-500" disabled={disabled || index === 0} onClick={() => update({ ...settings, survey: { ...survey, reasons: move(survey.reasons, index, -1) } })}>
-                  Up
-                </button>
-                <button
-                  type="button"
-                  className="text-[12px] text-slate-500"
-                  disabled={disabled || index === survey.reasons.length - 1}
-                  onClick={() => update({ ...settings, survey: { ...survey, reasons: move(survey.reasons, index, 1) } })}
-                >
-                  Down
-                </button>
-                <button type="button" className="px-[4px] text-[16px] leading-none text-slate-500" aria-label="Reason actions" onClick={() => setMenuId(menuId === row.id ? null : row.id)}>
-                  ···
-                </button>
-              </div>
-              {menuId === row.id && (
-                <div className="absolute right-[8px] top-[36px] z-10 w-[140px] border border-slate-200 bg-white py-[4px] shadow-sm">
-                  <button type="button" className="block w-full px-[10px] py-[6px] text-left text-[12.5px]" onClick={() => setMenuId(null)}>
-                    Edit label
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full px-[10px] py-[6px] text-left text-[12.5px]"
-                    disabled={disabled}
-                    onClick={() => {
-                      setMenuId(null)
-                      update({ ...settings, survey: { ...survey, reasons: survey.reasons.filter((item) => item.id !== row.id) } })
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-              <div className="mt-[8px] flex flex-wrap items-center gap-[12px]">
-                <Check
-                  label="Feedback"
-                  checked={row.feedbackEnabled}
-                  disabled={disabled}
-                  onChange={(feedbackEnabled) =>
-                    update({
-                      ...settings,
-                      survey: { ...survey, reasons: survey.reasons.map((item) => (item.id === row.id ? { ...item, feedbackEnabled } : item)) },
-                    })
-                  }
-                />
-                <Check
-                  label="Active"
-                  checked={row.active}
-                  disabled={disabled}
-                  onChange={(active) =>
-                    update({
-                      ...settings,
-                      survey: { ...survey, reasons: survey.reasons.map((item) => (item.id === row.id ? { ...item, active } : item)) },
-                    })
-                  }
-                />
-                <div className="min-w-[180px] flex-1">
-                  <SelectField
-                    label="Current offer"
-                    value={row.offerId ?? ''}
-                    disabled={disabled}
-                    options={offerChoices}
-                    onChange={(offerId) =>
-                      update({
-                        ...settings,
-                        survey: { ...survey, reasons: survey.reasons.map((item) => (item.id === row.id ? { ...item, offerId: offerId || null } : item)) },
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            className="text-[12.5px] font-semibold text-slate-700"
-            disabled={disabled}
-            onClick={() =>
-              update({
-                ...settings,
-                survey: {
-                  ...survey,
-                  reasons: [
-                    ...survey.reasons,
-                    { id: uid('rs'), label: 'New reason', selected: true, shared: false, feedbackEnabled: false, offerId: null, active: true },
-                  ],
-                },
-              })
-            }
-          >
-            Add reason
-          </button>
-        </div>
+        <SurveyReasonsEditor settings={settings} disabled={disabled} update={update} />
       </Group>
 
       <Group

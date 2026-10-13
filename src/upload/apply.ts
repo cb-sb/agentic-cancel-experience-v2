@@ -70,7 +70,7 @@ export function stepsWithSettings(steps: JourneyStepFile[], settings: ManifestSe
           surveyDetails: selected.map((row) => ({
             id: row.id,
             label: row.label,
-            linkedOfferId: pageOffer ? settings.survey.pageOfferId : row.offerId,
+            linkedOfferId: pageOffer ? (row.active ? settings.survey.pageOfferId : null) : row.offerId,
             feedback: row.feedbackEnabled,
           })),
           surveyRandomize: settings.survey.order === 'random',
