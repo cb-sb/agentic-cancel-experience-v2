@@ -10,7 +10,6 @@ import { HeaderButton } from '../layout/ObjectivePane'
 import { LooseRow, PlayRow } from '../layout/PlaysTree'
 import { navItem } from '../layout/navStyle'
 import { SettingRow } from '../layout/ThreadSidebar'
-import { RowMenu } from '../plays/ui'
 import type { CancelPlay } from '../plays/types'
 import { usePlays } from '../plays/usePlays'
 import { childrenOf, type NavLeafId } from '../shell/nav'
@@ -19,17 +18,8 @@ import { useWorkspace, type ExperienceThread } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { titleOf, useV10Rows } from './rows'
 import { useAudiences } from './useAudiences'
-import {
-  createV10Audience,
-  createV10CancelPage,
-  createV10Experience,
-  createV10GrowthPlay,
-  createV10Play,
-  createV10RetentionPlay,
-  openRef,
-  useV10,
-  type V10Ref,
-} from './useV10'
+import { openV10Search, V10Search } from './V10Search'
+import { openRef, useV10, type V10Ref } from './useV10'
 
 const DESTINATIONS: { id: string; label: string; icon: SIconName; route: NavLeafId; match: (route: NavLeafId) => boolean }[] = [
   { id: 'home', label: 'Home', icon: 'home', route: 'home', match: (route) => route === 'home' },
@@ -43,46 +33,6 @@ function visit(route: NavLeafId) {
   useV10.getState().close()
   useGrowthShell.getState().go(route)
 }
-
-const NEW_ITEMS = [
-  {
-    label: 'Acquisition play',
-    icon: 'rocket' as const,
-    items: [
-      { label: 'In-app offer play', icon: 'gift' as const, onClick: () => createV10GrowthPlay('acquisition', 'in_app_offer') },
-      { label: 'Pricing table play', icon: 'table' as const, onClick: () => createV10GrowthPlay('acquisition', 'pricing_table') },
-      { label: 'Empty play', icon: 'workflow' as const, onClick: createV10Play },
-    ],
-  },
-  {
-    label: 'Expansion play',
-    icon: 'arrow-up-right' as const,
-    items: [
-      { label: 'In-app offer play', icon: 'gift' as const, onClick: () => createV10GrowthPlay('expansion', 'in_app_offer') },
-      { label: 'Pricing table play', icon: 'table' as const, onClick: () => createV10GrowthPlay('expansion', 'pricing_table') },
-      { label: 'Empty play', icon: 'workflow' as const, onClick: () => createV10GrowthPlay('expansion') },
-    ],
-  },
-  { label: 'Retention play', icon: 'repeat' as const, onClick: createV10RetentionPlay },
-  {
-    label: 'In-app offer',
-    icon: 'gift' as const,
-    items: [
-      { label: 'For Acquisition', icon: 'rocket' as const, onClick: () => createV10Experience('in_app_offer', 'acquisition') },
-      { label: 'For Expansion', icon: 'arrow-up-right' as const, onClick: () => createV10Experience('in_app_offer', 'expansion') },
-    ],
-  },
-  {
-    label: 'Pricing table',
-    icon: 'table' as const,
-    items: [
-      { label: 'For Acquisition', icon: 'rocket' as const, onClick: () => createV10Experience('pricing_table', 'acquisition') },
-      { label: 'For Expansion', icon: 'arrow-up-right' as const, onClick: () => createV10Experience('pricing_table', 'expansion') },
-    ],
-  },
-  { label: 'Cancel page', icon: 'file-text' as const, onClick: createV10CancelPage },
-  { label: 'Audience', icon: 'users' as const, onClick: createV10Audience },
-]
 
 /** Destinations stay put. What you open is grouped underneath, and the rail can fold to icons. */
 export function V10Nav() {
@@ -111,14 +61,17 @@ export function V10Nav() {
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200 bg-white">
       <div className={`flex h-[52px] flex-none items-center border-b border-slate-200 ${folded ? 'justify-center' : 'gap-[4px] px-[14px]'}`}>
-        {!folded && <RowMenu label="New" icon="plus" align="left" width={220} text="New" items={NEW_ITEMS} className="mr-auto" />}
+        {!folded && (
+          <>
+            <h2 className="mr-auto min-w-0 truncate px-[4px] text-[15px] font-semibold text-slate-900">Growth</h2>
+            <HeaderButton label="Search" icon="search" onClick={openV10Search} />
+          </>
+        )}
         <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setSidebarOpen(folded)} />
       </div>
       {folded ? (
         <div className="flex min-h-0 flex-1 flex-col gap-[2px] px-[8px] py-[10px]">
-          <div className="flex h-10 items-center justify-center">
-            <RowMenu label="New" icon="plus" align="beside" width={220} items={NEW_ITEMS} />
-          </div>
+          <SettingRow icon="search" label="Search" folded onClick={openV10Search} />
           {DESTINATIONS.map((item) => (
             <SettingRow key={item.id} icon={item.icon} label={item.label} folded active={item.match(route)} onClick={() => visit(item.route)} />
           ))}
@@ -143,7 +96,7 @@ export function V10Nav() {
               <SIcon name="chevron-down" size={16} className={`slg-nav-icon flex-none transition-transform ${reportsShown ? 'rotate-180' : ''}`} />
             </button>
             {reportsShown && (
-              <div className="slg-nav-tree mb-[2px] ml-[19px] flex flex-col gap-[2px] border-l pl-[4px]">
+              <div className="slg-nav-tree mb-[8px] ml-[19px] mt-[6px] flex flex-col gap-[4px] border-l py-[4px] pl-[10px]">
                 {childrenOf('reports').map((leaf) => (
                   <button
                     key={leaf.id}
@@ -186,6 +139,7 @@ export function V10Nav() {
           <div className="h-px flex-none bg-slate-300" role="separator" />
         </div>
       )}
+      <V10Search />
     </aside>
   )
 }
