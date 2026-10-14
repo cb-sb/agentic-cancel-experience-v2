@@ -9,6 +9,7 @@ import { UploadFlow } from '../upload/UploadFlow'
 import { CONCIERGE, MVP, V10 } from '../layout/layoutMode'
 import { MvpPages } from '../upload/MvpPages'
 import { EngagedPage } from '../v10/EngagedPage'
+import { V10_CHROME, V10_CHROME_BAND } from '../v10/V10Table'
 import { OffersScreen, V10Screen } from '../v10/V10Screen'
 import { ConciergeHome } from '../concierge/Home'
 import { GrowthStudio } from '../concierge/objective/GrowthStudio'
@@ -30,9 +31,11 @@ function Placeholder({ route }: { route: NavLeafId }) {
   }
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="flex flex-none items-center gap-2 border-b border-slate-100 px-6 py-4">
-        <BackButton fallback={backToHome} className="-ml-2" />
-        <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">{title}</h1>
+      <header className={`flex flex-none border-b border-slate-100 px-6 ${V10 ? `${V10_CHROME} items-end` : 'items-center py-4'}`}>
+        <div className={`flex min-w-0 items-center gap-2 ${V10 ? `${V10_CHROME_BAND} w-full` : ''}`}>
+          <BackButton fallback={backToHome} className="-ml-2" />
+          <h1 className="truncate text-[20px] font-semibold tracking-tight text-slate-900">{title}</h1>
+        </div>
       </header>
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
         <SIcon name="layers" size={28} className="text-slate-300" />

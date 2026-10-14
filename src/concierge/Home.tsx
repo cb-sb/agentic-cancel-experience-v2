@@ -4,6 +4,7 @@ import { AgentChat } from '../agent/AgentChat'
 import { useAgentStore } from '../agent/useAgentStore'
 import { useGrowthShell } from '../shell/useGrowthShell'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
+import { V10_CHROME, V10_CHROME_BAND } from '../v10/V10Table'
 import { goGrowth } from './objective/useGrowthUi'
 
 const START = [
@@ -59,7 +60,8 @@ export function ConciergeHome() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="flex h-[60px] flex-none items-center justify-between border-b border-slate-100 px-[24px]">
+      <header className={`flex ${V10_CHROME} flex-none items-end border-b border-slate-100 px-[24px]`}>
+        <div className={`flex ${V10_CHROME_BAND} w-full items-center justify-between`}>
         <h1 className="text-[15px] font-semibold text-slate-900">Home</h1>
         {hasMessages && (
           <button
@@ -71,6 +73,7 @@ export function ConciergeHome() {
             New chat
           </button>
         )}
+        </div>
       </header>
       <div className="min-h-0 flex-1">
         {id && (

@@ -16,7 +16,7 @@ import { rowsFor, titleOf, useV10Rows, type V10Row } from './rows'
 import { ExperienceSectionBody, SECTIONS, SectionFilters, sectionNewItems } from './ExperienceSections'
 import { ObjectivePlays } from './ObjectivePlays'
 import { closePreviewDock, PreviewDock } from './PreviewDock'
-import { V10_GUTTER, V10Table } from './V10Table'
+import { V10_CHROME, V10_CHROME_BAND, V10_GUTTER, V10Table } from './V10Table'
 import { updateAudience, useAudiences } from './useAudiences'
 import {
   createV10Audience,
@@ -275,8 +275,8 @@ function DetailBreadcrumb({ tab, viewName, filters }: { tab: V10Tab; viewName: s
   }
   crumbs.push({ label: title })
   return (
-    <div className={`flex-none border-b border-slate-200 ${V10_GUTTER}`}>
-      <nav aria-label="Breadcrumb" className="flex h-[48px] min-w-0 items-center gap-[8px] text-[13px]">
+    <div className={`flex ${V10_CHROME} flex-none items-end border-b border-slate-200 ${V10_GUTTER}`}>
+      <nav aria-label="Breadcrumb" className={`flex ${V10_CHROME_BAND} min-w-0 items-center gap-[8px] text-[13px]`}>
         {crumbs.map((crumb, index) => (
           <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-[8px]">
             {index > 0 && (

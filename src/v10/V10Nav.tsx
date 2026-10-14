@@ -17,6 +17,7 @@ import { useGrowthShell } from '../shell/useGrowthShell'
 import { useWorkspace, type ExperienceThread } from '../workspace/useWorkspace'
 import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { titleOf, useV10Rows } from './rows'
+import { V10_CHROME, V10_CHROME_BAND } from './V10Table'
 import { useAudiences } from './useAudiences'
 import { openV10Search, V10Search } from './V10Search'
 import { openRef, useV10, type V10Ref } from './useV10'
@@ -63,14 +64,16 @@ export function V10Nav() {
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-200 bg-white">
-      <div className={`flex h-[52px] flex-none items-center border-b border-slate-200 ${folded ? 'justify-center' : 'gap-[4px] px-[14px]'}`}>
-        {!folded && (
-          <>
-            <h2 className="mr-auto min-w-0 truncate px-[4px] text-[15px] font-semibold text-slate-900">Growth</h2>
-            <HeaderButton label="Search" icon="search" onClick={openV10Search} />
-          </>
-        )}
-        <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setSidebarOpen(folded)} />
+      <div className={`flex ${V10_CHROME} flex-none items-end border-b border-slate-200`}>
+        <div className={`flex ${V10_CHROME_BAND} min-w-0 items-center ${folded ? 'w-full justify-center' : 'w-full gap-[4px] px-[14px]'}`}>
+          {!folded && (
+            <>
+              <h2 className="mr-auto min-w-0 truncate px-[4px] text-[15px] font-semibold text-slate-900">Growth</h2>
+              <HeaderButton label="Search" icon="search" onClick={openV10Search} />
+            </>
+          )}
+          <HeaderButton label={folded ? 'Open side panel' : 'Close side panel'} icon="panel-left" onClick={() => setSidebarOpen(folded)} />
+        </div>
       </div>
       {folded ? (
         <div className="flex min-h-0 flex-1 flex-col gap-[2px] px-[8px] py-[10px]">

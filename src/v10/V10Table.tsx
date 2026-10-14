@@ -22,6 +22,10 @@ import { openRef, useV10, type V10Scope, type V10Source, type V10Tab } from './u
 
 /** Shared with the view bar so the table and the tabs line up, including on wide screens. */
 export const V10_GUTTER = 'px-[28px] min-[1440px]:px-[40px] min-[1800px]:px-[64px]'
+/** The rail title and the slanted-tab row, including the shared bottom border. */
+export const V10_CHROME = 'h-[64px]'
+/** The slanted tab is the bottom 36px of that row. Titles and icons sit in this band. */
+export const V10_CHROME_BAND = 'h-[36px]'
 
 const PORTFOLIO_COLS =
   'grid items-center gap-x-[10px] min-[1440px]:gap-x-[16px] min-[1800px]:gap-x-[20px] grid-cols-[16px_minmax(168px,1.7fr)_100px_110px_minmax(136px,1.2fr)_minmax(148px,1.3fr)_68px_52px_92px_52px]'

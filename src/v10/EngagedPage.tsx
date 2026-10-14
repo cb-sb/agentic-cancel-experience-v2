@@ -1,3 +1,5 @@
+import { V10_CHROME, V10_CHROME_BAND } from './V10Table'
+
 const ROWS = [
   { name: 'Subscriber 1042', outcome: 'Saved', experience: 'Cancel page', when: '2 days ago' },
   { name: 'Subscriber 1088', outcome: 'Watch list', experience: 'Cancel page', when: '5 days ago' },
@@ -8,10 +10,13 @@ const ROWS = [
 /** The people who showed up. This sits with Reports, beside the totals. */
 export function EngagedPage() {
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-white">
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <header className={`flex ${V10_CHROME} flex-none items-end border-b border-slate-200 px-[28px]`}>
+        <h1 className={`flex ${V10_CHROME_BAND} items-center text-[15px] font-semibold text-slate-900`}>Engaged subscribers</h1>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-[880px] px-[28px] py-[28px]">
-        <h1 className="text-[20px] font-semibold text-slate-900">Engaged subscribers</h1>
-        <p className="mt-[6px] max-w-[560px] text-[13px] text-slate-500">
+        <p className="max-w-[560px] text-[13px] text-slate-500">
           Subscribers who reached a cancel page, and what they did. Saved means they were still active 30 days later. Watch list means they left without cancelling, and that window is still open.
         </p>
         <div className="mt-[20px] overflow-hidden rounded-xl border border-slate-200">
@@ -30,6 +35,7 @@ export function EngagedPage() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )
