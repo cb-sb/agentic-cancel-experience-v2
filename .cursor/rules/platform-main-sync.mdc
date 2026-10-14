@@ -1,0 +1,22 @@
+---
+description: Require a fresh Arc platform main before every Growth integration
+alwaysApply: true
+---
+
+# Arc Platform Main Sync
+
+The Growth prototype and Arc platform are separate repositories.
+
+- Keep this Growth repository and its Vercel deployment independent.
+- Port Growth batches only into a separate checkout of `git@github.com:cb-praveenfrancis/agentic-ux.git`.
+- Before integrating, require a clean platform worktree, then run:
+  1. `git fetch origin main --prune`
+  2. `git checkout main`
+  3. `git pull --ff-only origin main`
+  4. Verify `HEAD` equals `origin/main`.
+- Create a temporary `growth-sync/<date>` branch from that exact commit.
+- Immediately before publishing, fetch `origin/main` again.
+- If `origin/main` moved, rebase onto it and repeat all verification.
+- Push with `git push origin HEAD:main`.
+- Never force-push, merge from a stale local `main`, or replace either repository's `origin`.
+- If the intended integration boundary or conflict resolution is unclear, stop and ask the user.
