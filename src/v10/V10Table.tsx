@@ -7,7 +7,10 @@ import { archiveGrowthPlay, duplicateGrowthPlay, useGrowthPlays } from '../conci
 import { SHELL_KIND, shellOf, stepCount } from '../layout/experienceKind'
 import { Ago, BulkAction, Check, RowActions, RowMark, SelectHead, TableEmpty, TableRow, initials, useSelection } from '../layout/SlgTable'
 import { StatusChip } from '../layout/StatusChip'
+import { setGrowthView } from '../concierge/objective/useGrowthUi'
 import { archiveExperienceNow, archivePlayNow } from '../plays/archive'
+import { openAnotherPlayTab, openPlay, openPlayTab } from '../plays/navigate'
+import { useWorkspaceUi } from '../workspace/useWorkspaceUi'
 import { PlayCanvas } from '../plays/PlayCanvas'
 import { audienceText, fallbackVariant, pagesIn } from '../plays/resolve'
 import type { CancelPlay, PlayVariant } from '../plays/types'
@@ -279,7 +282,7 @@ function DataRow({
   const preview = () => previewOnHover({ kind: row.kind, source: row.source, id: row.id, objective: row.objective })
   return (
     <div onMouseEnter={preview} onFocus={preview} onMouseLeave={cancelHoverPreview}>
-    <TableRow cols={cols} style={style} onOpen={() => (onExpand ? onExpand() : openRef(row))} className={`group ${picked ? 'is-picked' : ''} ${expanded ? 'bg-slate-50' : ''}`}>
+    <TableRow cols={cols} style={style} onOpen={() => (onExpand && !expanded ? onExpand() : onExpand ? openSelectedPlay(row) : openRef(row))} className={`group ${picked ? 'is-picked' : ''} ${expanded ? 'bg-slate-50' : ''}`}>
       <Check on={picked} onChange={onToggle} label={`Select ${row.title}`} />
       <div className="flex min-w-0 items-center gap-[8px]">
         {onExpand && (
@@ -334,6 +337,21 @@ function DataRow({
     {expanded && <PlayMap row={row} />}
     </div>
   )
+}
+
+/** The row is already open. A second click opens Configure, with Canvas beside it. */
+function openSelectedPlay(row: V10Row) {
+  if (row.kind === 'play' && row.source === 'growth' && row.objective) setGrowthView(row.objective, { canvasOpen: true })
+  openRef(row)
+  if (row.kind !== 'play' || row.source !== 'retention') return
+  const tabs = useWorkspaceUi.getState().playTabs[row.id]
+  if (!tabs) {
+    openPlay(row.id)
+    openPlayTab(row.id, 'configure')
+    return
+  }
+  if (!tabs.open.some((tab) => tab.kind === 'canvas')) openAnotherPlayTab(row.id, 'canvas')
+  openPlayTab(row.id, 'configure')
 }
 
 function PlayMap({ row }: { row: V10Row }) {

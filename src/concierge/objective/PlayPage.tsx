@@ -1,7 +1,9 @@
 import { SButton, SIcon } from '@chargebee/sting-react'
 import type { ReactNode } from 'react'
 import { FRAME_FORM } from '../../layout/frames'
-import { AngledTabs, PageHeader, ToolButton, ToolDivider } from '../../layout/SlgChrome'
+import { AlignedPlayHeader, AngledTabs, PageHeader, ToolButton, ToolDivider } from '../../layout/SlgChrome'
+import { V10 } from '../../layout/layoutMode'
+import { useV10 } from '../../v10/useV10'
 import { PlayCanvas } from '../../plays/PlayCanvas'
 import { PlayConfigure, RoutingTree, RulesList } from '../../plays/PlayConfigure'
 import { PlaysBackendProvider } from '../../plays/PlaysBackend'
@@ -129,58 +131,79 @@ export function PlayPage({ objective }: { objective: GrowthObjective }) {
     return <div className="flex h-full flex-1 items-center justify-center text-[13px] text-slate-500">This play was archived or deleted. Pick another from the left.</div>
   }
 
+  const tabs = (
+    <AngledTabs
+      label="Play tabs"
+      value={view.playTab}
+      onChange={(tab) => openGrowthPlay(objective, play.id, tab)}
+      items={[
+        ...PLAY_TABS,
+        ...(view.canvasOpen
+          ? [
+              {
+                id: 'canvas' as const,
+                label: 'Canvas',
+                hint: 'Every variant, and a test with a subscriber',
+                onClose: () => setGrowthView(objective, { canvasOpen: false, playTab: view.playTab === 'canvas' ? 'configure' : view.playTab }),
+              },
+            ]
+          : []),
+      ]}
+    />
+  )
+  const actions = (
+    <>
+      <ToolButton icon="list-ordered" label="All plays" onClick={() => goGrowth(objective, { page: 'order' })}>
+        All plays
+      </ToolButton>
+      <ToolDivider />
+      <GoLive play={play} />
+    </>
+  )
+
   return (
     <PlaysBackendProvider value={growthBackend(objective)}>
       <div className="flex h-full min-h-0 min-w-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="flex-none bg-white px-[16px] pt-[12px]">
-            <PageHeader
-              tabsAlign="start"
-              title={
-                <span className="min-w-0 max-w-[260px]">
-                  <InlineName
-                    value={play.name}
-                    editing={renaming}
-                    onStart={() => setRenaming(play.id)}
-                    onDone={() => setRenaming(null)}
-                    onCommit={(name) => renameGrowthPlay(play.id, name)}
-                    className="font-[family-name:var(--slg-font-family-emphasis)] text-[16px] font-semibold leading-[24px] text-slate-900"
-                    inputClassName="text-[15px] font-semibold"
-                  />
-                </span>
+          {V10 ? (
+            <AlignedPlayHeader
+              back={
+                <button
+                  type="button"
+                  aria-label="Back"
+                  title="Back"
+                  onClick={() => useV10.getState().close()}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <SIcon name="arrow-left" size={16} />
+                </button>
               }
-              meta={[<Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>]}
-              tabs={
-                <AngledTabs
-                  label="Play tabs"
-                  value={view.playTab}
-                  onChange={(tab) => openGrowthPlay(objective, play.id, tab)}
-                  items={[
-                    ...PLAY_TABS,
-                    ...(view.canvasOpen
-                      ? [
-                          {
-                            id: 'canvas' as const,
-                            label: 'Canvas',
-                            hint: 'Every variant, and a test with a subscriber',
-                            onClose: () => setGrowthView(objective, { canvasOpen: false, playTab: view.playTab === 'canvas' ? 'configure' : view.playTab }),
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              }
-              actions={
-                <>
-                  <ToolButton icon="list-ordered" label="All plays" onClick={() => goGrowth(objective, { page: 'order' })}>
-                    All plays
-                  </ToolButton>
-                  <ToolDivider />
-                  <GoLive play={play} />
-                </>
-              }
+              tabs={tabs}
+              actions={actions}
             />
-          </header>
+          ) : (
+            <header className="flex-none bg-white px-[16px] pt-[12px]">
+              <PageHeader
+                tabsAlign="start"
+                title={
+                  <span className="min-w-0 max-w-[260px]">
+                    <InlineName
+                      value={play.name}
+                      editing={renaming}
+                      onStart={() => setRenaming(play.id)}
+                      onDone={() => setRenaming(null)}
+                      onCommit={(name) => renameGrowthPlay(play.id, name)}
+                      className="font-[family-name:var(--slg-font-family-emphasis)] text-[16px] font-semibold leading-[24px] text-slate-900"
+                      inputClassName="text-[15px] font-semibold"
+                    />
+                  </span>
+                }
+                meta={[<Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>]}
+                tabs={tabs}
+                actions={actions}
+              />
+            </header>
+          )}
           <div className="min-h-0 flex-1">
             {view.playTab === 'configure' && <PlayConfigure key={play.id} play={play} />}
             {view.playTab === 'canvas' && view.canvasOpen && <PlayCanvas key={play.id} play={play} />}

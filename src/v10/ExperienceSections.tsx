@@ -268,7 +268,6 @@ function AllOffers() {
   return (
     <div className="h-full overflow-y-auto bg-white">
       <div className={`pb-[48px] pt-[16px] ${V10_GUTTER}`}>
-        <p className="mb-[16px] text-[13px] text-slate-500">Every offer, across Acquisition, Expansion and Retention. Open one to edit it.</p>
         {rows.length === 0 ? (
           <Empty>No offers yet.</Empty>
         ) : (

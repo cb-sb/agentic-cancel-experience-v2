@@ -1,6 +1,7 @@
 import { SButton, SIcon, type SIconName } from '@chargebee/sting-react'
-import { V9 } from '../layout/layoutMode'
-import { AddTab, AngledTabs, PageHeader, ToolButton, ToolDivider } from '../layout/SlgChrome'
+import { V10, V9 } from '../layout/layoutMode'
+import { useV10 } from '../v10/useV10'
+import { AddTab, AlignedPlayHeader, AngledTabs, PageHeader, ToolButton, ToolDivider } from '../layout/SlgChrome'
 import { CopilotRail } from '../orchestration/CopilotRail'
 import { AgentSlot } from '../concierge/AgentSlot'
 import { CONCIERGE } from '../layout/layoutMode'
@@ -108,42 +109,60 @@ export function PlayWorkspace() {
       inputClassName="text-[15px] font-semibold"
     />
   )
-  const header = V9 ? (
+  const playTabs = (
+    <div className="flex min-w-0 items-end">
+      <AngledTabs
+        label="Play tabs"
+        value={active?.id ?? ''}
+        onChange={setActive}
+        items={open.map((ref) => {
+          const label = tabLabel(open, ref)
+          return { id: ref.id, label, hint: PLAY_TAB[ref.kind].hint, onClose: open.length > 1 ? () => closePlayTab(play.id, ref.id) : undefined }
+        })}
+      />
+      <AddTab
+        items={(Object.keys(PLAY_TAB) as PlayTab[]).map((kind) => ({
+          label: PLAY_TAB[kind].label,
+          icon: PLAY_TAB[kind].icon,
+          hint: PLAY_TAB[kind].hint,
+          onClick: () => openAnotherPlayTab(play.id, kind, active?.id),
+        }))}
+      />
+    </div>
+  )
+  const playActions = (
+    <>
+      <ToolButton icon="list-ordered" label="All plays" onClick={openOrder}>
+        All plays
+      </ToolButton>
+      <ToolDivider />
+      <GoLive play={play} />
+    </>
+  )
+  const header = V10 ? (
+    <AlignedPlayHeader
+      back={
+        <button
+          type="button"
+          aria-label="Back"
+          title="Back"
+          onClick={() => useV10.getState().close()}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+        >
+          <SIcon name="arrow-left" size={16} />
+        </button>
+      }
+      tabs={playTabs}
+      actions={playActions}
+    />
+  ) : V9 ? (
     <header className="flex-none bg-white px-[16px] pt-[12px]">
       <PageHeader
         tabsAlign="start"
-        title={<span className="min-w-0 max-w-[260px]">{name}</span>}
+        title={<span className="min-w-0 max-w-[300px]">{name}</span>}
         meta={[<Chip tone={play.status === 'live' ? 'emerald' : 'amber'}>{play.status === 'live' ? 'Live' : 'Draft'}</Chip>]}
-        tabs={
-          <div className="flex min-w-0 items-end">
-            <AngledTabs
-              label="Play tabs"
-              value={active?.id ?? ''}
-              onChange={setActive}
-              items={open.map((ref) => {
-                const label = tabLabel(open, ref)
-                return { id: ref.id, label, hint: PLAY_TAB[ref.kind].hint, onClose: open.length > 1 ? () => closePlayTab(play.id, ref.id) : undefined }
-              })}
-            />
-            <AddTab
-              items={(Object.keys(PLAY_TAB) as PlayTab[]).map((kind) => ({
-                label: PLAY_TAB[kind].label,
-                icon: PLAY_TAB[kind].icon,
-                hint: PLAY_TAB[kind].hint,
-                onClick: () => openAnotherPlayTab(play.id, kind, active?.id),
-              }))}
-            />
-          </div>
-        }
-        actions={
-          <>
-            <ToolButton icon="list-ordered" label="All plays" onClick={openOrder}>
-              All plays
-            </ToolButton>
-            <ToolDivider />
-            <GoLive play={play} />
-          </>
-        }
+        tabs={playTabs}
+        actions={playActions}
       />
     </header>
   ) : null

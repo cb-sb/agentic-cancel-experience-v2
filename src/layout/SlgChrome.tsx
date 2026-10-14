@@ -169,6 +169,24 @@ export function HeaderMeta({ items }: { items: ReactNode[] }) {
   )
 }
 
+/**
+ * V10 play header. The back control sits in the left padding, and the tabs
+ * start at the same left edge as the 920px configure column.
+ */
+export function AlignedPlayHeader({ back, tabs, actions }: { back?: ReactNode; tabs: ReactNode; actions?: ReactNode }) {
+  return (
+    <header className="relative flex-none bg-white pt-[12px]">
+      {back && <div className="absolute bottom-[4px] left-0 z-10 flex h-8 w-[24px] items-center justify-center">{back}</div>}
+      <TabRail className="min-h-[40px]">
+        <div className="w-full min-w-0 px-[24px]">
+          <div className="mx-auto flex min-h-[40px] w-full max-w-[920px] items-end">{tabs}</div>
+        </div>
+        {actions && <div className="absolute bottom-[1px] right-[16px] z-10 flex h-[40px] items-center gap-[4px]">{actions}</div>}
+      </TabRail>
+    </header>
+  )
+}
+
 /** Title, its meta, the tabs and the toolbar on one row over the baseline. */
 export function PageHeader({
   title,

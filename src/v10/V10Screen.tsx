@@ -10,7 +10,9 @@ import { useGrowthShell } from '../shell/useGrowthShell'
 import { useExperience } from '../store/useExperience'
 import { useOrchestration } from '../store/useOrchestration'
 import { activeKind, useWorkspaceUi } from '../workspace/useWorkspaceUi'
-import { DropdownButton, ToastHost, useOutside, type MenuItem } from '../plays/ui'
+import { Chip, DropdownButton, ToastHost, useOutside, type MenuItem } from '../plays/ui'
+import { usePlays } from '../plays/usePlays'
+import { useGrowthPlays } from '../concierge/useGrowthPlays'
 import { PlayWorkspace } from '../plays/PlayWorkspace'
 import { rowsFor, titleOf, useV10Rows, type V10Row } from './rows'
 import { ExperienceSectionBody, SECTIONS, SectionFilters, sectionNewItems } from './ExperienceSections'
@@ -262,6 +264,9 @@ function DetailBreadcrumb({ tab, viewName, filters }: { tab: V10Tab; viewName: s
   const open = useV10((state) => state.open)
   const rows = useV10Rows()
   const title = open ? titleOf(rows, open) : ''
+  const retentionStatus = usePlays((state) => (open?.kind === 'play' && open.source === 'retention' ? state.plays.find((play) => play.id === open.id)?.status : undefined))
+  const growthStatus = useGrowthPlays((state) => (open?.kind === 'play' && open.source === 'growth' ? state.plays.find((play) => play.id === open.id)?.status : undefined))
+  const status = retentionStatus ?? growthStatus
   const crumbs: { label: string; onClick?: () => void }[] = [
     { label: TAB_TITLE[tab], onClick: () => useV10.getState().selectSystemView(tab, 'portfolio', 'all') },
   ]
@@ -287,8 +292,11 @@ function DetailBreadcrumb({ tab, viewName, filters }: { tab: V10Tab; viewName: s
                 {crumb.label}
               </button>
             ) : (
-              <span aria-current="page" className="truncate font-medium text-slate-900">
-                {crumb.label}
+              <span className="flex min-w-0 items-center gap-[8px]">
+                <span aria-current="page" className="truncate font-medium text-slate-900">
+                  {crumb.label}
+                </span>
+                {status && <Chip tone={status === 'live' ? 'emerald' : 'amber'}>{status === 'live' ? 'Live' : 'Draft'}</Chip>}
               </span>
             )}
           </span>
@@ -646,13 +654,7 @@ function groupRows(rows: V10Row[], group: Filters['group']): { label: string; ro
 function Detail({ row }: { row: V10Ref }) {
   if (row.kind === 'play' && row.source === 'growth' && row.objective) return <PlayPage objective={row.objective} />
   if (row.kind === 'experience' && row.source === 'growth' && row.objective) return <ExperiencePage objective={row.objective} />
-  if (row.kind === 'play' && row.source === 'retention') {
-    return (
-      <Frame label="Plays">
-        <PlayWorkspace />
-      </Frame>
-    )
-  }
+  if (row.kind === 'play' && row.source === 'retention') return <PlayWorkspace />
   if (row.kind === 'experience' && row.source === 'retention') return <RetentionExperience />
   if (row.kind === 'audience') return <AudienceDetail id={row.id} />
   return null
@@ -672,19 +674,6 @@ function RetentionExperience() {
     useOrchestration.getState().enterWorkEditor()
   }, [activeTab, focusTarget, stepCount])
   return <ThreadView />
-}
-
-function Frame({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-[40px] flex-none items-center border-b border-slate-100 px-[12px]">
-        <button type="button" onClick={() => useV10.getState().close()} className="text-[12.5px] font-medium text-slate-500 hover:text-slate-900">
-          Back to {label}
-        </button>
-      </div>
-      <div className="min-h-0 flex-1">{children}</div>
-    </div>
-  )
 }
 
 function AudienceDetail({ id }: { id: string }) {
