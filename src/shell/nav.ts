@@ -22,6 +22,7 @@ export type NavLeafId =
   | 'people.engaged'
   | 'work.plays'
   | 'work.experiences'
+  | 'work.offers'
   | 'work.audiences'
   | 'reports.engaged'
   | 'renewal'
@@ -165,11 +166,12 @@ function reportLeaves(): NavLeaf[] {
   return V10 ? [...leaves, ENGAGED] : leaves
 }
 
-/** v10: Home, then Build. Plays, Experiences and Audiences are views inside Build. */
+/** v10: Home, then one destination each for plays, experiences, offers and audiences. */
 const V10_NAV: NavEntry[] = [
   { kind: 'leaf', leaf: { id: 'home', label: 'Home', icon: 'home' } },
   { kind: 'leaf', leaf: { id: 'work.plays', label: 'Plays', icon: 'list-ordered' } },
   { kind: 'leaf', leaf: { id: 'work.experiences', label: 'Experiences', icon: 'layers' } },
+  { kind: 'leaf', leaf: { id: 'work.offers', label: 'Offers', icon: 'gift' } },
   { kind: 'leaf', leaf: { id: 'work.audiences', label: 'Audiences', icon: 'user-search' } },
   { kind: 'leaf', leaf: { id: 'renewal', label: 'Revenue optimization', icon: 'repeat' } },
   {

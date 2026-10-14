@@ -21,7 +21,6 @@ export const SECTIONS: { id: ExperienceSection; label: string }[] = [
   { id: 'all', label: 'All experiences' },
   { id: 'templates', label: 'Templates' },
   { id: 'components', label: 'Components' },
-  { id: 'offers', label: 'Offers' },
 ]
 
 const PARTS: { id: ComponentPart; label: string; add: string }[] = [

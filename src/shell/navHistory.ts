@@ -100,6 +100,7 @@ function urlFor(place: Place): string {
     if (place.route === 'work.plays' && place.v10.scope !== 'portfolio' && place.v10.mode && place.v10.mode !== 'list') params.set('mode', place.v10.mode)
     if (place.route === 'work.experiences' && place.v10.slice !== 'all') params.set('slice', place.v10.slice)
     if (place.route === 'work.experiences') v10Api?.sectionParams(params, place.v10)
+    if (place.route === 'work.offers' && place.v10.objective && place.v10.objective !== 'all') params.set('objective', place.v10.objective)
     if (place.v10.active) params.set('view', place.v10.active)
     const query = params.toString()
     if (query) hash += `?${query}`

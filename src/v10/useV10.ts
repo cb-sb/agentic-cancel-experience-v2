@@ -239,7 +239,9 @@ function load(): Pick<V10State, 'pins' | 'recent' | 'filters' | 'saved' | 'activ
 
 function initialSection(): Pick<V10State, 'section' | 'part' | 'libraryObjective'> {
   const location = typeof window === 'undefined' ? {} : locationFromHash(window.location.hash)
-  return { section: location.section ?? 'all', part: location.part ?? 'reasons', libraryObjective: location.objective ?? 'all' }
+  const route = typeof window === 'undefined' ? '' : window.location.hash.split('?')[0]
+  const section = location.section === 'offers' && !route.includes('work/offers') ? 'all' : (location.section ?? 'all')
+  return { section, part: location.part ?? 'reasons', libraryObjective: location.objective ?? 'all' }
 }
 
 export const useV10 = create<V10State>((set, get) => ({
@@ -294,6 +296,9 @@ export const useV10 = create<V10State>((set, get) => ({
 }))
 
 export function v10Location(route = useGrowthShell.getState().route): V10Location {
+  if (route === 'work.offers') {
+    return { active: null, scope: 'portfolio', slice: 'all', mode: 'list', section: 'offers', objective: useV10.getState().libraryObjective }
+  }
   const tab = ROUTE_TAB[route]
   if (!tab) return { active: null, scope: 'portfolio', slice: 'all', mode: 'list' }
   const state = useV10.getState()
@@ -308,7 +313,7 @@ export function v10Location(route = useGrowthShell.getState().route): V10Locatio
 /** The Experiences tab params, shared by the hash and browser history. */
 export function setSectionParams(params: URLSearchParams, location: Pick<V10Location, 'section' | 'part' | 'objective'>) {
   const section = location.section ?? 'all'
-  if (section === 'all') return
+  if (section === 'all' || section === 'offers') return
   params.set('section', section)
   if (section === 'components' && location.part) params.set('part', location.part)
   if (location.objective && location.objective !== 'all') params.set('objective', location.objective)
@@ -316,6 +321,12 @@ export function setSectionParams(params: URLSearchParams, location: Pick<V10Loca
 
 export function v10HashFor(route: NavLeafId, location = v10Location(route)): string {
   const base = `#/${route.replace(/\./g, '/')}`
+  if (route === 'work.offers') {
+    const params = new URLSearchParams()
+    if (location.objective && location.objective !== 'all') params.set('objective', location.objective)
+    const query = params.toString()
+    return query ? `${base}?${query}` : base
+  }
   if (!ROUTE_TAB[route]) return base
   const params = new URLSearchParams()
   if (location.active) params.set('view', location.active)
@@ -328,11 +339,16 @@ export function v10HashFor(route: NavLeafId, location = v10Location(route)): str
 }
 
 export function restoreV10Location(route: NavLeafId, location?: V10Location) {
+  if (route === 'work.offers') {
+    if (location?.objective) useV10.setState({ libraryObjective: location.objective })
+    return
+  }
   const tab = ROUTE_TAB[route]
   if (!tab || !location) return
   const state = useV10.getState()
   if (tab === 'experiences') {
-    useV10.setState({ section: location.section ?? 'all', part: location.part ?? state.part, libraryObjective: location.objective ?? 'all' })
+    const section = location.section === 'offers' ? 'all' : (location.section ?? 'all')
+    useV10.setState({ section, part: location.part ?? state.part, libraryObjective: location.objective ?? 'all' })
   }
   if (location.active && state.saved.some((view) => view.id === location.active && view.tab === tab)) {
     useV10.setState({ active: location.active })
@@ -349,6 +365,11 @@ export function restoreV10Location(route: NavLeafId, location?: V10Location) {
 }
 
 export function syncV10FromHash(route: NavLeafId, hash: string) {
+  if (route === 'work.offers') {
+    const objective = locationFromHash(hash).objective
+    if (objective && objective !== useV10.getState().libraryObjective) useV10.setState({ libraryObjective: objective })
+    return
+  }
   const tab = ROUTE_TAB[route]
   if (!tab) return
   const parsed = locationFromHash(hash)
@@ -358,7 +379,7 @@ export function syncV10FromHash(route: NavLeafId, hash: string) {
     scope: parsed.scope ?? current.scope,
     slice: parsed.slice ?? (tab === 'experiences' ? current.slice : 'all'),
     mode: parsed.mode ?? 'list',
-    section: parsed.section ?? current.section,
+    section: parsed.section === 'offers' ? 'all' : (parsed.section ?? current.section),
     part: parsed.part ?? current.part,
     objective: parsed.objective ?? current.objective,
   })

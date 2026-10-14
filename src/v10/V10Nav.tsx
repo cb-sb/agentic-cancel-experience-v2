@@ -25,12 +25,15 @@ const DESTINATIONS: { id: string; label: string; icon: SIconName; route: NavLeaf
   { id: 'home', label: 'Home', icon: 'home', route: 'home', match: (route) => route === 'home' },
   { id: 'plays', label: 'Plays', icon: 'workflow', route: 'work.plays', match: (route) => route === 'work.plays' },
   { id: 'experiences', label: 'Experiences', icon: 'layers', route: 'work.experiences', match: (route) => route === 'work.experiences' },
+  { id: 'offers', label: 'Offers', icon: 'gift', route: 'work.offers', match: (route) => route === 'work.offers' },
   { id: 'audiences', label: 'Audiences', icon: 'users', route: 'work.audiences', match: (route) => route === 'work.audiences' },
   { id: 'renewal', label: 'Revenue optimization', icon: 'repeat', route: 'renewal', match: (route) => route === 'renewal' },
 ]
 
 function visit(route: NavLeafId) {
-  useV10.getState().close()
+  const state = useV10.getState()
+  state.close()
+  if (route !== 'work.offers' && state.section === 'offers') useV10.setState({ section: 'all' })
   useGrowthShell.getState().go(route)
 }
 

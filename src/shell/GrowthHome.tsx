@@ -9,7 +9,7 @@ import { UploadFlow } from '../upload/UploadFlow'
 import { CONCIERGE, MVP, V10 } from '../layout/layoutMode'
 import { MvpPages } from '../upload/MvpPages'
 import { EngagedPage } from '../v10/EngagedPage'
-import { V10Screen } from '../v10/V10Screen'
+import { OffersScreen, V10Screen } from '../v10/V10Screen'
 import { ConciergeHome } from '../concierge/Home'
 import { GrowthStudio } from '../concierge/objective/GrowthStudio'
 import { AreaPane } from './AreaPane'
@@ -61,6 +61,7 @@ function WithArea({ group, route }: { group: 'people' | 'reports'; route: NavLea
 }
 
 function ConciergeRoute({ route }: { route: NavLeafId }) {
+  if (route === 'work.offers') return <OffersScreen />
   if (route === 'work.plays' || route === 'work.experiences' || route === 'work.audiences') {
     const tab = route === 'work.plays' ? 'plays' : route === 'work.experiences' ? 'experiences' : 'audiences'
     return <V10Screen tab={tab} />

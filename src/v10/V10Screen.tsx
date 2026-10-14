@@ -150,7 +150,7 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
   const { view, filters } = useCurrentView(tab)
   const section = useV10((state) => state.section)
   const detail = open !== null && open.kind === KIND[tab]
-  const inSection = tab === 'experiences' && !detail && !view && section !== 'all'
+  const inSection = tab === 'experiences' && !detail && !view && section !== 'all' && section !== 'offers'
   const objectiveMode = tab === 'plays' && !detail && !view && filters.scope !== 'portfolio' ? playMode : 'list'
   useEffect(() => {
     closePreviewDock()
@@ -181,11 +181,41 @@ export function V10Screen({ tab }: { tab: V10Tab }) {
   )
 }
 
+/** Offers, as its own destination. The slanted tab stays, the way Plays and Experiences keep theirs. */
+export function OffersScreen() {
+  const route = useGrowthShell((state) => state.route)
+  const objective = useV10((state) => state.libraryObjective)
+  const items = sectionNewItems('offers', 'reasons', objective)
+  useEffect(() => {
+    const sync = () => syncV10FromHash(route, window.location.hash)
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [route])
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-white">
+      <div className={`flex-none ${V10_GUTTER} pt-[20px]`}>
+        <div className="flex min-h-[43px] items-end gap-[12px] border-b border-[#1b1a2e]">
+          <div role="tablist" aria-label="Offers" className="flex min-w-0 flex-1 items-end overflow-x-auto pl-[6px] pt-[7px]">
+            <SlantedTab label="Offers" active first rounded role="tab" aria-selected />
+          </div>
+          <div className="self-center">{items && <DropdownButton label="New" items={items} width={260} />}</div>
+        </div>
+        <div className="flex h-[40px] items-center border-b border-[#e5e7eb]">
+          <SectionFilters section="offers" />
+        </div>
+      </div>
+      <ExperienceSectionBody section="offers" />
+      <ToastHost />
+    </div>
+  )
+}
+
 function ViewBar({ tab, detail, mode }: { tab: V10Tab; detail: boolean; mode: PlayMode }) {
   const { view, filters } = useCurrentView(tab)
   const section = useV10((state) => state.section)
   if (detail) return <DetailBreadcrumb tab={tab} viewName={view?.name ?? null} filters={filters} />
-  const inSection = tab === 'experiences' && !view && section !== 'all'
+  const inSection = tab === 'experiences' && !view && section !== 'all' && section !== 'offers'
   return (
     <div className={`flex-none ${V10_GUTTER} pt-[20px]`}>
       <div className="flex min-h-[43px] items-end gap-[12px] border-b border-[#1b1a2e]">
@@ -322,7 +352,7 @@ function NewButton({ tab }: { tab: V10Tab }) {
   const section = useV10((state) => state.section)
   const part = useV10((state) => state.part)
   const objective = useV10((state) => state.libraryObjective)
-  if (tab === 'experiences' && !view && section !== 'all') {
+  if (tab === 'experiences' && !view && section !== 'all' && section !== 'offers') {
     const items = sectionNewItems(section, part, objective)
     return items ? <DropdownButton label="New" items={items} width={260} /> : null
   }
