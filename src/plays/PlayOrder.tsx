@@ -23,7 +23,7 @@ import { variantLetter, type CancelPlay } from './types'
 import { createPlay, duplicatePlay, usePlays, useRankedPlays } from './usePlays'
 import { V9 } from '../layout/layoutMode'
 import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch, ToolSelect } from '../layout/SlgChrome'
-import { Ago, BulkAction, Check, RowActions, RowMark, SelectHead, TABLE_ROW, TABLE_ROW_OPEN, TableEmpty, TableHead, TableRow, useSelection } from '../layout/SlgTable'
+import { Ago, BulkAction, Check, initials, RowActions, RowMark, SelectHead, TABLE_ROW, TABLE_ROW_OPEN, TableEmpty, TableHead, TableRow, useSelection } from '../layout/SlgTable'
 import { logSession, markWalked, useTestSessions } from './useTestSessions'
 import { FRAME_WIDE } from '../layout/frames'
 
@@ -361,6 +361,7 @@ export function PriorityList({ ranked, shown, source }: { ranked: CancelPlay[]; 
                 <span className="tabular-nums">{i + 1}</span>
               </span>
               <div className="flex min-w-0 items-center gap-[10px]">
+                {!source && <RowMark>{initials(p.name)}</RowMark>}
                 <span className="truncate">{p.name}</span>
               </div>
               <span className="flex min-w-0 items-center gap-[6px]">
@@ -1031,6 +1032,7 @@ function MyPlays({ ranked, shown }: { ranked: CancelPlay[]; shown: CancelPlay[] 
             <TableRow key={p.id} cols={MINE_COLS} onOpen={() => openPlay(p.id)} className={sel.has(p.id) ? 'is-picked' : ''}>
               <Check on={sel.has(p.id)} onChange={() => sel.toggle(p.id)} label={`Select ${p.name}`} />
               <div className="flex min-w-0 items-center gap-[10px]">
+                <RowMark>{initials(p.name)}</RowMark>
                 <span className="truncate">{p.name}</span>
               </div>
               <span className="flex min-w-0 items-center gap-[6px]">

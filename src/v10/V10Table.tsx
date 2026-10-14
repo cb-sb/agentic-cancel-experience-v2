@@ -5,7 +5,7 @@ import { useGrowthLibrary } from '../concierge/useGrowthLibrary'
 import { archiveGrowthExperience, duplicateGrowthExperience, useGrowthExperiences } from '../concierge/useGrowthExperiences'
 import { archiveGrowthPlay, duplicateGrowthPlay, useGrowthPlays } from '../concierge/useGrowthPlays'
 import { SHELL_KIND, shellOf, stepCount } from '../layout/experienceKind'
-import { Ago, BulkAction, Check, RowActions, SelectHead, TableEmpty, TableRow, useSelection } from '../layout/SlgTable'
+import { Ago, BulkAction, Check, RowActions, RowMark, SelectHead, TableEmpty, TableRow, initials, useSelection } from '../layout/SlgTable'
 import { StatusChip } from '../layout/StatusChip'
 import { setGrowthView } from '../concierge/objective/useGrowthUi'
 import { archiveExperienceNow, archivePlayNow } from '../plays/archive'
@@ -299,6 +299,7 @@ function DataRow({
             <SIcon name="chevron-right" size={13} className={`transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
           </button>
         )}
+        {row.kind === 'audience' && <RowMark>{initials(row.title)}</RowMark>}
         <span className="truncate">{row.title}</span>
       </div>
       {row.kind === 'play' ? (

@@ -15,7 +15,7 @@ import { createMenuItems } from './createMenu'
 import { SHELL_KIND, shellOf, stepCount } from './experienceKind'
 import { V9 } from './layoutMode'
 import { AngledTabs, PageHeader, ToolButton, ToolDivider, ToolSearch } from './SlgChrome'
-import { Ago, BulkAction, Check, RowActions, SelectHead, TableRow, useSelection } from './SlgTable'
+import { Ago, BulkAction, Check, initials, RowActions, RowMark, SelectHead, TableRow, useSelection } from './SlgTable'
 import { StatusChip } from './StatusChip'
 import { ago } from './ThreadSidebar'
 import { FRAME_WIDE } from './frames'
@@ -507,6 +507,7 @@ function ExperienceList({ rows, onOpen }: { rows: { thread: ExperienceThread; li
           <TableRow key={t.id} cols={EXP_COLS} onOpen={() => onOpen(t.id)} className={sel.has(t.id) ? 'is-picked' : ''}>
             <Check on={sel.has(t.id)} onChange={() => sel.toggle(t.id)} label={`Select ${t.title}`} />
             <div className="flex min-w-0 items-center gap-[10px]">
+              <RowMark>{initials(t.title)}</RowMark>
               <span className="truncate">{t.title}</span>
             </div>
             <span className="flex min-w-0 items-center gap-[6px]">
