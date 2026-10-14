@@ -6,6 +6,7 @@ import { navItem } from '../../layout/navStyle'
 import { StatusChip } from '../../layout/StatusChip'
 import { SettingRow } from '../../layout/ThreadSidebar'
 import { audienceUnset } from '../../plays/playOps'
+import { revealPlayTarget } from '../../plays/revealPlay'
 import { audienceText, fallbackVariant, pagesIn } from '../../plays/resolve'
 import type { CancelPlay, PlayVariant } from '../../plays/types'
 import { InlineName, RowMenu, toast, type MenuItem } from '../../plays/ui'
@@ -225,6 +226,7 @@ function VariantRow({ play, v, current }: { play: GrowthPlay; v: PlayVariant; cu
   return (
     <div
       onClick={() => openGrowthExperience(play.objective, x.id, play.id)}
+      onMouseEnter={() => revealPlayTarget(play.id, `variant:${v.id}`)}
       aria-current={current ? 'true' : undefined}
       title={TYPE_LABEL[x.type]}
       className={`group flex h-8 cursor-pointer items-center gap-[8px] pl-[8px] pr-[4px] ${navItem(current)}`}
@@ -331,6 +333,7 @@ export function GrowthPlayRow({ play, open, onToggle }: { play: GrowthPlay; open
           openGrowthPlay(play.objective, play.id)
           if (!open) onToggle()
         }}
+        onMouseEnter={() => revealPlayTarget(play.id, 'top')}
         aria-current={current ? 'true' : undefined}
         className={`group relative flex h-8 cursor-pointer items-center gap-[6px] pl-[6px] pr-[4px] ${navItem(current, inside)}`}
       >
@@ -370,6 +373,7 @@ export function GrowthPlayRow({ play, open, onToggle }: { play: GrowthPlay; open
           type="button"
           title="Audience. Opens Configure."
           onClick={() => configure('audience', 1)}
+          onMouseEnter={() => revealPlayTarget(play.id, 'audience')}
           aria-current={pickedNow('audience', 1) ? 'true' : undefined}
           className={`${navItem(pickedNow('audience', 1))} slg-nav-quiet mb-[2px] ml-[30px] flex h-[24px] max-w-[calc(100%-34px)] items-center gap-[6px] px-[6px] text-left text-[12px] font-medium`}
         >
@@ -383,7 +387,7 @@ export function GrowthPlayRow({ play, open, onToggle }: { play: GrowthPlay; open
             <>
               {play.subAudiences.map((x, n) => (
                 <div key={x.id}>
-                  <TreeLabel icon="users-round" title="Sub-audience. Opens Configure." active={pickedNow(x.id, 2)} onClick={() => configure(x.id, 2)}>
+                  <TreeLabel icon="users-round" title="Sub-audience. Opens Configure." active={pickedNow(x.id, 2)} onClick={() => configure(x.id, 2)} onMouseEnter={() => revealPlayTarget(play.id, `sub:${x.id}`)}>
                     {audienceUnset(x.audience) ? `Sub-audience ${n + 1}` : audienceText(x.audience)}
                   </TreeLabel>
                   <Nested>
@@ -393,7 +397,7 @@ export function GrowthPlayRow({ play, open, onToggle }: { play: GrowthPlay; open
                 </div>
               ))}
               <div>
-                <TreeLabel icon="shield" title="For people in no sub-audience. Opens Configure." active={pickedNow('fallback', 2)} onClick={() => configure('fallback', 2)}>
+                <TreeLabel icon="shield" title="For people in no sub-audience. Opens Configure." active={pickedNow('fallback', 2)} onClick={() => configure('fallback', 2)} onMouseEnter={() => revealPlayTarget(play.id, 'fallback')}>
                   Fallback
                 </TreeLabel>
                 <Nested>{fallbackVariant(play) ? variantRow(fallbackVariant(play)!) : <EmptyLine text="No experience yet" />}</Nested>

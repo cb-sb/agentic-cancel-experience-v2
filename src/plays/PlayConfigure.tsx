@@ -745,7 +745,7 @@ function VariantTreeRow({
   const title = usePageTitle()
   const testing = rowCount > 1
   return (
-    <div className="px-[16px] py-[12px]">
+    <div data-play-target={`${play.id}:variant:${variant.id}`} className="px-[16px] py-[12px]">
       <div className="flex min-w-0 items-center gap-[10px]">
         {testing && <VariantBadge index={index} />}
         <PageSelect play={play} group={group} rowId={variant.id} value={variant.experienceId} className="min-w-[200px] max-w-[360px] flex-1" />
@@ -847,8 +847,9 @@ function ConfigGroup({
   const testing = rows.length > 1
   const total = variants.reduce((sum, { v }) => sum + v.weight, 0)
   const meta = rows.length === 0 ? `No ${backend.noun} yet` : testing ? `A/B test · ${rows.length} ${backend.noun}s` : `1 ${backend.noun}`
+  const focus = fallback ? `${play.id}:fallback` : group ? `${play.id}:sub:${group}` : undefined
   return (
-    <div className={`overflow-hidden rounded-xl border bg-white ${fallback ? 'border-dashed border-slate-300' : 'border-slate-200'}`}>
+    <div data-play-target={focus} className={`overflow-hidden rounded-xl border bg-white ${fallback ? 'border-dashed border-slate-300' : 'border-slate-200'}`}>
       {!bare && (
         <div className={`flex min-h-[48px] items-center gap-[10px] border-b px-[16px] py-[10px] ${fallback ? 'border-slate-200 bg-slate-50/70' : 'border-slate-100 bg-slate-50/40'}`}>
           <SIcon name={fallback ? 'shield' : 'users'} size={15} className="flex-none text-slate-500" />
@@ -909,7 +910,7 @@ function PlayConfigTree({ play }: { play: CancelPlay }) {
     <div className="h-full min-h-0 overflow-y-auto bg-slate-50 px-[24px] py-[24px]">
       <div className="mx-auto max-w-[920px] space-y-[16px]">
         <div className="flex items-end gap-[16px]">
-          <div className="min-w-0 flex-1">
+          <div data-play-target={`${play.id}:top`} className="min-w-0 flex-1">
             <h2 className="text-[17px] font-semibold text-slate-900">Review and configure</h2>
             <p className="mt-[4px] text-[12.5px] text-slate-500">Review the connected audience and experiences. Edit any branch without rebuilding the play.</p>
           </div>
@@ -924,7 +925,7 @@ function PlayConfigTree({ play }: { play: CancelPlay }) {
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-[12px] border-b border-slate-100 px-[20px] py-[14px]">
+          <div data-play-target={`${play.id}:audience`} className="flex items-center gap-[12px] border-b border-slate-100 px-[20px] py-[14px]">
             <SIcon name="users" size={16} className="flex-none text-slate-500" />
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Who sees this play</p>

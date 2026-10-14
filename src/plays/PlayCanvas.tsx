@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { CANVAS_DOT_COLOR, CANVAS_DOT_SIZE } from '../orchestration/paneTokens'
 import {
   Background,
@@ -7,6 +7,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
@@ -29,6 +30,7 @@ import { useRankedPlays } from './usePlays'
 import { RefitOn, SlideDrawer, testButtonClass } from './drawerMotion'
 import { TestDrawer } from './TestDrawer'
 import { openExperience } from './navigate'
+import { onPlayReveal } from './revealPlay'
 
 const STEP_LABEL: Record<JourneyStepKind, string> = {
   loss_aversion: 'Loss aversion',
@@ -305,6 +307,29 @@ function build(play: CancelPlay, variants: VariantInfo[], globalControl: number,
   return { nodes, edges }
 }
 
+/** Pans the canvas when the pointer moves down the play tree. */
+function FollowTree({ play }: { play: CancelPlay }) {
+  const flow = useReactFlow()
+  useEffect(
+    () =>
+      onPlayReveal(play.id, (target) => {
+        if (target === 'top') {
+          void flow.fitView({ padding: 0.2, maxZoom: 1, duration: 300 })
+          return
+        }
+        const nodeId = target === 'audience' ? 'audience' : target.startsWith('variant:') ? `v-${target.slice('variant:'.length)}` : null
+        if (!nodeId) return
+        const node = flow.getNode(nodeId)
+        if (!node) return
+        const width = node.measured?.width ?? node.width ?? 220
+        const height = node.measured?.height ?? node.height ?? 90
+        void flow.setCenter(node.position.x + width / 2, node.position.y + height / 2, { duration: 300, zoom: flow.getZoom() })
+      }),
+    [flow, play.id],
+  )
+  return null
+}
+
 /** Every variant of a play on one canvas, with who reaches each part. */
 export function PlayCanvas({ play }: { play: CancelPlay }) {
   const globalControl = useCancelSettings((s) => s.globalControl)
@@ -377,6 +402,7 @@ export function PlayCanvas({ play }: { play: CancelPlay }) {
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={CANVAS_DOT_SIZE} color={CANVAS_DOT_COLOR} />
             <RefitOn value={testing} />
+            <FollowTree play={play} />
           </ReactFlow>
         </ReactFlowProvider>
         </div>

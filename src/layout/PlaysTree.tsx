@@ -2,6 +2,7 @@ import { useEffect, useState, type DragEvent } from 'react'
 import { SIcon } from '@chargebee/sting-react'
 import { useOrchestration } from '../store/useOrchestration'
 import { createExperience, openConfigure, openExperience, openPlay } from '../plays/navigate'
+import { revealPlayTarget } from '../plays/revealPlay'
 import {
   addSubAudience,
   addToPlay,
@@ -179,6 +180,7 @@ function VariantRow({ play, v, index, current }: { play: CancelPlay; v: PlayVari
       draggable={!renaming}
       onDragStart={(e) => startDrag(e, { experienceId: v.experienceId, fromPlayId: play.id, variantId: v.id })}
       onClick={() => openExperience(v.experienceId, play.id)}
+      onMouseEnter={() => revealPlayTarget(play.id, `variant:${v.id}`)}
       aria-current={current ? 'true' : undefined}
       title={`Variant ${variantLetter(index)}, ${variantShare(play, v)}`}
       className={
@@ -334,6 +336,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           openPlay(play.id)
           if (!open) onToggle()
         }}
+        onMouseEnter={() => revealPlayTarget(play.id, 'top')}
         aria-current={current ? 'true' : undefined}
         className={
           V9
@@ -383,6 +386,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
           type="button"
           title="Audience. Opens Configure."
           onClick={() => configure('audience', 1)}
+          onMouseEnter={() => revealPlayTarget(play.id, 'audience')}
           aria-current={pickedNow('audience', 1) ? 'true' : undefined}
           className={`${navItem(pickedNow('audience', 1))} slg-nav-quiet mb-[2px] ml-[30px] flex h-[24px] max-w-[calc(100%-34px)] items-center gap-[6px] px-[6px] text-left text-[12px] font-medium`}
         >
@@ -393,7 +397,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
       {open && (
         <div className={`flex flex-col border-l ${V9 ? 'slg-nav-tree mb-[6px] ml-[18px] gap-[2px] pl-[12px]' : 'ml-[15px] gap-[1px] border-slate-200 py-[2px] pl-[6px]'}`}>
           {!V9 && (
-            <TreeLabel icon="users" muted title="Audience. Opens Configure." onClick={() => openConfigure(play.id, 1)}>
+            <TreeLabel icon="users" muted title="Audience. Opens Configure." onClick={() => openConfigure(play.id, 1)} onMouseEnter={() => revealPlayTarget(play.id, 'audience')}>
               {audienceLine}
             </TreeLabel>
           )}
@@ -401,7 +405,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
             <>
               {play.subAudiences.map((x, n) => (
                 <div key={x.id}>
-                  <TreeLabel icon="users-round" title="Sub-audience. Opens Configure." active={pickedNow(x.id, 2)} onClick={() => configure(x.id, 2)}>
+                  <TreeLabel icon="users-round" title="Sub-audience. Opens Configure." active={pickedNow(x.id, 2)} onClick={() => configure(x.id, 2)} onMouseEnter={() => revealPlayTarget(play.id, `sub:${x.id}`)}>
                     {audienceUnset(x.audience) ? `Sub-audience ${n + 1}` : audienceText(x.audience)}
                   </TreeLabel>
                   <Nested>
@@ -411,7 +415,7 @@ export function PlayRow({ play, open, onToggle }: { play: CancelPlay; open: bool
                 </div>
               ))}
               <div>
-                <TreeLabel icon="shield" title="For people in no sub-audience. Opens Configure." active={pickedNow('fallback', 2)} onClick={() => configure('fallback', 2)}>
+                <TreeLabel icon="shield" title="For people in no sub-audience. Opens Configure." active={pickedNow('fallback', 2)} onClick={() => configure('fallback', 2)} onMouseEnter={() => revealPlayTarget(play.id, 'fallback')}>
                   Fallback
                 </TreeLabel>
                 <Nested>{fallbackVariant(play) ? variantRow(fallbackVariant(play)!) : <EmptyLine />}</Nested>
@@ -457,6 +461,7 @@ export function TreeLabel({
   muted,
   active,
   onClick,
+  onMouseEnter,
 }: {
   icon: 'users' | 'users-round' | 'shield'
   children: React.ReactNode
@@ -464,12 +469,14 @@ export function TreeLabel({
   muted?: boolean
   active?: boolean
   onClick: () => void
+  onMouseEnter?: () => void
 }) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       aria-current={active ? 'true' : undefined}
       className={
         V9
