@@ -5,7 +5,7 @@ import { OFFER_VARIANTS, offerVariantLabel, offerVariantPatch } from '../lib/off
 import { useWorkspaceUi, type LibraryKind } from '../workspace/useWorkspaceUi'
 import { V9 } from '../layout/layoutMode'
 import { PageHeader } from '../layout/SlgChrome'
-import { initials, RowMark, TABLE_ROW_OPEN, TableEmpty, TableHead } from '../layout/SlgTable'
+import { TABLE_ROW_OPEN, TableEmpty, TableHead } from '../layout/SlgTable'
 import {
   OFFER_ACTIONS,
   nameTakenIn,
@@ -296,7 +296,6 @@ function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id
         >
           <div className="flex min-w-0 items-center gap-[10px]">
             <SIcon name={open ? 'chevron-down' : 'chevron-right'} size={13} className="flex-none text-slate-500" />
-            <RowMark>{initials(title)}</RowMark>
             <span className="truncate">{title}</span>
           </div>
           <span className="truncate">{detail}</span>
@@ -314,7 +313,7 @@ function ItemRow({ id, title, detail, open, onToggle, onDelete, children }: { id
           </div>
         </div>
         {open && (
-          <div className="border-b border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] px-[16px] pb-[16px] pl-[69px] pt-[4px]">
+          <div className="border-b border-[var(--slg-color-border-default)] bg-[var(--slg-neutral-50)] px-[16px] pb-[16px] pl-[39px] pt-[4px]">
             <div className="max-w-[760px]">{children}</div>
           </div>
         )}
@@ -424,9 +423,7 @@ export function LibraryPage({ embedded = false }: { embedded?: boolean } = {}) {
     <div className={`flex h-full min-w-0 flex-1 ${V9 ? 'bg-white' : 'bg-slate-50'}`}>
       <div className="min-w-0 flex-1 overflow-y-auto">
         <div className={embedded ? 'space-y-[14px] px-[28px] pb-[48px] pt-[16px] min-[1440px]:px-[40px] min-[1800px]:px-[64px]' : `space-y-[14px] px-[28px] py-[24px] ${V9 ? FRAME_WIDE : 'mx-auto max-w-[760px]'}`}>
-          {embedded ? (
-            <p className="text-[13px] text-slate-500">{meta.hint}</p>
-          ) : V9 ? (
+          {embedded ? null : V9 ? (
             <div>
               <PageHeader
                 title={meta.label}

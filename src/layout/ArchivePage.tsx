@@ -7,7 +7,7 @@ import { deleteArchivedPlay, usePlays } from '../plays/usePlays'
 import { deleteArchivedThread, useWorkspace } from '../workspace/useWorkspace'
 import { SHELL_KIND, shellOf } from './experienceKind'
 import { PageHeader } from './SlgChrome'
-import { Ago, initials, RowMark, TABLE_ROW, TableEmpty, TableHead } from './SlgTable'
+import { Ago, TABLE_ROW, TableEmpty, TableHead } from './SlgTable'
 import { FRAME_WIDE } from './frames'
 
 export const ARCHIVE_COLS = 'grid grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_110px_120px] items-center gap-[16px]'
@@ -48,7 +48,6 @@ export function ArchiveRow({
   return (
     <div className={`${ARCHIVE_COLS} ${TABLE_ROW}`}>
       <div className="flex min-w-0 items-center gap-[10px]">
-        <RowMark>{initials(title)}</RowMark>
         <span className="truncate">{title}</span>
       </div>
       <span className="flex min-w-0 items-center gap-[6px]">

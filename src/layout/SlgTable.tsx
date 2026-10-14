@@ -43,13 +43,7 @@ export function TableEmpty({ children }: { children: ReactNode }) {
   return <p className="border-b border-[var(--slg-color-border-default)] px-[16px] py-[11px] text-[13px] text-slate-500">{children}</p>
 }
 
-export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean)
-  if (words.length === 0) return '?'
-  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase()
-}
-
-/** The small square at the start of a row: two letters, a number or an icon. */
+/** The small square at the start of a row: an icon. */
 export function RowMark({ children, icon }: { children?: ReactNode; icon?: SIconName }) {
   return (
     <span className="slg-avatar flex h-[20px] min-w-[20px] flex-none items-center justify-center bg-[var(--slg-neutral-100)] px-[4px] text-[10px] font-semibold tabular-nums text-[var(--slg-color-text-secondary)]">
